@@ -35,7 +35,7 @@ function MainTabs() {
           else if (route.name === 'Profile') iconName = 'person';
           return <Ionicons name={iconName} size={size} color={color} />;
         },
-        tabBarActiveTintColor: '#FF5A5F', // matches figma accent
+        tabBarActiveTintColor: theme.colors.primary, // use theme but -> tabBarActiveTintColor: '#FF5A5F',  matches figma accent
         tabBarInactiveTintColor: 'gray',
       })}
     >
@@ -50,7 +50,7 @@ export default function AppNavigator() {
   const { loading, initializeAuth, isAuthenticated } = useAuthStore();
 
   useEffect(() => {
-    initializeAuth();
+    initializeAuth(); // 🔑 start Firebase auth listener
   }, []);
 
   if (loading) {

@@ -1,4 +1,5 @@
 import { getApps, initializeApp } from 'firebase/app';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   createUserWithEmailAndPassword,
   initializeAuth,
@@ -40,11 +41,12 @@ const firebaseConfig = {
 const app = getApps().length ? getApps()[0] : initializeApp(firebaseConfig);
 
 // --- ✅ Industry-standard Auth init for React Native ---
+
 const auth = initializeAuth(app, {
-  persistence: getReactNativePersistence(ReactNativeAsyncStorage),
+  persistence: getReactNativePersistence(AsyncStorage),
 });
 
-const firestore = getFirestore();
+const firestore = getFirestore(app);
 
 // --- Auth helpers ---
 async function signupWithEmail(name, email, password) {
