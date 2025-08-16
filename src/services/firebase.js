@@ -1,7 +1,8 @@
 import { getApps, initializeApp } from 'firebase/app';
 import {
   createUserWithEmailAndPassword,
-  getAuth,
+  initializeAuth,
+  getReactNativePersistence,
   onAuthStateChanged,
   sendPasswordResetEmail,
   signInWithEmailAndPassword,
@@ -21,7 +22,7 @@ import {
   runTransaction,
   serverTimestamp,
   setDoc,
-  startAfter
+  startAfter,
 } from 'firebase/firestore';
 import { uploadImageToCloudinary } from './cloudinaryService';
 
@@ -35,11 +36,14 @@ const firebaseConfig = {
   appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
 };
 
-if (!getApps().length) {
-  initializeApp(firebaseConfig);
-}
+// --- Initialize App ---
+const app = getApps().length ? getApps()[0] : initializeApp(firebaseConfig);
 
-const auth = getAuth();
+// --- ✅ Industry-standard Auth init for React Native ---
+const auth = initializeAuth(app, {
+  persistence: getReactNativePersistence(ReactNativeAsyncStorage),
+});
+
 const firestore = getFirestore();
 
 // --- Auth helpers ---
