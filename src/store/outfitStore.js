@@ -43,36 +43,34 @@ const useOutfitStore = create((set, get) => ({
     }
   },
 
-  uploadOutfit: async ({ imageUri, caption = '', tags = [] }) => {
-    const { user } = useAuthStore.getState();
-    if (!user) return { success: false, error: 'Not authenticated' };
-
+  uploadOutfit: async ({ userId, imageUri, caption = '', tags = [] }) => {
+    if (!userId) return { success: false, error: 'Not authenticated' };
     try {
-      // Cloudinary upload (no Firebase Storage path needed)
       const up = await uploadImage(imageUri);
       if (!up.success) return up;
-
-      // Create Firestore doc with returned Cloudinary URL
+  
       const create = await createOutfitDocument({
-        userId: user.uid,
+        userId,
         imageUrl: up.url,
         caption,
         tags,
       });
-
+  
       if (create.success) {
         set((state) => ({
           feed: [
-            { id: create.id, ...create.data, imageUrl: up.url, caption, tags, userId: user.uid },
-            ...state.feed
-          ]
+            { id: create.id, ...create.data, imageUrl: up.url, caption, tags, userId },
+            ...state.feed,
+          ],
         }));
       }
       return create;
     } catch (error) {
+      console.error('uploadOutfit error:', error?.message || error);
       return { success: false, error };
     }
   },
+  
 
   fetchMyOutfits: async () => {
     const { user } = useAuthStore.getState();

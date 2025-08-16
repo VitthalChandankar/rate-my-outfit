@@ -1,5 +1,5 @@
 // File: src/screens/main/UploadScreen.js
-// Description: Camera/Gallery pick, robust URI resolution (content:// -> file://), preview, caption, upload.
+// Description: Camera/Gallery pick, robust URI resolution, preview, caption, upload with guards and diagnostics.
 
 import React, { useMemo, useState } from 'react';
 import { Alert, Keyboard, Platform, StyleSheet, View } from 'react-native';
@@ -21,6 +21,8 @@ import { Image as ExpoImage } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import useAuthStore from '../../store/authStore';
 import useOutfitStore from '../../store/outfitStore';
+
+const hasImageManipulator = !!ImageManipulator?.manipulateAsync;
 
 export default function UploadScreen({ navigation }) {
   const { user } = useAuthStore();
@@ -59,15 +61,16 @@ export default function UploadScreen({ navigation }) {
       if (maybeUri.startsWith('file://')) return maybeUri;
 
       if (Platform.OS === 'android' && maybeUri.startsWith('content://')) {
-        const fileName = `picked_${Date.now()}.jpg`;
+        const ext = '.jpg';
+        const fileName = `picked_${Date.now()}${ext}`;
         const dest = FileSystem.cacheDirectory + fileName;
-        // Copy from content:// to cache file
         await FileSystem.copyAsync({ from: maybeUri, to: dest });
         return dest;
       }
 
-      // Fallback: try to read and rewrite to cache if scheme unknown
-      const fileName = `picked_${Date.now()}.jpg`;
+      // Fallback: copy unknown schemes to cache
+      const ext = '.jpg';
+      const fileName = `picked_${Date.now()}${ext}`;
       const dest = FileSystem.cacheDirectory + fileName;
       await FileSystem.copyAsync({ from: maybeUri, to: dest });
       return dest;
@@ -85,7 +88,6 @@ export default function UploadScreen({ navigation }) {
     if (typeof result.canceled === 'boolean') {
       if (result.canceled) return null;
       const asset = Array.isArray(result.assets) ? result.assets[0] : null;
-      // Prefer uri, else some environments expose path/file
       const raw = asset?.uri || asset?.file || asset?.path || null;
       if (!raw) return null;
       const resolved = await resolveToFileUri(raw);
@@ -101,10 +103,10 @@ export default function UploadScreen({ navigation }) {
     return null;
   };
 
-  // Normalize orientation on Android
+  // Normalize orientation on Android (guard for missing native)
   const normalizeOrientationIfNeeded = async (uri) => {
     try {
-      if (Platform.OS === 'android') {
+      if (Platform.OS === 'android' && hasImageManipulator) {
         const manipulated = await ImageManipulator.manipulateAsync(
           uri,
           [{ rotate: 0 }],
@@ -183,6 +185,10 @@ export default function UploadScreen({ navigation }) {
       Alert.alert('Add a caption', 'Please enter a caption before uploading.');
       return;
     }
+    if (!user?.uid) {
+      Alert.alert('Not signed in', 'Please sign in before uploading.');
+      return;
+    }
 
     setUploading(true);
     setUploadProgress(0.2);
@@ -191,7 +197,9 @@ export default function UploadScreen({ navigation }) {
       const step = () => setUploadProgress((p) => Math.min(1, p + 0.2));
       const timer = setInterval(step, 350);
 
+      // Pass userId and imageUri; your store should upload to Cloudinary and create Firestore doc.
       const res = await uploadOutfit({
+        userId: user.uid,
         imageUri: selectedUri,
         caption: caption.trim(),
         tags: [],
@@ -208,6 +216,7 @@ export default function UploadScreen({ navigation }) {
         setTimeout(() => navigation.navigate?.('Home'), 350);
       } else {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        console.warn('Upload failed details:', res);
         Alert.alert('Upload failed', res?.error?.message || 'Please try again later.');
       }
     } catch (e) {
