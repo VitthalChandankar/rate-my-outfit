@@ -1,23 +1,22 @@
-import { Ionicons } from '@expo/vector-icons';
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+// File: src/navigation/AppNavigator.js
+import React, { useEffect } from 'react';
+import { ActivityIndicator, View } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { useEffect } from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { Ionicons } from '@expo/vector-icons';
 
 import useAuthStore from '../store/authStore';
 
-// Auth Screens
+// Auth
 import LoginScreen from '../screens/auth/LoginScreen';
 import SignupScreen from '../screens/auth/SignupScreen';
 
-// Main Screens
+// Main
 import HomeScreen from '../screens/main/HomeScreen';
 import ProfileScreen from '../screens/main/ProfileScreen';
 import UploadScreen from '../screens/main/UploadScreen';
-
-// Theme
-import theme from '../theme/theme';
+import OutfitDetailsScreen from '../screens/details/OutfitDetailsScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -29,13 +28,13 @@ function MainTabs() {
         headerShown: false,
         tabBarShowLabel: false,
         tabBarIcon: ({ color, size }) => {
-          let iconName;
+          let iconName = 'ellipse';
           if (route.name === 'Home') iconName = 'home';
           else if (route.name === 'Upload') iconName = 'cloud-upload';
           else if (route.name === 'Profile') iconName = 'person';
           return <Ionicons name={iconName} size={size} color={color} />;
         },
-        tabBarActiveTintColor: theme.colors.primary, // use theme but -> tabBarActiveTintColor: '#FF5A5F',  matches figma accent
+        tabBarActiveTintColor: '#FF5A5F',
         tabBarInactiveTintColor: 'gray',
       })}
     >
@@ -50,22 +49,33 @@ export default function AppNavigator() {
   const { loading, initializeAuth, isAuthenticated } = useAuthStore();
 
   useEffect(() => {
-    initializeAuth(); // 🔑 start Firebase auth listener
-  }, []);
+    initializeAuth();// 🔑 start Firebase auth listener
+  }, [initializeAuth]);
 
   if (loading) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator size="large" color={theme.colors.primary} />
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+        <ActivityIndicator />
       </View>
     );
   }
 
+  const authed = isAuthenticated();
+
   return (
     <NavigationContainer>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
-        {isAuthenticated() ? (
-          <Stack.Screen name="MainTabs" component={MainTabs} />
+        {authed ? (
+          <>
+            {/* Main tabs */}
+            <Stack.Screen name="MainTabs" component={MainTabs} />
+            {/* Details stack screens accessible from any tab */}
+            <Stack.Screen
+              name="OutfitDetails"
+              component={OutfitDetailsScreen}
+              options={{ headerShown: true, title: 'Outfit' }}
+            />
+          </>
         ) : (
           <>
             <Stack.Screen name="Login" component={LoginScreen} />

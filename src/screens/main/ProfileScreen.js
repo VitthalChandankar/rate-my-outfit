@@ -9,10 +9,7 @@ import OutfitCard from '../../components/OutfitCard';
 
 function ensureKey(item) {
   if (item?.id) return item;
-  return {
-    ...item,
-    _localKey: item?._localKey || `local:${Date.now()}:${Math.random().toString(36).slice(2)}`,
-  };
+  return { ...item, _localKey: item?._localKey || `local:${Date.now()}:${Math.random().toString(36).slice(2)}` };
 }
 
 function dedupeById(items) {
@@ -56,14 +53,12 @@ export default function ProfileScreen({ navigation }) {
 
   return (
     <View style={styles.container}>
-      <View className="header" style={styles.header}>
+      <View style={styles.header}>
         {user?.profilePicture ? (
           <Image source={{ uri: user.profilePicture }} style={styles.avatar} />
         ) : (
           <View style={styles.avatarPlaceholder}>
-            <Text style={{ color: '#fff', fontWeight: '700' }}>
-              {(user?.name || 'U').charAt(0)}
-            </Text>
+            <Text style={{ color: '#fff', fontWeight: '700' }}>{(user?.name || 'U').charAt(0)}</Text>
           </View>
         )}
         <View style={{ marginLeft: 12 }}>
@@ -82,6 +77,7 @@ export default function ProfileScreen({ navigation }) {
         keyExtractor={keyExtractor}
         renderItem={renderItem}
         contentContainerStyle={{ paddingBottom: 24 }}
+        ListEmptyComponent={<Text style={{ textAlign: 'center', marginTop: 32, color: '#666' }}>No uploads yet.</Text>}
       />
     </View>
   );
@@ -91,14 +87,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, padding: 16, backgroundColor: '#fff' },
   header: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
   avatar: { width: 72, height: 72, borderRadius: 36 },
-  avatarPlaceholder: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: '#FF5A5F',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  avatarPlaceholder: { width: 72, height: 72, borderRadius: 36, backgroundColor: '#FF5A5F', alignItems: 'center', justifyContent: 'center' },
   name: { fontSize: 18, fontWeight: '700' },
   email: { color: '#666' },
   logoutBtn: { marginLeft: 'auto' },

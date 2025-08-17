@@ -9,10 +9,7 @@ import OutfitCard from '../../components/OutfitCard';
 
 function ensureKey(item) {
   if (item?.id) return item;
-  return {
-    ...item,
-    _localKey: item?._localKey || `local:${Date.now()}:${Math.random().toString(36).slice(2)}`,
-  };
+  return { ...item, _localKey: item?._localKey || `local:${Date.now()}:${Math.random().toString(36).slice(2)}` };
 }
 
 function dedupeById(items) {
@@ -85,20 +82,12 @@ export default function HomeScreen({ navigation }) {
       data={data}
       keyExtractor={keyExtractor}
       renderItem={renderItem}
+      refreshControl={<RefreshControl refreshing={!!refreshing} onRefresh={onRefresh} />}
       onEndReached={loadMore}
       onEndReachedThreshold={0.5}
-      refreshControl={<RefreshControl refreshing={!!refreshing} onRefresh={onRefresh} />}
       contentContainerStyle={styles.container}
-      ListEmptyComponent={
-        !loading ? <Text style={styles.empty}>No outfits yet — be the first to upload!</Text> : null
-      }
-      ListFooterComponent={
-        loading ? (
-          <View style={{ paddingVertical: 16 }}>
-            <ActivityIndicator />
-          </View>
-        ) : null
-      }
+      ListEmptyComponent={!loading ? <Text style={styles.empty}>No outfits yet — be the first to upload!</Text> : null}
+      ListFooterComponent={loading ? <View style={{ paddingVertical: 16 }}><ActivityIndicator /></View> : null}
     />
   );
 }
