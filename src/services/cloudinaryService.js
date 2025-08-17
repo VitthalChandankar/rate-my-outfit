@@ -1,3 +1,6 @@
+// File: src/services/cloudinaryService.js
+// Description: Upload to Cloudinary with multipart first (preserves original format), base64 fallback, and clear diagnostics.
+
 import * as FileSystem from 'expo-file-system';
 
 const CLOUD_NAME = process.env.EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME;
@@ -8,6 +11,22 @@ function errorResult(message, extra) {
   return { success: false, error: message };
 }
 
+// Infer MIME from URI extension (best-effort)
+function guessMimeFromUri(uri) {
+  const path = (uri || '').split('?')[0].toLowerCase();
+  if (path.endsWith('.png')) return 'image/png';
+  if (path.endsWith('.webp')) return 'image/webp';
+  if (path.endsWith('.jpg') || path.endsWith('.jpeg')) return 'image/jpeg';
+  // Default to JPEG if unknown
+  return 'image/jpeg';
+}
+
+// Build a safe filename from URI
+function pickFileName(uri, fallbackBase = 'upload') {
+  const last = (uri || '').split('/').pop() || `${fallbackBase}.jpg`;
+  return last.includes('.') ? last : `${last}.jpg`;
+}
+
 export async function uploadImageToCloudinary(localUri) {
   try {
     if (!CLOUD_NAME || !UPLOAD_PRESET) {
@@ -15,62 +34,67 @@ export async function uploadImageToCloudinary(localUri) {
     }
     if (!localUri) return errorResult('No local image URI provided.');
 
-    // 1) Base64 data URL approach
-    let base64Data = null;
-    try {
-      base64Data = await FileSystem.readAsStringAsync(localUri, {
-        encoding: FileSystem.EncodingType.Base64,
-      });
-    } catch (e) {
-      // If reading fails (rare), skip to multipart fallback
-    }
-
     const url = `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`;
 
-    if (base64Data) {
-      const formData = new FormData();
-      formData.append('file', `data:image/jpeg;base64,${base64Data}`);
-      formData.append('upload_preset', UPLOAD_PRESET);
+    // 1) Multipart first (preserves original format and avoids base64 overhead)
+    try {
+      const mime = guessMimeFromUri(localUri);
+      const name = pickFileName(localUri, `upload_${Date.now()}`);
+      const file = { uri: localUri, name, type: mime };
 
-      const resp1 = await fetch(url, { method: 'POST', body: formData });
-      let data1 = null;
+      const fd = new FormData();
+      fd.append('file', file);
+      fd.append('upload_preset', UPLOAD_PRESET);
+
+      const resp = await fetch(url, { method: 'POST', body: fd });
+      let data = null;
       try {
-        data1 = await resp1.json();
+        data = await resp.json();
       } catch (e) {
         return errorResult('Invalid Cloudinary response (not JSON).', e);
       }
 
-      if (resp1.ok && data1?.secure_url) {
-        return { success: true, url: data1.secure_url };
+      if (resp.ok && data?.secure_url) {
+        return { success: true, url: data.secure_url };
       }
-      // If Cloudinary returned structured error, keep it for diagnostics
-      if (data1?.error?.message) {
-        console.warn('Cloudinary base64 error:', data1.error.message);
+
+      // If preset is async or any error, keep details and fall through to base64
+      if (data?.status === 'pending' || data?.error?.message) {
+        console.warn('Cloudinary multipart info:', data);
       }
-    }
-
-    // 2) Fallback: multipart file object
-    const fileName = localUri.split('/').pop() || `upload_${Date.now()}.jpg`;
-    const file = { uri: localUri, name: fileName, type: 'image/jpeg' };
-
-    const fd2 = new FormData();
-    fd2.append('file', file);
-    fd2.append('upload_preset', UPLOAD_PRESET);
-
-    const resp2 = await fetch(url, { method: 'POST', body: fd2 });
-    let data2 = null;
-    try {
-      data2 = await resp2.json();
     } catch (e) {
-      return errorResult('Invalid Cloudinary fallback response (not JSON).', e);
+      // Network or RN-specific multipart edge case – fallback to base64
+      console.warn('Multipart upload failed, falling back to base64:', e?.message || e);
     }
 
-    if (resp2.ok && data2?.secure_url) {
-      return { success: true, url: data2.secure_url };
-    }
+    // 2) Base64 fallback (works reliably in Expo; slightly larger payload)
+    try {
+      const base64Data = await FileSystem.readAsStringAsync(localUri, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
 
-    const cloudError = data2?.error?.message || 'Upload failed';
-    return errorResult(cloudError, data2);
+      const mime = guessMimeFromUri(localUri);
+      const formData = new FormData();
+      formData.append('file', `data:${mime};base64,${base64Data}`);
+      formData.append('upload_preset', UPLOAD_PRESET);
+
+      const resp2 = await fetch(url, { method: 'POST', body: formData });
+      let data2 = null;
+      try {
+        data2 = await resp2.json();
+      } catch (e) {
+        return errorResult('Invalid Cloudinary fallback response (not JSON).', e);
+      }
+
+      if (resp2.ok && data2?.secure_url) {
+        return { success: true, url: data2.secure_url };
+      }
+
+      const cloudError = data2?.error?.message || 'Upload failed';
+      return errorResult(cloudError, data2);
+    } catch (e) {
+      return errorResult(e?.message || 'Base64 upload failed');
+    }
   } catch (error) {
     console.error('Cloudinary upload error', error);
     return { success: false, error: error?.message || 'Upload failed' };
