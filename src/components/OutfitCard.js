@@ -1,10 +1,11 @@
 // File: src/components/OutfitCard.js
-// Description: Safe, resilient card UI for feed/profile lists.
+// Description: Safe, resilient card UI for feed/profile lists with Cloudinary delivery transforms.
 
 import React, { useMemo } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View, Image } from 'react-native';
 import { Image as ExpoImage } from 'expo-image';
 import formatDate from '../utils/formatDate';
+import { withCloudinaryTransforms, IMG_FEED } from '../utils/cloudinaryUrl';
 
 // Optional tiny avatar circle with fallback initial
 function AvatarCircle({ uri, name }) {
@@ -52,9 +53,17 @@ export default function OutfitCard(props) {
     }
   }, [createdAt]);
 
+  // Apply Cloudinary transforms for feed-sized images (faster, lighter)
+  const transformedUrl = useMemo(() => {
+    if (!imageUrl) return null;
+    return withCloudinaryTransforms(imageUrl, IMG_FEED);
+  }, [imageUrl]);
+
+  // If you have a details screen, you can switch to a larger transform there:
+  // const detailUrl = withCloudinaryTransforms(imageUrl, IMG_DETAIL);
+
   const handlePress = () => {
     if (typeof props.onPress === 'function') {
-      // Prefer passing the normalized object; preserve original for compatibility
       props.onPress({ ...raw, id });
     }
   };
@@ -84,9 +93,9 @@ export default function OutfitCard(props) {
       </View>
 
       {/* Image */}
-      {imageUrl ? (
+      {transformedUrl ? (
         <ExpoImage
-          source={{ uri: imageUrl }}
+          source={{ uri: transformedUrl }}
           style={styles.image}
           contentFit="cover"
           transition={150}
