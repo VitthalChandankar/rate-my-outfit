@@ -1,5 +1,5 @@
 // File: src/screens/main/UploadScreen.js
-// Description: Camera/Gallery pick, robust URI resolution, preview, caption, upload with guards and diagnostics.
+// Description: Camera/Gallery pick, robust URI resolution, preview, caption, upload with guards, diagnostics, and contest entry support.
 
 import React, { useMemo, useState } from 'react';
 import { Alert, Keyboard, Platform, StyleSheet, View } from 'react-native';
@@ -20,13 +20,19 @@ import * as FileSystem from 'expo-file-system';
 import { Image as ExpoImage } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import useAuthStore from '../../store/authStore';
-import useOutfitStore from '../../store/outfitStore';
+import useOutfitStore from '../../store/outfitStore'; // general feed upload
+import useContestStore from '../../store/contestStore'; // contest entry upload
+import { uploadImageToCloudinary } from '../../services/cloudinaryService'; // direct Cloudinary when entering contests
 
 const hasImageManipulator = !!ImageManipulator?.manipulateAsync;
 
-export default function UploadScreen({ navigation }) {
+export default function UploadScreen({ navigation, route }) {
   const { user } = useAuthStore();
   const uploadOutfit = useOutfitStore((s) => s.uploadOutfit);
+  const createEntry = useContestStore((s) => s.createEntry);
+
+  // If opened from ContestDetails: route.params.contestId is present
+  const contestId = route?.params?.contestId || null;
 
   const [selectedUri, setSelectedUri] = useState(null);
   const [caption, setCaption] = useState('');
@@ -34,7 +40,10 @@ export default function UploadScreen({ navigation }) {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [snack, setSnack] = useState({ visible: false, text: '' });
 
-  const canUpload = useMemo(() => !!selectedUri && caption.trim().length > 0 && !uploading, [selectedUri, caption, uploading]);
+  const canUpload = useMemo(
+    () => !!selectedUri && caption.trim().length > 0 && !uploading,
+    [selectedUri, caption, uploading]
+  );
 
   const showSnack = (text) => setSnack({ visible: true, text });
   const hideSnack = () => setSnack({ visible: false, text: '' });
@@ -132,7 +141,12 @@ export default function UploadScreen({ navigation }) {
         quality: 0.9,
       });
 
-      console.log('Picker (gallery) canceled:', result?.canceled, 'assets:', Array.isArray(result?.assets) ? result.assets.length : 0);
+      console.log(
+        'Picker (gallery) canceled:',
+        result?.canceled,
+        'assets:',
+        Array.isArray(result?.assets) ? result.assets.length : 0
+      );
 
       const uriRaw = await extractAndResolveUri(result);
       if (uriRaw) {
@@ -158,7 +172,12 @@ export default function UploadScreen({ navigation }) {
         quality: 0.9,
       });
 
-      console.log('Picker (camera) canceled:', result?.canceled, 'assets:', Array.isArray(result?.assets) ? result.assets.length : 0);
+      console.log(
+        'Picker (camera) canceled:',
+        result?.canceled,
+        'assets:',
+        Array.isArray(result?.assets) ? result.assets.length : 0
+      );
 
       const uriRaw = await extractAndResolveUri(result);
       if (uriRaw) {
@@ -197,13 +216,32 @@ export default function UploadScreen({ navigation }) {
       const step = () => setUploadProgress((p) => Math.min(1, p + 0.2));
       const timer = setInterval(step, 350);
 
-      // Pass userId and imageUri; your store should upload to Cloudinary and create Firestore doc.
-      const res = await uploadOutfit({
-        userId: user.uid,
-        imageUri: selectedUri,
-        caption: caption.trim(),
-        tags: [],
-      });
+      let res;
+
+      if (contestId) {
+        // Contest entry flow:
+        // 1) Upload to Cloudinary directly
+        const uploaded = await uploadImageToCloudinary(selectedUri);
+        if (!uploaded?.success) {
+          res = uploaded;
+        } else {
+          // 2) Create the contest entry with the returned image URL
+          res = await createEntry({
+            contestId,
+            imageUrl: uploaded.url,
+            caption: caption.trim(),
+            tags: [],
+          });
+        }
+      } else {
+        // General feed flow (existing behavior)
+        res = await uploadOutfit({
+          userId: user.uid,
+          imageUri: selectedUri,
+          caption: caption.trim(),
+          tags: [],
+        });
+      }
 
       clearInterval(timer);
       setUploadProgress(1);
@@ -212,8 +250,12 @@ export default function UploadScreen({ navigation }) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         setCaption('');
         setSelectedUri(null);
-        setSnack({ visible: true, text: 'Uploaded successfully.' });
-        setTimeout(() => navigation.navigate?.('Home'), 350);
+        const successMsg = contestId ? 'Entry submitted!' : 'Uploaded successfully.';
+        setSnack({ visible: true, text: successMsg });
+        setTimeout(() => {
+          if (contestId) navigation.navigate?.('ContestDetails', { contestId });
+          else navigation.navigate?.('Home');
+        }, 350);
       } else {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
         console.warn('Upload failed details:', res);
@@ -232,8 +274,15 @@ export default function UploadScreen({ navigation }) {
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.header}>
-        <Text variant="titleLarge" style={styles.title}>Upload Outfit</Text>
-        <IconButton icon="close" size={22} onPress={() => navigation.goBack?.()} accessibilityLabel="Close" />
+        <Text variant="titleLarge" style={styles.title}>
+          {contestId ? 'Enter Contest' : 'Upload Outfit'}
+        </Text>
+        <IconButton
+          icon="close"
+          size={22}
+          onPress={() => navigation.goBack?.()}
+          accessibilityLabel="Close"
+        />
       </View>
 
       <View style={styles.container}>
@@ -265,10 +314,20 @@ export default function UploadScreen({ navigation }) {
           </View>
 
           <View style={styles.actionsRow}>
-            <Button mode="contained" icon="image-outline" onPress={pickFromLibrary} style={styles.actionBtn}>
+            <Button
+              mode="contained"
+              icon="image-outline"
+              onPress={pickFromLibrary}
+              style={styles.actionBtn}
+            >
               Pick image
             </Button>
-            <Button mode="outlined" icon="camera-outline" onPress={takePhoto} style={styles.actionBtn}>
+            <Button
+              mode="outlined"
+              icon="camera-outline"
+              onPress={takePhoto}
+              style={styles.actionBtn}
+            >
               Camera
             </Button>
           </View>
@@ -277,7 +336,7 @@ export default function UploadScreen({ navigation }) {
 
           <TextInput
             mode="outlined"
-            label="Caption"
+            label={contestId ? 'Caption for your contest entry' : 'Caption'}
             placeholder="Share something about your fit..."
             value={caption}
             onChangeText={setCaption}
@@ -287,13 +346,30 @@ export default function UploadScreen({ navigation }) {
 
           {uploading && (
             <View style={{ marginTop: 12 }}>
-              <ProgressBar indeterminate={uploadProgress === 0} progress={uploadProgress || 0.1} />
-              <Text style={{ marginTop: 6, opacity: 0.7 }}>Uploading...</Text>
+              <ProgressBar
+                indeterminate={uploadProgress === 0}
+                progress={uploadProgress || 0.1}
+              />
+              <Text style={{ marginTop: 6, opacity: 0.7 }}>
+                {contestId ? 'Submitting entry...' : 'Uploading...'}
+              </Text>
             </View>
           )}
 
-          <Button mode="elevated" icon="cloud-upload" onPress={handleUpload} disabled={!canUpload} style={styles.uploadBtn}>
-            {uploading ? 'Uploading...' : 'Upload Outfit'}
+          <Button
+            mode="elevated"
+            icon="cloud-upload"
+            onPress={handleUpload}
+            disabled={!canUpload}
+            style={styles.uploadBtn}
+          >
+            {uploading
+              ? contestId
+                ? 'Submitting...'
+                : 'Uploading...'
+              : contestId
+              ? 'Submit Entry'
+              : 'Upload Outfit'}
           </Button>
         </Surface>
       </View>
@@ -321,11 +397,28 @@ const styles = StyleSheet.create({
     padding: 14,
     backgroundColor: '#ffffff',
   },
-  previewWrap: { width: '100%', height: 340, borderRadius: 12, overflow: 'hidden', backgroundColor: '#F4F4F4' },
+  previewWrap: {
+    width: '100%',
+    height: 340,
+    borderRadius: 12,
+    overflow: 'hidden',
+    backgroundColor: '#F4F4F4',
+  },
   preview: { width: '100%', height: '100%' },
   placeholder: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  clearBtn: { position: 'absolute', right: 6, top: 6, backgroundColor: 'rgba(255,255,255,0.9)', borderRadius: 16 },
-  actionsRow: { marginTop: 12, flexDirection: 'row', gap: 10, justifyContent: 'space-between' },
+  clearBtn: {
+    position: 'absolute',
+    right: 6,
+    top: 6,
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    borderRadius: 16,
+  },
+  actionsRow: {
+    marginTop: 12,
+    flexDirection: 'row',
+    gap: 10,
+    justifyContent: 'space-between',
+  },
   actionBtn: { flex: 1 },
   input: { marginTop: 4 },
   uploadBtn: { marginTop: 16 },

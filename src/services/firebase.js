@@ -1,5 +1,6 @@
 import { getApps, initializeApp } from 'firebase/app';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { where } from 'firebase/firestore';
 import {
   createUserWithEmailAndPassword,
   initializeAuth,
@@ -251,9 +252,177 @@ async function addComment({ outfitId, userId, comment }) {
   }
 }
 
+//contest code changes
+// NEW: list contests with filters
+async function fbListContests({ limitCount = 20, startAfterDoc = null, status = 'active', country = 'all' } = {}) {
+  try {
+  let qBase = query(collection(firestore, 'contests'), orderBy('startAt', 'desc'));
+  // Simple client filter fallback for country; you can also add where('country','==',country) when ready
+  let q = query(collection(firestore, 'contests'), orderBy('startAt', 'desc'), limit(limitCount));
+  if (startAfterDoc) q = query(collection(firestore, 'contests'), orderBy('startAt', 'desc'), startAfter(startAfterDoc), limit(limitCount));
+  
+  const snap = await getDocs(q);
+  let items = [];
+  snap.forEach((d) => items.push({ id: d.id, ...d.data() }));
+  
+  // Client filter: status/country (for now)
+  const now = Date.now();
+  items = items.filter((c) => {
+    const s = c.startAt?.seconds ? c.startAt.seconds * 1000 : (c.startAt || now);
+    const e = c.endAt?.seconds ? c.endAt.seconds * 1000 : (c.endAt || now);
+    const active = now >= s && now <= e;
+    const ended = now > e;
+    const upcoming = now < s;
+    const okStatus = status === 'active' ? active : status === 'ended' ? ended : status === 'upcoming' ? upcoming : true;
+    const okCountry = (country === 'all') || (!c.country) || c.country === country;
+    return okStatus && okCountry;
+  });
+  
+  const last = snap.docs[snap.docs.length - 1] || null;
+  return { success: true, items, last };
+  } catch (error) {
+  return { success: false, error };
+  }
+  }
+  
+  // NEW: fetch entries for a contest
+  async function fbFetchContestEntries({ contestId, limitCount = 24, startAfterDoc = null } = {}) {
+  try {
+  let q = query(
+  collection(firestore, 'entries'),
+  where('contestId', '==', contestId),
+  orderBy('createdAt', 'desc'),
+  limit(limitCount)
+  );
+  if (startAfterDoc) {
+  q = query(
+  collection(firestore, 'entries'),
+  where('contestId', '==', contestId),
+  orderBy('createdAt', 'desc'),
+  startAfter(startAfterDoc),
+  limit(limitCount)
+  );
+  }
+  const snap = await getDocs(q);
+  const items = [];
+  snap.forEach((d) => items.push({ id: d.id, ...d.data() }));
+  const last = snap.docs[snap.docs.length - 1] || null;
+  return { success: true, items, last };
+  } catch (error) {
+  return { success: false, error };
+  }
+  }
+  
+  // NEW: create entry
+  async function fbCreateEntry({ contestId, userId, imageUrl, caption = '', tags = [] }) {
+  try {
+  const docRef = await addDoc(collection(firestore, 'entries'), {
+  contestId,
+  userId,
+  imageUrl,
+  caption,
+  tags,
+  createdAt: serverTimestamp(),
+  averageRating: 0,
+  ratingsCount: 0,
+  aiFlagsCount: 0,
+  status: 'active',
+  });
+  const created = await getDoc(docRef);
+  return { success: true, id: docRef.id, data: created.data() };
+  } catch (error) {
+  return { success: false, error };
+  }
+  }
+  
+  // NEW: rate entry with transaction
+  async function fbRateEntry({ entryId, contestId, userId, rating, aiFlag = false }) {
+    try {
+      const ratingId = `${entryId}_${userId}`;
+      const ratingRef = doc(firestore, 'ratings', ratingId);
+      const entryRef = doc(firestore, 'entries', entryId);
+  
+      let result = { newAvg: null, newCount: null, aiFlagsCount: null };
+  
+      await runTransaction(firestore, async (tx) => {
+        const entrySnap = await tx.get(entryRef);
+        if (!entrySnap.exists()) throw new Error('Entry not found');
+  
+        const data = entrySnap.data();
+        const oldAvg = data.averageRating || 0;
+        const oldCount = data.ratingsCount || 0;
+        const oldAI = data.aiFlagsCount || 0;
+  
+        const ratingSnap = await tx.get(ratingRef);
+        const prevRating = ratingSnap.exists() ? ratingSnap.data().rating : null;
+        const prevAIFlag = ratingSnap.exists() ? !!ratingSnap.data().aiFlag : false;
+  
+        let newCount = oldCount;
+        let sum = oldAvg * oldCount;
+  
+        if (prevRating != null) {
+          sum = sum - prevRating + rating;
+        } else {
+          sum = sum + rating;
+          newCount = oldCount + 1;
+        }
+        const newAvg = newCount > 0 ? sum / newCount : rating;
+  
+        let aiFlagsCount = oldAI;
+        if (prevAIFlag !== aiFlag) {
+          aiFlagsCount = aiFlag ? oldAI + 1 : Math.max(0, oldAI - 1);
+        }
+  
+        tx.set(ratingRef, {
+          entryId,
+          contestId,
+          userId,
+          rating,
+          aiFlag: !!aiFlag,
+          createdAt: serverTimestamp(),
+        });
+        tx.update(entryRef, {
+          averageRating: newAvg,
+          ratingsCount: newCount,
+          aiFlagsCount,
+        });
+  
+        result = { newAvg, newCount, aiFlagsCount };
+      });
+  
+      return { success: true, ...result };
+    } catch (error) {
+      return { success: false, error };
+    }
+  }
+  
+  
+  // NEW: leaderboard for a contest (min votes)
+  async function fbFetchContestLeaderboard({ contestId, limitCount = 50, minVotes = 10 }) {
+  try {
+  // Basic approach: pull top N by createdAt window then filter client-side by minVotes and sort by averageRating
+  const q = query(
+  collection(firestore, 'entries'),
+  where('contestId', '==', contestId),
+  orderBy('createdAt', 'desc'),
+  limit(400) // safety buffer, filtered client-side
+  );
+  const snap = await getDocs(q);
+  let items = [];
+  snap.forEach((d) => items.push({ id: d.id, ...d.data() }));
+  items = items.filter((e) => (e.ratingsCount || 0) >= minVotes && e.status !== 'flagged');
+  items.sort((a, b) => (b.averageRating || 0) - (a.averageRating || 0));
+  items = items.slice(0, limitCount);
+  return { success: true, items };
+  } catch (error) {
+  return { success: false, error };
+  }
+  }
+
 export {
   addComment, auth, createOutfitDocument,
   fetchFeed, fetchOutfitDetails, fetchUserOutfits, firestore, loginWithEmail,
-  logout, onAuthChange, sendResetEmail, signupWithEmail, submitRating, uploadImage
+  logout, onAuthChange, sendResetEmail, signupWithEmail, submitRating, uploadImage, 
+  fbListContests, fbFetchContestEntries, fbCreateEntry, fbRateEntry, fbFetchContestLeaderboard
 };
 
