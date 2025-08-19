@@ -161,7 +161,7 @@ export default function ContestDetailsScreen({ route, navigation }) {
                 <ActivityIndicator />
               </View>
             ) : null
-          }
+          }//
           ListEmptyComponent={
             !loading ? (
               <Text style={{ textAlign: 'center', marginTop: 24, color: '#666' }}>
