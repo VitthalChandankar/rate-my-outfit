@@ -339,62 +339,70 @@ async function fbListContests({ limitCount = 20, startAfterDoc = null, status = 
   async function fbRateEntry({ entryId, contestId, userId, rating, aiFlag = false }) {
     try {
       const ratingId = `${entryId}_${userId}`;
+      console.log("ratingId:", ratingId);
       const ratingRef = doc(firestore, 'ratings', ratingId);
       const entryRef = doc(firestore, 'entries', entryId);
-  
-      let result = { newAvg: null, newCount: null, aiFlagsCount: null };
-  
-      await runTransaction(firestore, async (tx) => {
-        const entrySnap = await tx.get(entryRef);
-        if (!entrySnap.exists()) throw new Error('Entry not found');
-  
-        const data = entrySnap.data();
-        const oldAvg = data.averageRating || 0;
-        const oldCount = data.ratingsCount || 0;
-        const oldAI = data.aiFlagsCount || 0;
-  
-        const ratingSnap = await tx.get(ratingRef);
-        const prevRating = ratingSnap.exists() ? ratingSnap.data().rating : null;
-        const prevAIFlag = ratingSnap.exists() ? !!ratingSnap.data().aiFlag : false;
-  
-        let newCount = oldCount;
-        let sum = oldAvg * oldCount;
-  
-        if (prevRating != null) {
-          sum = sum - prevRating + rating;
-        } else {
-          sum = sum + rating;
-          newCount = oldCount + 1;
-        }
-        const newAvg = newCount > 0 ? sum / newCount : rating;
-  
-        let aiFlagsCount = oldAI;
-        if (prevAIFlag !== aiFlag) {
-          aiFlagsCount = aiFlag ? oldAI + 1 : Math.max(0, oldAI - 1);
-        }
-  
-        tx.set(ratingRef, {
-          entryId,
-          contestId,
-          userId,
-          rating,
-          aiFlag: !!aiFlag,
-          createdAt: serverTimestamp(),
-        });
-        tx.update(entryRef, {
-          averageRating: newAvg,
-          ratingsCount: newCount,
-          aiFlagsCount,
-        });
-  
-        result = { newAvg, newCount, aiFlagsCount };
+      
+    
+    let result = { newAvg: null, newCount: null, aiFlagsCount: null };
+    
+    await runTransaction(firestore, async (tx) => {
+      const entrySnap = await tx.get(entryRef);
+      if (!entrySnap.exists()) throw new Error('Entry not found');
+    
+      const data = entrySnap.data();
+      const oldAvg = data.averageRating || 0;
+      const oldCount = data.ratingsCount || 0;
+      const oldAI = data.aiFlagsCount || 0;
+    
+      const ratingSnap = await tx.get(ratingRef);
+      const hadPrev = ratingSnap.exists();
+      const prevRating = hadPrev ? (ratingSnap.data().rating || 0) : null;
+      const prevAIFlag = hadPrev ? !!ratingSnap.data().aiFlag : false;
+    
+      // Compute new count and sum
+      let newCount = oldCount;
+      let sum = oldAvg * oldCount;
+    
+      if (hadPrev) {
+        sum = sum - prevRating + rating;
+      } else {
+        sum = sum + rating;
+        newCount = oldCount + 1;
+      }
+      const newAvg = newCount > 0 ? sum / newCount : 0;
+    
+      // AI flags
+      let aiFlagsCount = oldAI;
+      if (prevAIFlag !== aiFlag) {
+        aiFlagsCount = aiFlag ? oldAI + 1 : Math.max(0, oldAI - 1);
+      }
+    
+      // Write rating (upsert)
+      tx.set(ratingRef, {
+        entryId,
+        contestId,
+        userId,
+        rating,
+        aiFlag: !!aiFlag,
+        createdAt: serverTimestamp(),
       });
-  
-      return { success: true, ...result };
+    
+      // Update only the three stats fields
+      tx.update(entryRef, {
+        averageRating: newAvg,
+        ratingsCount: newCount,
+        aiFlagsCount,
+      });
+    
+      result = { newAvg, newCount, aiFlagsCount };
+    });
+    
+    return { success: true, ...result };
     } catch (error) {
-      return { success: false, error };
+    return { success: false, error };
     }
-  }
+    }
   
   
   // NEW: leaderboard for a contest (min votes)
