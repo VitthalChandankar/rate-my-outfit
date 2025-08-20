@@ -137,3 +137,5 @@ match /outfits/{outfitId} {
 }
 }
 }
+// current issue :- normal upload opening contest entry upload screen. and uploading to contest only
+rating is getting saved but not able to see other users entries 

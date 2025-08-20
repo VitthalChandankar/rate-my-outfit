@@ -16,11 +16,17 @@ import SignupScreen from '../screens/auth/SignupScreen';
 import HomeScreen from '../screens/main/HomeScreen';
 import ProfileScreen from '../screens/main/ProfileScreen';
 import UploadScreen from '../screens/main/UploadScreen';
-// Details
+
+// Legacy Details
 import OutfitDetailsScreen from '../screens/details/OutfitDetailsScreen';
+
 // Contests
 import ContestsListScreen from '../screens/contests/ContestsListScreen';
 import ContestDetailsScreen from '../screens/contests/ContestDetailsScreen';
+
+// Rating flow (new)
+import RateEntryScreen from '../screens/rating/RateEntryScreen';
+import RateScreen from '../screens/rating/RateScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -55,7 +61,7 @@ export default function AppNavigator() {
   const { loading, initializeAuth, isAuthenticated } = useAuthStore();
 
   useEffect(() => {
-    initializeAuth(); // start Firebase auth listener
+    initializeAuth();
   }, [initializeAuth]);
 
   if (loading) {
@@ -73,9 +79,10 @@ export default function AppNavigator() {
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {authed ? (
           <>
-            {/* Main tabs */}
+            {/* Root tabs */}
             <Stack.Screen name="MainTabs" component={MainTabs} />
-            {/* Details accessible from any tab */}
+
+            {/* Details accessible from ANY tab (so navigate('ContestDetails') always works) */}
             <Stack.Screen
               name="OutfitDetails"
               component={OutfitDetailsScreen}
@@ -85,6 +92,18 @@ export default function AppNavigator() {
               name="ContestDetails"
               component={ContestDetailsScreen}
               options={{ headerShown: true, title: 'Contest' }}
+            />
+
+            {/* Rating flow */}
+            <Stack.Screen
+              name="RateEntry"
+              component={RateEntryScreen}
+              options={{ headerShown: true, title: 'Rate My Outfit' }}
+            />
+            <Stack.Screen
+              name="RateScreen"
+              component={RateScreen}
+              options={{ headerShown: true, title: 'Rate' }}
             />
           </>
         ) : (
