@@ -1,7 +1,8 @@
 // File: src/screens/contests/ContestsListScreen.js
-// Best-in-class, modern UI with hero, chips, animated cards, and empty/loading states.
+// Premium UI: glassy segmented control (Active/Upcoming/Ended), refined hero typography,
+// animated cards, and polished empty/loading states.
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -14,13 +15,14 @@ import {
   Easing,
   Dimensions,
 } from 'react-native';
-import { Surface, Chip } from 'react-native-paper';
+import { Surface } from 'react-native-paper';
 import useContestStore from '../../store/contestStore';
 
 const { width } = Dimensions.get('window');
-const CARD_W = width - 24; // padding 12 on sides
+const PADDING_H = 16;
+const CARD_W = width - PADDING_H * 2;
 
-// Helpers
+// ----- time helpers -----
 function toMs(ts) {
   if (!ts) return null;
   if (typeof ts === 'number') return ts;
@@ -45,23 +47,68 @@ function whenLabel(startMs, endMs, status) {
   return '—';
 }
 
-// Skeleton placeholder while loading
-function CardSkeleton() {
+// ----- Segmented Control (glassy) -----
+function SegmentedControl({ value, onChange }) {
+  const tabs = [
+    { key: 'active', label: 'Active' },
+    { key: 'upcoming', label: 'Upcoming' },
+    { key: 'ended', label: 'Ended' },
+  ];
+  const idx = Math.max(0, tabs.findIndex((t) => t.key === value));
+  const anim = useRef(new Animated.Value(idx)).current;
+
+  useEffect(() => {
+    Animated.timing(anim, {
+      toValue: idx,
+      duration: 240,
+      easing: Easing.out(Easing.quad),
+      useNativeDriver: false,
+    }).start();
+  }, [idx, anim]);
+
+  const IND_W = (CARD_W - 12) / tabs.length; // container has padding 6
+  const left = anim.interpolate({
+    inputRange: [0, 1, 2],
+    outputRange: [6, 6 + IND_W, 6 + 2 * IND_W],
+  });
+
   return (
-    <View style={[styles.card, { opacity: 0.8 }]}>
-      <View style={styles.skelHeader} />
-      <View style={styles.skelRow}>
-        <View style={styles.skelPill} />
-        <View style={[styles.skelPill, { width: 60 }]} />
-        <View style={[styles.skelPill, { width: 40 }]} />
-        <View style={[styles.skelLine, { marginLeft: 'auto', width: 110 }]} />
-      </View>
-      <View style={[styles.skelLine, { width: CARD_W * 0.5, marginTop: 10 }]} />
-      <View style={[styles.skelCta, { marginTop: 16 }]} />
+    <View style={styles.segmentWrap}>
+      <Animated.View style={[styles.segmentIndicator, { width: IND_W, left }]} />
+      {tabs.map((t, i) => {
+        const selected = value === t.key;
+        return (
+          <TouchableOpacity
+            key={t.key}
+            style={styles.segmentTab}
+            activeOpacity={0.85}
+            onPress={() => onChange(t.key)}
+          >
+            <Text style={[styles.segmentText, selected && styles.segmentTextActive]}>{t.label}</Text>
+          </TouchableOpacity>
+        );
+      })}
     </View>
   );
 }
 
+// ----- Card Skeleton -----
+function CardSkeleton() {
+  return (
+    <View style={[styles.card, { opacity: 0.85 }]}>
+      <View style={styles.skelHeader} />
+      <View style={styles.skelLine} />
+      <View style={[styles.skelPillRow]}>
+        <View style={styles.skelPill} />
+        <View style={[styles.skelPill, { width: 90 }]} />
+        <View style={[styles.skelPill, { width: 110, marginLeft: 'auto' }]} />
+      </View>
+      <View style={[styles.skelCta, { marginTop: 14 }]} />
+    </View>
+  );
+}
+
+// ----- Contest Card -----
 function ContestCard({ item, onPress }) {
   const now = Date.now();
   const startMs = toMs(item.startAt);
@@ -69,12 +116,8 @@ function ContestCard({ item, onPress }) {
   const status = statusFromRange(startMs, endMs, now);
   const whenText = whenLabel(startMs, endMs, status);
 
-  const chipStyle =
-    status === 'active' ? styles.chipActive : status === 'upcoming' ? styles.chipUpcoming : styles.chipEnded;
-
-  // subtle enter animation
   const fade = useRef(new Animated.Value(0)).current;
-  const rise = useRef(new Animated.Value(6)).current;
+  const rise = useRef(new Animated.Value(8)).current;
   useEffect(() => {
     Animated.parallel([
       Animated.timing(fade, { toValue: 1, duration: 260, easing: Easing.out(Easing.quad), useNativeDriver: true }),
@@ -82,40 +125,50 @@ function ContestCard({ item, onPress }) {
     ]).start();
   }, [fade, rise]);
 
+  const statusColors =
+    status === 'active'
+      ? { bg: '#EAF5FF', fg: '#0F6CBD' }
+      : status === 'upcoming'
+      ? { bg: '#FFF5E6', fg: '#9A5D00' }
+      : { bg: '#F3F4F6', fg: '#6B7280' };
+
   return (
     <Animated.View style={{ opacity: fade, transform: [{ translateY: rise }] }}>
-      <Surface style={[styles.card]} elevation={2}>
-        <View style={styles.badgeRow}>
-          <Chip compact style={[styles.chip, chipStyle]}>
-            {status === 'active' ? 'Active' : status === 'upcoming' ? 'Upcoming' : 'Ended'}
-          </Chip>
+      <Surface style={styles.card} elevation={2}>
+        {/* header row */}
+        <View style={styles.headerRow}>
+          <View style={[styles.badge, { backgroundColor: statusColors.bg }]}>
+            <Text style={[styles.badgeText, { color: statusColors.fg }]}>
+              {status === 'active' ? 'Active' : status === 'upcoming' ? 'Upcoming' : 'Ended'}
+            </Text>
+          </View>
           {!!item.country && <Text style={styles.country}>{item.country}</Text>}
         </View>
 
+        {/* title + theme */}
         <Text style={styles.title} numberOfLines={1}>
           {item.title || 'Contest'}
         </Text>
-
         {!!item.theme && (
           <Text style={styles.theme} numberOfLines={2}>
             {item.theme}
           </Text>
         )}
 
+        {/* meta pills */}
         <View style={styles.metaRow}>
           <View style={styles.metaPill}>
             <Text style={styles.metaPillText}>{whenText}</Text>
           </View>
-
-          <View style={styles.metaSpacer} />
-
-          <View style={[styles.metaPill, styles.pillGhost]}>
-            <Text style={[styles.metaPillText, { color: '#555' }]}>
+          <View style={{ width: 8 }} />
+          <View style={[styles.metaPill, styles.metaPillGhost]}>
+            <Text style={[styles.metaPillText, { color: '#4B5563' }]}>
               {item.entryFee && item.entryFee > 0 ? `Entry ₹${item.entryFee}` : 'Free'}
             </Text>
           </View>
         </View>
 
+        {/* CTA */}
         <TouchableOpacity onPress={onPress} activeOpacity={0.9} style={styles.ctaBtn}>
           <Text style={styles.ctaText}>View details</Text>
         </TouchableOpacity>
@@ -150,52 +203,30 @@ export default function ContestsListScreen({ navigation }) {
     <ContestCard item={item} onPress={() => navigation.navigate('ContestDetails', { contestId: item.id })} />
   );
 
-  const ListHeader = () => (
+  const Header = () => (
     <View style={styles.hero}>
       <Text style={styles.heroTitle}>Contests</Text>
       <Text style={styles.heroSub}>Compete, rate, and climb the leaderboard.</Text>
-      <View style={styles.filterRow}>
-        <Chip
-          selected={filter === 'active'}
-          onPress={() => setFilter('active')}
-          style={[styles.filterChip, filter === 'active' && styles.filterChipSelected]}
-        >
-          Active
-        </Chip>
-        <Chip
-          selected={filter === 'upcoming'}
-          onPress={() => setFilter('upcoming')}
-          style={[styles.filterChip, filter === 'upcoming' && styles.filterChipSelected]}
-        >
-          Upcoming
-        </Chip>
-        <Chip
-          selected={filter === 'ended'}
-          onPress={() => setFilter('ended')}
-          style={[styles.filterChip, filter === 'ended' && styles.filterChipSelected]}
-        >
-          Ended
-        </Chip>
-      </View>
+      <SegmentedControl value={filter} onChange={setFilter} />
     </View>
   );
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#F8F7FB' }}>
+    <View style={styles.screen}>
       <FlatList
         data={contests}
         keyExtractor={(it) => it.id}
         renderItem={renderItem}
-        ListHeaderComponent={<ListHeader />}
+        ListHeaderComponent={<Header />}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-        onEndReachedThreshold={0.3}
+        onEndReachedThreshold={0.25}
         onEndReached={onEnd}
-        contentContainerStyle={{ padding: 12, paddingBottom: 28 }}
+        contentContainerStyle={{ paddingHorizontal: PADDING_H, paddingBottom: 28 }}
         ListEmptyComponent={
           !loading ? (
             <View style={styles.emptyWrap}>
-              <Text style={styles.emptyTitle}>No contests found</Text>
-              <Text style={styles.emptySub}>Check back soon or try a different filter.</Text>
+              <Text style={styles.emptyTitle}>No contests</Text>
+              <Text style={styles.emptySub}>Try a different filter or check back later.</Text>
             </View>
           ) : null
         }
@@ -203,7 +234,6 @@ export default function ContestsListScreen({ navigation }) {
           loading ? (
             <View style={{ paddingVertical: 16 }}>
               <ActivityIndicator />
-              {/* Skeletons */}
               <View style={{ height: 12 }} />
               <CardSkeleton />
               <CardSkeleton />
@@ -216,62 +246,83 @@ export default function ContestsListScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  // Hero
-  hero: { paddingHorizontal: 12, paddingTop: 14, paddingBottom: 6 },
-  heroTitle: { fontSize: 26, fontWeight: '900', color: '#18181B' },
-  heroSub: { marginTop: 4, color: '#5B5B68' },
-  filterRow: { flexDirection: 'row', gap: 8, marginTop: 12 },
-  filterChip: { backgroundColor: '#EFEFFE' },
-  filterChipSelected: { backgroundColor: '#E2D8FE' },
+  screen: { flex: 1, backgroundColor: '#F7F7FB' },
+
+  // Hero header
+  hero: { paddingHorizontal: PADDING_H, paddingTop: 14, paddingBottom: 8 },
+  heroTitle: { fontSize: 28, fontWeight: '900', color: '#0F172A', letterSpacing: -0.3 },
+  heroSub: { marginTop: 6, color: '#5B5B68', fontSize: 14 },
+
+  // Segmented
+  segmentWrap: {
+    marginTop: 14,
+    width: CARD_W,
+    alignSelf: 'center',
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: 'rgba(122,90,248,0.08)',
+    overflow: 'hidden',
+    position: 'relative',
+    flexDirection: 'row',
+    paddingHorizontal: 6,
+    alignItems: 'center',
+  },
+  segmentIndicator: {
+    position: 'absolute',
+    top: 6,
+    bottom: 6,
+    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 1,
+  },
+  segmentTab: { flex: 1, alignItems: 'center', justifyContent: 'center', height: '100%' },
+  segmentText: { fontWeight: '700', color: '#6B7280' },
+  segmentTextActive: { color: '#1F2937' },
 
   // Card
   card: {
     borderRadius: 18,
     padding: 14,
     backgroundColor: '#FFFFFF',
-    marginBottom: 12,
+    marginTop: 12,
     width: CARD_W,
     alignSelf: 'center',
   },
-  badgeRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  chip: { borderRadius: 14 },
-  chipActive: { backgroundColor: '#EAF5FF' },
-  chipUpcoming: { backgroundColor: '#FFF5E6' },
-  chipEnded: { backgroundColor: '#F5F5F5' },
-  country: { marginLeft: 'auto', color: '#6B7280', fontWeight: '600' },
+  headerRow: { flexDirection: 'row', alignItems: 'center' },
+  badge: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12 },
+  badgeText: { fontWeight: '800', fontSize: 12 },
+  country: { marginLeft: 'auto', color: '#6B7280', fontWeight: '700' },
 
-  title: { fontSize: 18, fontWeight: '900', marginTop: 8, color: '#16161A' },
+  title: { fontSize: 18, fontWeight: '900', marginTop: 10, color: '#111827', letterSpacing: -0.2 },
   theme: { marginTop: 6, color: '#4B5563' },
 
-  metaRow: { flexDirection: 'row', alignItems: 'center', marginTop: 10 },
-  metaPill: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 12,
-    backgroundColor: '#F3F4F6',
-  },
-  pillGhost: { backgroundColor: '#F8FAFC', marginLeft: 8 },
-  metaPillText: { fontWeight: '700', color: '#374151' },
-  metaSpacer: { flex: 1 },
+  metaRow: { flexDirection: 'row', alignItems: 'center', marginTop: 12 },
+  metaPill: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12, backgroundColor: '#F3F4F6' },
+  metaPillGhost: { backgroundColor: '#F8FAFC' },
+  metaPillText: { fontWeight: '800', color: '#1F2937' },
 
   ctaBtn: {
     marginTop: 16,
     backgroundColor: '#7A5AF8',
-    paddingVertical: 12,
+    paddingVertical: 13,
     borderRadius: 12,
     alignItems: 'center',
   },
-  ctaText: { color: '#fff', fontWeight: '800' },
+  ctaText: { color: '#fff', fontWeight: '900', letterSpacing: 0.2 },
 
   // Empty
-  emptyWrap: { alignItems: 'center', marginTop: 32 },
-  emptyTitle: { fontSize: 18, fontWeight: '800', color: '#1F2937' },
+  emptyWrap: { alignItems: 'center', marginTop: 40 },
+  emptyTitle: { fontSize: 18, fontWeight: '900', color: '#1F2937' },
   emptySub: { marginTop: 6, color: '#6B7280' },
 
   // Skeletons
-  skelHeader: { height: 18, width: CARD_W * 0.5, backgroundColor: '#EEE', borderRadius: 6, marginBottom: 10 },
-  skelRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  skelPill: { height: 20, width: 80, backgroundColor: '#EEE', borderRadius: 10 },
-  skelLine: { height: 12, backgroundColor: '#EEE', borderRadius: 6, flexGrow: 1 },
-  skelCta: { height: 40, backgroundColor: '#EEE', borderRadius: 12 },
+  skelHeader: { height: 20, width: CARD_W * 0.55, backgroundColor: '#EEE', borderRadius: 8, marginBottom: 12 },
+  skelLine: { height: 14, width: CARD_W * 0.8, backgroundColor: '#EEE', borderRadius: 7 },
+  skelPillRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 12 },
+  skelPill: { height: 22, width: 70, backgroundColor: '#EEE', borderRadius: 11 },
+  skelCta: { height: 44, backgroundColor: '#EEE', borderRadius: 12 },
 });
