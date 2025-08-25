@@ -1,6 +1,16 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import {
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+  ActivityIndicator
+} from 'react-native';
 import useAuthStore from '../../store/authStore';
 
 export default function LoginScreen({ navigation }) {
@@ -8,28 +18,42 @@ export default function LoginScreen({ navigation }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
   const handleLogin = async () => {
+    if (loading) return;
     setError('');
+
     if (!email.trim() || !password.trim()) {
       setError('Please fill in all fields');
       return;
     }
-    const success = await login(email, password);
-    if (!success) {
-      setError('Invalid email or password');
+
+    try {
+      setLoading(true);
+      const ok = await login(email.trim(), password);
+      if (!ok) {
+        setError('Invalid email or password');
+      }
+    } catch (e) {
+      setError('Something went wrong. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
     <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      style={{ flex: 1, backgroundColor: '#fff' }}
+      behavior={Platform.select({ ios: 'padding', android: undefined })}
+      style={{ flex: 1 }}
     >
-      <ScrollView contentContainerStyle={styles.container}>
-        
+      <ScrollView
+        contentContainerStyle={styles.container}
+        keyboardShouldPersistTaps="handled"
+      >
         {/* Logo / App Name */}
         <Ionicons name="shirt" size={64} color="#FF5A5F" style={{ marginBottom: 16 }} />
+       
         <Text style={styles.title}>Rate My Outfit</Text>
         <Text style={styles.subtitle}>Login to continue</Text>
 
@@ -38,41 +62,58 @@ export default function LoginScreen({ navigation }) {
 
         {/* Email Input */}
         <View style={styles.inputContainer}>
-          <Ionicons name="mail-outline" size={20} color="#888" style={{ marginRight: 8 }} />
+          <Ionicons name="mail-outline" size={20} color="#999" style={{ marginRight: 8 }} />
           <TextInput
             style={styles.input}
             placeholder="Email"
-            keyboardType="email-address"
+            placeholderTextColor="#999"
             autoCapitalize="none"
+            keyboardType="email-address"
             value={email}
             onChangeText={setEmail}
+            editable={!loading}
+            returnKeyType="next"
           />
         </View>
 
         {/* Password Input */}
         <View style={styles.inputContainer}>
-          <Ionicons name="lock-closed-outline" size={20} color="#888" style={{ marginRight: 8 }} />
+          <Ionicons name="lock-closed-outline" size={20} color="#999" style={{ marginRight: 8 }} />
           <TextInput
             style={styles.input}
             placeholder="Password"
+            placeholderTextColor="#999"
             secureTextEntry
             value={password}
             onChangeText={setPassword}
+            editable={!loading}
+            returnKeyType="done"
+            onSubmitEditing={handleLogin}
           />
         </View>
 
         {/* Login Button */}
-        <TouchableOpacity style={styles.button} onPress={handleLogin}>
-          <Text style={styles.buttonText}>Login</Text>
+        <TouchableOpacity
+          style={[styles.button, loading && { opacity: 0.7 }]}
+          onPress={handleLogin}
+          disabled={loading}
+          activeOpacity={0.85}
+        >
+          {loading ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Text style={styles.buttonText}>Login</Text>
+          )}
         </TouchableOpacity>
 
         {/* Signup Link */}
-        <TouchableOpacity onPress={() => navigation.navigate('Signup')}>
-          <Text style={styles.signupText}>
-            Don't have an account? <Text style={{ color: '#FF5A5F', fontWeight: '600' }}>Sign up</Text>
-          </Text>
+        <TouchableOpacity
+          onPress={() => navigation.navigate('Signup')}
+          style={{ marginTop: 14 }}
+          disabled={loading}
+        >
+          <Text style={styles.signupText}>Don't have an account? Sign up</Text>
         </TouchableOpacity>
-
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -135,5 +176,6 @@ const styles = StyleSheet.create({
     color: 'red',
     marginBottom: 12,
     fontSize: 14,
+    alignSelf: 'flex-start',
   },
 });
