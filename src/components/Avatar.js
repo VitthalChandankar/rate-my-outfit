@@ -1,22 +1,30 @@
-// File: src/components/Avatar.js
-// Description: Circle avatar with fallback initials
+// src/components/Avatar.js
+import React from 'react';
+import { View, StyleSheet, Text } from 'react-native';
+import { Image as ExpoImage } from 'expo-image';
 
-import { Image, StyleSheet, Text, View } from 'react-native';
-
-export default function Avatar({ uri, name = '', size = 40 }) {
-  const initials = (name || 'U').split(' ').map((n) => n[0]).slice(0, 2).join('');
-
-  return uri ? (
-    <Image source={{ uri }} style={[styles.avatar, { width: size, height: size, borderRadius: size / 2 }]} />
-  ) : (
-    <View style={[styles.avatar, { width: size, height: size, borderRadius: size / 2, backgroundColor: '#FF5A5F', alignItems: 'center', justifyContent: 'center' }]}>
-      <Text style={{ color: '#fff', fontWeight: '700' }}>{initials}</Text>
+export default function Avatar({ uri, size = 48, ring = false, ringColor = '#7A5AF8', placeholder = 'U' }) {
+  const radius = size / 2;
+  return (
+    <View style={[styles.wrap, ring && { padding: 2, borderRadius: radius, backgroundColor: ringColor }]}>
+      {uri ? (
+        <ExpoImage
+          source={{ uri }}
+          style={{ width: size, height: size, borderRadius: radius, backgroundColor: '#EEE' }}
+          contentFit="cover"
+          transition={200}
+        />
+      ) : (
+        <View style={[styles.fallback, { width: size, height: size, borderRadius: radius }]}>
+          <Text style={{ fontWeight: '900', color: '#7A5AF8', fontSize: size * 0.4 }}>
+            {String(placeholder || 'U').slice(0, 1).toUpperCase()}
+          </Text>
+        </View>
+      )}
     </View>
   );
 }
-
 const styles = StyleSheet.create({
-  avatar: {
-    backgroundColor: '#ddd',
-  },
+  wrap: { alignItems: 'center', justifyContent: 'center' },
+  fallback: { alignItems: 'center', justifyContent: 'center', backgroundColor: '#EDEDF2' },
 });

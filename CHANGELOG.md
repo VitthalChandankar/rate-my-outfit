@@ -139,3 +139,6 @@ match /outfits/{outfitId} {
 }
 // current issue :- normal upload opening contest entry upload screen. and uploading to contest only
 rating is getting saved but not able to see other users entries 
+
+
+before this change the ui and look was completely different of ProfileScreen.js. i liked the post grid view.. now added changes if required will revert to that. added changes for edit profile and other required changes. 

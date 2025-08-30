@@ -1,6 +1,7 @@
+// src/services/firebase.js
 import { getApps, initializeApp } from 'firebase/app';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { where } from 'firebase/firestore';
+import { where, updateDoc, deleteDoc } from 'firebase/firestore';
 import {
   createUserWithEmailAndPassword,
   initializeAuth,
@@ -41,8 +42,7 @@ const firebaseConfig = {
 // --- Initialize App ---
 const app = getApps().length ? getApps()[0] : initializeApp(firebaseConfig);
 
-// --- ✅ Industry-standard Auth init for React Native ---
-
+// --- Auth init for React Native ---
 const auth = initializeAuth(app, {
   persistence: getReactNativePersistence(AsyncStorage),
 });
@@ -62,8 +62,11 @@ async function signupWithEmail(name, email, password) {
       email,
       profilePicture: null,
       createdAt: serverTimestamp(),
+      stats: { followersCount: 0, followingCount: 0, postsCount: 0, contestWins: 0, averageRating: 0 },
+      preferences: { privacyLevel: 'public', notificationsEnabled: true },
     };
     await setDoc(doc(firestore, 'users', cred.user.uid), userDoc);
+    await setDoc(doc(firestore, 'counters', cred.user.uid), { followersCount: 0, followingCount: 0, postsCount: 0 }, { merge: true });
     return { success: true, user: userDoc };
   } catch (error) {
     return { success: false, error };
@@ -102,7 +105,7 @@ function onAuthChange(cb) {
   return onAuthStateChanged(auth, cb);
 }
 
-// --- Cloudinary Image Upload (replaces Firebase Storage) ---
+// --- Cloudinary Image Upload ---
 async function uploadImage(localUri) {
   try {
     const result = await uploadImageToCloudinary(localUri);
@@ -126,6 +129,7 @@ async function createOutfitDocument({ userId, imageUrl, caption = '', tags = [] 
       ratingsCount: 0,
     });
     const created = await getDoc(docRef);
+    // bump counters.postsCount - optional: Cloud Function will also keep in sync
     return { success: true, id: docRef.id, data: created.data() };
   } catch (error) {
     return { success: false, error };
@@ -134,9 +138,9 @@ async function createOutfitDocument({ userId, imageUrl, caption = '', tags = [] 
 
 async function fetchFeed({ limitCount = 12, startAfterDoc = null } = {}) {
   try {
-    let q = query(collection(firestore, 'outfits'), orderBy('createdAt', 'desc'), limit(limitCount));
-    if (startAfterDoc) q = query(collection(firestore, 'outfits'), orderBy('createdAt', 'desc'), startAfter(startAfterDoc), limit(limitCount));
-    const snap = await getDocs(q);
+    let qy = query(collection(firestore, 'outfits'), orderBy('createdAt', 'desc'), limit(limitCount));
+    if (startAfterDoc) qy = query(collection(firestore, 'outfits'), orderBy('createdAt', 'desc'), startAfter(startAfterDoc), limit(limitCount));
+    const snap = await getDocs(qy);
     const items = [];
     snap.forEach((docSnap) => {
       items.push({ id: docSnap.id, ...docSnap.data() });
@@ -148,14 +152,19 @@ async function fetchFeed({ limitCount = 12, startAfterDoc = null } = {}) {
   }
 }
 
+// FIX: server-side filter
 async function fetchUserOutfits(userId, { limitCount = 50 } = {}) {
   try {
-    const q = query(collection(firestore, 'outfits'), orderBy('createdAt', 'desc'));
-    const snap = await getDocs(q);
+    const qy = query(
+      collection(firestore, 'outfits'),
+      where('userId', '==', userId),
+      orderBy('createdAt', 'desc'),
+      limit(limitCount)
+    );
+    const snap = await getDocs(qy);
     const items = [];
     snap.forEach((docSnap) => {
-      const d = docSnap.data();
-      if (d.userId === userId) items.push({ id: docSnap.id, ...d });
+      items.push({ id: docSnap.id, ...docSnap.data() });
     });
     return { success: true, items };
   } catch (error) {
@@ -192,12 +201,10 @@ async function fetchOutfitDetails(outfitId) {
 async function submitRating({ outfitId, userId, stars, comment = '' }) {
   const ratingDocRef = doc(firestore, 'ratings', `${outfitId}_${userId}`);
   const outfitDocRef = doc(firestore, 'outfits', outfitId);
-
   try {
     await runTransaction(firestore, async (tx) => {
       const outfitSnap = await tx.get(outfitDocRef);
       if (!outfitSnap.exists()) throw new Error('Outfit not found');
-
       const outfitData = outfitSnap.data();
       const oldAvg = outfitData.averageRating || 0;
       const oldCount = outfitData.ratingsCount || 0;
@@ -207,7 +214,6 @@ async function submitRating({ outfitId, userId, stars, comment = '' }) {
 
       let newCount = oldCount;
       let newAvg = oldAvg;
-
       if (previousRating !== null) {
         const sum = oldAvg * oldCount - previousRating + stars;
         newAvg = newCount > 0 ? sum / newCount : stars;
@@ -224,13 +230,11 @@ async function submitRating({ outfitId, userId, stars, comment = '' }) {
         comment: comment || '',
         createdAt: serverTimestamp(),
       });
-
       tx.update(outfitDocRef, {
         averageRating: newAvg,
         ratingsCount: newCount,
       });
     });
-
     return { success: true };
   } catch (error) {
     console.error('submitRating error', error);
@@ -252,132 +256,122 @@ async function addComment({ outfitId, userId, comment }) {
   }
 }
 
-//contest code changes
-// NEW: list contests with filters
+// --- Contests utilities ---
 async function fbListContests({ limitCount = 20, startAfterDoc = null, status = 'active', country = 'all' } = {}) {
   try {
-  let qBase = query(collection(firestore, 'contests'), orderBy('startAt', 'desc'));
-  // Simple client filter fallback for country; you can also add where('country','==',country) when ready
-  let q = query(collection(firestore, 'contests'), orderBy('startAt', 'desc'), limit(limitCount));
-  if (startAfterDoc) q = query(collection(firestore, 'contests'), orderBy('startAt', 'desc'), startAfter(startAfterDoc), limit(limitCount));
-  
-  const snap = await getDocs(q);
-  let items = [];
-  snap.forEach((d) => items.push({ id: d.id, ...d.data() }));
+    let qBase = query(collection(firestore, 'contests'), orderBy('startAt', 'desc'));
+    let qy = query(collection(firestore, 'contests'), orderBy('startAt', 'desc'), limit(limitCount));
+    if (startAfterDoc) qy = query(collection(firestore, 'contests'), orderBy('startAt', 'desc'), startAfter(startAfterDoc), limit(limitCount));
+    const snap = await getDocs(qy);
+    let items = [];
+    snap.forEach((d) => items.push({ id: d.id, ...d.data() }));
   
   // Client filter: status/country (for now)
-  const now = Date.now();
-  items = items.filter((c) => {
-    const s = c.startAt?.seconds ? c.startAt.seconds * 1000 : (c.startAt || now);
-    const e = c.endAt?.seconds ? c.endAt.seconds * 1000 : (c.endAt || now);
-    const active = now >= s && now <= e;
-    const ended = now > e;
-    const upcoming = now < s;
-    const okStatus = status === 'active' ? active : status === 'ended' ? ended : status === 'upcoming' ? upcoming : true;
-    const okCountry = (country === 'all') || (!c.country) || c.country === country;
-    return okStatus && okCountry;
-  });
-  
-  const last = snap.docs[snap.docs.length - 1] || null;
-  return { success: true, items, last };
+    const now = Date.now();
+    items = items.filter((c) => {
+      const s = c.startAt?.seconds ? c.startAt.seconds * 1000 : (c.startAt || now);
+      const e = c.endAt?.seconds ? c.endAt.seconds * 1000 : (c.endAt || now);
+      const active = now >= s && now <= e;
+      const ended = now > e;
+      const upcoming = now < s;
+      const okStatus = status === 'active' ? active : status === 'ended' ? ended : status === 'upcoming' ? upcoming : true;
+      const okCountry = (country === 'all') || (!c.country) || c.country === country;
+      return okStatus && okCountry;
+    });
+    const last = snap.docs[snap.docs.length - 1] || null;
+    return { success: true, items, last };
   } catch (error) {
-  return { success: false, error };
+    return { success: false, error };
   }
-  }
-  
-  // NEW: fetch entries for a contest
-  async function fbFetchContestEntries({ contestId, limitCount = 24, startAfterDoc = null } = {}) {
+}
+
+async function fbFetchContestEntries({ contestId, limitCount = 24, startAfterDoc = null } = {}) {
   try {
-  let q = query(
-  collection(firestore, 'entries'),
-  where('contestId', '==', contestId),
-  orderBy('createdAt', 'desc'),
-  limit(limitCount)
-  );
-  if (startAfterDoc) {
-  q = query(
-  collection(firestore, 'entries'),
-  where('contestId', '==', contestId),
-  orderBy('createdAt', 'desc'),
-  startAfter(startAfterDoc),
-  limit(limitCount)
-  );
-  }
-  const snap = await getDocs(q);
-  const items = [];
-  snap.forEach((d) => items.push({ id: d.id, ...d.data() }));
-  const last = snap.docs[snap.docs.length - 1] || null;
-  return { success: true, items, last };
+    let qy = query(
+      collection(firestore, 'entries'),
+      where('contestId', '==', contestId),
+      orderBy('createdAt', 'desc'),
+      limit(limitCount)
+    );
+    if (startAfterDoc) {
+      qy = query(
+        collection(firestore, 'entries'),
+        where('contestId', '==', contestId),
+        orderBy('createdAt', 'desc'),
+        startAfter(startAfterDoc),
+        limit(limitCount)
+      );
+    }
+    const snap = await getDocs(qy);
+    const items = [];
+    snap.forEach((d) => items.push({ id: d.id, ...d.data() }));
+    const last = snap.docs[snap.docs.length - 1] || null;
+    return { success: true, items, last };
   } catch (error) {
-  return { success: false, error };
+    return { success: false, error };
   }
-  }
-  
-  // NEW: create entry
-  async function fbCreateEntry({ contestId, userId, imageUrl, caption = '', tags = [] }) {
+}
+
+async function fbCreateEntry({ contestId, userId, imageUrl, caption = '', tags = [] }) {
   try {
-  const docRef = await addDoc(collection(firestore, 'entries'), {
-  contestId,
-  userId,
-  imageUrl,
-  caption,
-  tags,
-  createdAt: serverTimestamp(),
-  averageRating: 0,
-  ratingsCount: 0,
-  aiFlagsCount: 0,
-  status: 'active',
-  });
-  const created = await getDoc(docRef);
-  return { success: true, id: docRef.id, data: created.data() };
+    const docRef = await addDoc(collection(firestore, 'entries'), {
+      contestId,
+      userId,
+      imageUrl,
+      caption,
+      tags,
+      createdAt: serverTimestamp(),
+      averageRating: 0,
+      ratingsCount: 0,
+      aiFlagsCount: 0,
+      status: 'active',
+    });
+    const created = await getDoc(docRef);
+    return { success: true, id: docRef.id, data: created.data() };
   } catch (error) {
-  return { success: false, error };
+    return { success: false, error };
   }
-  }
-  
+}
+
   // NEW: rate entry with transaction
-  async function fbRateEntry({ entryId, contestId, userId, rating, aiFlag = false }) {
-    try {
-      const ratingId = `${entryId}_${userId}`;
-      console.log("ratingId:", ratingId);
-      const ratingRef = doc(firestore, 'ratings', ratingId);
-      const entryRef = doc(firestore, 'entries', entryId);
-      
-    
+async function fbRateEntry({ entryId, contestId, userId, rating, aiFlag = false }) {
+  try {
+    const ratingId = `${entryId}_${userId}`;
+    const ratingRef = doc(firestore, 'ratings', ratingId);
+    const entryRef = doc(firestore, 'entries', entryId);
     let result = { newAvg: null, newCount: null, aiFlagsCount: null };
-    
+
     await runTransaction(firestore, async (tx) => {
       const entrySnap = await tx.get(entryRef);
       if (!entrySnap.exists()) throw new Error('Entry not found');
-    
       const data = entrySnap.data();
       const oldAvg = data.averageRating || 0;
       const oldCount = data.ratingsCount || 0;
       const oldAI = data.aiFlagsCount || 0;
-    
+
       const ratingSnap = await tx.get(ratingRef);
       const hadPrev = ratingSnap.exists();
       const prevRating = hadPrev ? (ratingSnap.data().rating || 0) : null;
       const prevAIFlag = hadPrev ? !!ratingSnap.data().aiFlag : false;
-    
+
       // Compute new count and sum
       let newCount = oldCount;
       let sum = oldAvg * oldCount;
-    
       if (hadPrev) {
         sum = sum - prevRating + rating;
       } else {
         sum = sum + rating;
         newCount = oldCount + 1;
       }
+
       const newAvg = newCount > 0 ? sum / newCount : 0;
-    
+
       // AI flags
       let aiFlagsCount = oldAI;
       if (prevAIFlag !== aiFlag) {
         aiFlagsCount = aiFlag ? oldAI + 1 : Math.max(0, oldAI - 1);
       }
-    
+
       // Write rating (upsert)
       tx.set(ratingRef, {
         entryId,
@@ -394,43 +388,222 @@ async function fbListContests({ limitCount = 20, startAfterDoc = null, status = 
         ratingsCount: newCount,
         aiFlagsCount,
       });
-    
       result = { newAvg, newCount, aiFlagsCount };
     });
-    
     return { success: true, ...result };
-    } catch (error) {
+  } catch (error) {
     return { success: false, error };
-    }
-    }
-  
+  }
+}
+
   
   // NEW: leaderboard for a contest (min votes)
-  async function fbFetchContestLeaderboard({ contestId, limitCount = 50, minVotes = 10 }) {
+async function fbFetchContestLeaderboard({ contestId, limitCount = 50, minVotes = 10 }) {
   try {
   // Basic approach: pull top N by createdAt window then filter client-side by minVotes and sort by averageRating
   const q = query(
-  collection(firestore, 'entries'),
-  where('contestId', '==', contestId),
-  orderBy('createdAt', 'desc'),
+      collection(firestore, 'entries'),
+      where('contestId', '==', contestId),
+      orderBy('createdAt', 'desc'),
   limit(400) // safety buffer, filtered client-side
-  );
-  const snap = await getDocs(q);
-  let items = [];
-  snap.forEach((d) => items.push({ id: d.id, ...d.data() }));
-  items = items.filter((e) => (e.ratingsCount || 0) >= minVotes && e.status !== 'flagged');
-  items.sort((a, b) => (b.averageRating || 0) - (a.averageRating || 0));
-  items = items.slice(0, limitCount);
-  return { success: true, items };
+    );
+    const snap = await getDocs(qy);
+    let items = [];
+    snap.forEach((d) => items.push({ id: d.id, ...d.data() }));
+    items = items.filter((e) => (e.ratingsCount || 0) >= minVotes && e.status !== 'flagged');
+    items.sort((a, b) => (b.averageRating || 0) - (a.averageRating || 0));
+    items = items.slice(0, limitCount);
+    return { success: true, items };
   } catch (error) {
-  return { success: false, error };
+    return { success: false, error };
   }
+}
+
+// --- Profile & social helpers ---
+async function getUserProfile(uid) {
+  try {
+    const snap = await getDoc(doc(firestore, 'users', uid));
+    if (!snap.exists()) return { success: false, error: 'User not found' };
+    const data = snap.data();
+    return { success: true, user: { uid, ...data } };
+  } catch (error) {
+    return { success: false, error };
   }
+}
+
+async function ensureUsernameUnique(username, uid) {
+  const uname = String(username || '').trim().toLowerCase();
+  if (!/^[a-z0-9._]{3,20}$/.test(uname)) return { success: false, error: 'Invalid username' };
+  const resRef = doc(firestore, 'usernames', uname);
+  try {
+    await runTransaction(firestore, async (tx) => {
+      const snap = await tx.get(resRef);
+      if (snap.exists()) {
+        const owner = snap.data()?.uid;
+        if (owner && owner !== uid) throw new Error('Username taken');
+      }
+      tx.set(resRef, { uid, updatedAt: serverTimestamp() });
+    });
+    return { success: true, username: uname };
+  } catch (error) {
+    return { success: false, error: error?.message || 'Username taken' };
+  }
+}
+
+async function updateUserProfile({ uid, data }) {
+  try {
+    // Read current to compare username only if needed
+    const curSnap = await getDoc(doc(firestore, 'users', uid));
+    const cur = curSnap.exists() ? curSnap.data() : {};
+    const next = { ...data };
+    const hasUsername = typeof next.username === 'string';
+    const normalized = hasUsername ? String(next.username || '').trim().toLowerCase() : null;
+
+    // Only enforce uniqueness if username is a non-empty value and it changed
+    if (hasUsername) {
+      if (!normalized) {
+        // If client passed empty or cleared username, remove it
+        delete next.username;
+      } else if (normalized !== (cur.username || '')) {
+        const chk = await ensureUsernameUnique(normalized, uid);
+        if (!chk.success) return chk;
+        next.username = chk.username;
+      } else {
+        // unchanged username
+        delete next.username;
+      }
+    }
+
+    const updates = { ...next, updatedAt: serverTimestamp() };
+    await updateDoc(doc(firestore, 'users', uid), updates);
+    const fresh = await getUserProfile(uid);
+    return fresh;
+  } catch (error) {
+    return { success: false, error };
+  }
+}
+
+async function setUserAvatar({ uid, imageUrl }) {
+  try {
+    await updateDoc(doc(firestore, 'users', uid), { profilePicture: imageUrl, updatedAt: serverTimestamp() });
+    return await getUserProfile(uid);
+  } catch (error) {
+    return { success: false, error };
+  }
+}
+
+async function isFollowing({ followerId, followingId }) {
+  try {
+    const fDoc = await getDoc(doc(firestore, 'follows', `${followerId}_${followingId}`));
+    return { success: true, following: fDoc.exists() };
+  } catch (error) {
+    return { success: false, error };
+  }
+}
+
+async function followUser({ followerId, followingId }) {
+  if (!followerId || !followingId || followerId === followingId) return { success: false, error: 'Invalid follow' };
+  const relRef = doc(firestore, 'follows', `${followerId}_${followingId}`);
+  const followerCounter = doc(firestore, 'counters', followingId);
+  const followingCounter = doc(firestore, 'counters', followerId);
+  try {
+    await runTransaction(firestore, async (tx) => {
+      const rel = await tx.get(relRef);
+      if (rel.exists()) return;
+      tx.set(relRef, { followerId, followingId, createdAt: serverTimestamp() });
+      const fc = await tx.get(followerCounter);
+      const mg = fc.exists() ? fc.data() : {};
+      tx.set(followerCounter, { ...mg, followersCount: (mg.followersCount || 0) + 1 }, { merge: true });
+      const fg = await tx.get(followingCounter);
+      const mg2 = fg.exists() ? fg.data() : {};
+      tx.set(followingCounter, { ...mg2, followingCount: (mg2.followingCount || 0) + 1 }, { merge: true });
+    });
+    return { success: true };
+  } catch (error) {
+    return { success: false, error };
+  }
+}
+
+async function unfollowUser({ followerId, followingId }) {
+  if (!followerId || !followingId || followerId === followingId) return { success: false, error: 'Invalid unfollow' };
+  const relRef = doc(firestore, 'follows', `${followerId}_${followingId}`);
+  const followerCounter = doc(firestore, 'counters', followingId);
+  const followingCounter = doc(firestore, 'counters', followerId);
+  try {
+    await runTransaction(firestore, async (tx) => {
+      const rel = await tx.get(relRef);
+      if (!rel.exists()) return;
+      tx.delete(relRef);
+      const fc = await tx.get(followerCounter);
+      const mg = fc.exists() ? fc.data() : {};
+      tx.set(followerCounter, { ...mg, followersCount: Math.max(0, (mg.followersCount || 0) - 1) }, { merge: true });
+      const fg = await tx.get(followingCounter);
+      const mg2 = fg.exists() ? fg.data() : {};
+      tx.set(followingCounter, { ...mg2, followingCount: Math.max(0, (mg2.followingCount || 0) - 1) }, { merge: true });
+    });
+    return { success: true };
+  } catch (error) {
+    return { success: false, error };
+  }
+}
+
+async function listFollowers({ userId, limitCount = 30, startAfterDoc = null }) {
+  try {
+    let qy = query(
+      collection(firestore, 'follows'),
+      where('followingId', '==', userId),
+      orderBy('createdAt', 'desc'),
+      limit(limitCount)
+    );
+    if (startAfterDoc) {
+      qy = query(
+        collection(firestore, 'follows'),
+        where('followingId', '==', userId),
+        orderBy('createdAt', 'desc'),
+        startAfter(startAfterDoc),
+        limit(limitCount)
+      );
+    }
+    const snap = await getDocs(qy);
+    const items = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    const last = snap.docs[snap.docs.length - 1] || null;
+    return { success: true, items, last };
+  } catch (error) {
+    return { success: false, error };
+  }
+}
+
+async function listFollowing({ userId, limitCount = 30, startAfterDoc = null }) {
+  try {
+    let qy = query(
+      collection(firestore, 'follows'),
+      where('followerId', '==', userId),
+      orderBy('createdAt', 'desc'),
+      limit(limitCount)
+    );
+    if (startAfterDoc) {
+      qy = query(
+        collection(firestore, 'follows'),
+        where('followerId', '==', userId),
+        orderBy('createdAt', 'desc'),
+        startAfter(startAfterDoc),
+        limit(limitCount)
+      );
+    }
+    const snap = await getDocs(qy);
+    const items = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    const last = snap.docs[snap.docs.length - 1] || null;
+    return { success: true, items, last };
+  } catch (error) {
+    return { success: false, error };
+  }
+}
 
 export {
   addComment, auth, createOutfitDocument,
   fetchFeed, fetchOutfitDetails, fetchUserOutfits, firestore, loginWithEmail,
-  logout, onAuthChange, sendResetEmail, signupWithEmail, submitRating, uploadImage, 
-  fbListContests, fbFetchContestEntries, fbCreateEntry, fbRateEntry, fbFetchContestLeaderboard
+  logout, onAuthChange, sendResetEmail, signupWithEmail, submitRating, uploadImage,
+  fbListContests, fbFetchContestEntries, fbCreateEntry, fbRateEntry, fbFetchContestLeaderboard,
+  getUserProfile, updateUserProfile, setUserAvatar, ensureUsernameUnique,
+  followUser, unfollowUser, isFollowing, listFollowers, listFollowing
 };
-
