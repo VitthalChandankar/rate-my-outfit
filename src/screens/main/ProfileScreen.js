@@ -1,6 +1,6 @@
-// src/screens/main/ProfileScreen.js
-// Replace your current file content with this updated version IF you want the Edit button and stats taps wired.
-// If you prefer minimal patch, merge Header section and imports only.
+//ProfileScreen: the owner’s self profile inside the MainTabs. 
+//It shows personal stats, own uploads, and provides actions like Edit Profile.
+// It assumes the current authenticated user.
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {

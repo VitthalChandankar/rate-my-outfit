@@ -142,3 +142,10 @@ rating is getting saved but not able to see other users entries
 
 
 before this change the ui and look was completely different of ProfileScreen.js. i liked the post grid view.. now added changes if required will revert to that. added changes for edit profile and other required changes. 
+
+Why two screens: ProfileScreen vs UserProfileScreen
+ProfileScreen: the owner’s self profile inside the MainTabs. It shows personal stats, own uploads, and provides actions like Edit Profile. It assumes the current authenticated user.
+
+UserProfileScreen: any other user’s profile opened by navigating with userId; it shows Follow/Unfollow and the other user’s posts, without self-only actions like Edit. Keeps responsibilities clean and route parameters explicit.
+
+Both can share subcomponents (header, stats, grid). They are separated to simplify logic, permissions, and navigation flows (self vs other). In the future, you can unify into a single Profile screen that switches modes based on route.userId === authed uid, but keeping two screens is common for clarity.

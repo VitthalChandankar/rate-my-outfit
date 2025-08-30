@@ -1,4 +1,8 @@
 // src/screens/profile/UserProfileScreen.js
+
+// UserProfileScreen: any other user’s profile opened by navigating with userId; it shows Follow/Unfollow and the other user’s posts,
+// without self-only actions like Edit. Keeps responsibilities clean and route parameters explicit.
+
 import React, { useEffect, useState } from 'react';
 import { Alert, StyleSheet, Text, View, FlatList, Pressable } from 'react-native';
 import { Image as ExpoImage } from 'expo-image';

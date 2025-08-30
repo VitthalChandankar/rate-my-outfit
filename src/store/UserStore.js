@@ -1,5 +1,7 @@
 // src/store/UserStore.js
 import { create } from 'zustand';
+import { doc, onSnapshot } from 'firebase/firestore';
+import { firestore } from '../services/firebase';
 import {
   getUserProfile, updateUserProfile, setUserAvatar,
   followUser, unfollowUser, isFollowing,
@@ -11,6 +13,7 @@ const useUserStore = create((set, get) => ({
   profilesById: {},
   loading: false,
   updating: false,
+  _unsubProfile: null,
 
   followers: [],
   following: [],
@@ -19,6 +22,23 @@ const useUserStore = create((set, get) => ({
   followersHasMore: true,
   followingHasMore: true,
   relCache: {},
+
+  subscribeMyProfile: (uid) => {
+    // Unsubscribe previous
+    const prev = get()._unsubProfile;
+    if (prev) { try { prev(); } catch {} }
+
+    if (!uid) return;
+    const unsub = onSnapshot(doc(firestore, 'users', uid), (snap) => {
+      if (snap.exists()) {
+        const user = { uid, ...snap.data() };
+        const profilesById = { ...get().profilesById, [uid]: user };
+        set({ myProfile: user, profilesById });
+      }
+    });
+    set({ _unsubProfile: unsub });
+    return unsub;
+  },
 
   loadMyProfile: async (uid) => {
     if (!uid) return;

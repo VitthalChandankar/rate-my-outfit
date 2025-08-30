@@ -485,7 +485,9 @@ async function updateUserProfile({ uid, data }) {
 
 async function setUserAvatar({ uid, imageUrl }) {
   try {
-    await updateDoc(doc(firestore, 'users', uid), { profilePicture: imageUrl, updatedAt: serverTimestamp() });
+    // Add a cache-busting version param so clients refresh the image
+    const withVer = imageUrl.includes('?') ? `${imageUrl}&v=${Date.now()}` : `${imageUrl}?v=${Date.now()}`;
+    await updateDoc(doc(firestore, 'users', uid), { profilePicture: withVer, updatedAt: serverTimestamp() });
     return await getUserProfile(uid);
   } catch (error) {
     return { success: false, error };
