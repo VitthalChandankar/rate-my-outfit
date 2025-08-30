@@ -24,19 +24,17 @@ const useUserStore = create((set, get) => ({
   relCache: {},
 
   subscribeMyProfile: (uid) => {
-    // Unsubscribe previous
-    const prev = get()._unsubProfile;
+    const prev = useUserStore.getState()._unsubProfile;
     if (prev) { try { prev(); } catch {} }
-
     if (!uid) return;
     const unsub = onSnapshot(doc(firestore, 'users', uid), (snap) => {
       if (snap.exists()) {
         const user = { uid, ...snap.data() };
-        const profilesById = { ...get().profilesById, [uid]: user };
-        set({ myProfile: user, profilesById });
+        const { profilesById } = useUserStore.getState();
+        useUserStore.setState({ myProfile: user, profilesById: { ...profilesById, [uid]: user } });
       }
     });
-    set({ _unsubProfile: unsub });
+    useUserStore.setState({ _unsubProfile: unsub });
     return unsub;
   },
 

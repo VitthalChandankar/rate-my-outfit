@@ -66,17 +66,27 @@ function MainTabs() {
 
 export default function AppNavigator() {
   const { loading, initializeAuth, isAuthenticated, user } = useAuthStore();
-  const { loadMyProfile } = useUserStore();
+  const { loadMyProfile, subscribeMyProfile } = useUserStore();
 
   useEffect(() => {
     initializeAuth();
   }, [initializeAuth]);
 
-  // Normalize profile data after auth ready (important: use myProfile for UI)
+  // Hydrate normalized profile once user is present
   useEffect(() => {
     const uid = user?.uid || user?.user?.uid;
-    if (uid) loadMyProfile(uid);
-  }, [user, loadMyProfile]);
+    if (uid) {
+      // One-time load for immediate data
+      loadMyProfile(uid);
+      // Real-time subscription to users/{uid}
+      const unsub = subscribeMyProfile(uid);
+      return () => {
+        if (typeof unsub === 'function') {
+          try { unsub(); } catch {}
+        }
+      };
+    }
+  }, [user, loadMyProfile, subscribeMyProfile]);
 
   if (loading) {
     return (
