@@ -1,7 +1,6 @@
 // src/screens/main/ProfileScreen.js
-// Premium profile UI: gradient header, avatar with gradient ring, pill stats,
-// glossy segmented bar, refined actions (Edit/Share/Logout), and crisp 3-col grid.
-
+// Premium self profile: gradient header, avatar ring, clean stats row (no boxes),
+// segmented control, crisp grid, and actions (Edit/Share/Logout) for the signed-in user.
 //ProfileScreen: the owner’s self profile inside the MainTabs. 
 //It shows personal stats, own uploads, and provides actions like Edit Profile.
 // It assumes the current authenticated user.
@@ -21,7 +20,7 @@ import {
   FlatList,
 } from 'react-native';
 import { Image as ExpoImage } from 'expo-image';
-import { Button, Surface } from 'react-native-paper';
+import { Button } from 'react-native-paper';
 import useAuthStore from '../../store/authStore';
 import useOutfitStore from '../../store/outfitStore';
 import useUserStore from '../../store/UserStore';
@@ -85,7 +84,7 @@ export default function ProfileScreen({ navigation }) {
 
   const SegBar = () => {
     const idx = { posts: 0, achievements: 1, contests: 2 }[tab] ?? 0;
-    const IND_W = (width - OUTER_PAD * 2 - 8) / 3; // fits container
+    const IND_W = (width - OUTER_PAD * 2 - 8) / 3;
     const anim = useRef(new Animated.Value(idx)).current;
     useEffect(() => {
       Animated.timing(anim, { toValue: idx, duration: 240, easing: Easing.out(Easing.quad), useNativeDriver: false }).start();
@@ -114,46 +113,45 @@ export default function ProfileScreen({ navigation }) {
 
   const Header = () => (
     <View style={styles.header}>
-      {/* Gradient header backdrop */}
+      {/* Gradient header background */}
       <View style={styles.headerBg}>
         <View style={styles.gradA} />
         <View style={styles.gradB} />
       </View>
 
       <View style={styles.headerRow}>
-        {/* Avatar with gradient ring */}
         <View style={styles.avatarRing}>
-          <Avatar uri={myProfile?.profilePicture} size={92} ring />
+          <Avatar uri={myProfile?.profilePicture} size={96} ring />
         </View>
 
-        {/* Pill stats */}
+        {/* Stats in plain row, Instagram-like */}
         <View style={styles.statsRow}>
-          <Pressable onPress={() => navigation.navigate('Followers', { userId: uid })} style={({ pressed }) => [styles.pill, pressed && { opacity: 0.9 }]}>
-            <Text style={styles.pillValue}>{myProfile?.stats?.followersCount || 0}</Text>
-            <Text style={styles.pillLabel}>Followers</Text>
+          <Pressable onPress={() => navigation.navigate('Followers', { userId: uid })} style={styles.statBlock}>
+            <Text style={styles.statValue}>{myProfile?.stats?.followersCount || 0}</Text>
+            <Text style={styles.statLabel}>Followers</Text>
           </Pressable>
-          <Pressable onPress={() => navigation.navigate('Following', { userId: uid })} style={({ pressed }) => [styles.pill, pressed && { opacity: 0.9 }]}>
-            <Text style={styles.pillValue}>{myProfile?.stats?.followingCount || 0}</Text>
-            <Text style={styles.pillLabel}>Following</Text>
+          <Pressable onPress={() => navigation.navigate('Following', { userId: uid })} style={styles.statBlock}>
+            <Text style={styles.statValue}>{myProfile?.stats?.followingCount || 0}</Text>
+            <Text style={styles.statLabel}>Following</Text>
           </Pressable>
-          <View style={styles.pill}>
-            <Text style={styles.pillValue}>{postsCount}</Text>
-            <Text style={styles.pillLabel}>Posts</Text>
+          <View style={styles.statBlock}>
+            <Text style={styles.statValue}>{postsCount}</Text>
+            <Text style={styles.statLabel}>Posts</Text>
           </View>
         </View>
       </View>
 
-      {/* Name / username / bio */}
+      {/* Identity */}
       <Text style={styles.name}>{myProfile?.name || myProfile?.displayName || 'Your Name'}</Text>
       {!!myProfile?.username && <Text style={styles.username}>@{myProfile.username}</Text>}
       {!!myProfile?.bio && <Text style={styles.bio}>{myProfile.bio}</Text>}
 
-      {/* Actions */}
+      {/* Actions for self only */}
       <View style={styles.actionsRow}>
         <Button mode="contained" onPress={() => navigation.navigate('EditProfile')} style={styles.actionMain} labelStyle={styles.actionMainText}>
           Edit Profile
         </Button>
-        <Button mode="elevated" onPress={() => { /* TODO: share */ }} style={styles.actionGhost} labelStyle={styles.actionGhostText}>
+        <Button mode="elevated" onPress={() => {}} style={styles.actionGhost} labelStyle={styles.actionGhostText}>
           Share
         </Button>
         <Button mode="outlined" onPress={logout} style={styles.actionGhost} labelStyle={styles.actionGhostText}>
@@ -161,7 +159,6 @@ export default function ProfileScreen({ navigation }) {
         </Button>
       </View>
 
-      {/* Segmented control */}
       <SegBar />
       <View style={{ height: 8 }} />
     </View>
@@ -195,7 +192,6 @@ export default function ProfileScreen({ navigation }) {
     [navigation]
   );
 
-  // Simple placeholders for Achievements/Contests tabs (wire real data later)
   const AchievementsEmpty = () => (
     <View style={styles.emptyWrap}>
       <Text style={styles.emptyTitle}>No achievements yet</Text>
@@ -271,37 +267,22 @@ const styles = StyleSheet.create({
     transform: [{ skewY: '5deg' }],
   },
   headerRow: { flexDirection: 'row', alignItems: 'center', marginTop: 8 },
-  avatarRing: {
-    padding: 3,
-    borderRadius: 52,
-    backgroundColor: '#EDE7FF',
-  },
-  statsRow: { flexDirection: 'row', marginLeft: 'auto', gap: 10, paddingRight: 2 },
-  pill: {
-    backgroundColor: '#F7F7FB',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 12,
-    alignItems: 'center',
-    minWidth: 84,
-  },
-  pillValue: { fontWeight: '900', color: '#111827', fontSize: 16 },
-  pillLabel: { color: '#6B7280', marginTop: 2, fontSize: 12 },
+  avatarRing: { padding: 3, borderRadius: 52, backgroundColor: '#EDE7FF' },
+  statsRow: { flexDirection: 'row', marginLeft: 'auto', gap: 16, paddingRight: 2 },
+  statBlock: { alignItems: 'center' },
+  statValue: { fontWeight: '900', color: '#111827', fontSize: 18, textAlign: 'center' },
+  statLabel: { color: '#6B7280', marginTop: 2, fontSize: 12, textAlign: 'center' },
+
   name: { fontWeight: '900', color: '#111827', fontSize: 20, marginTop: 12, letterSpacing: -0.2 },
   username: { color: '#6B7280', marginTop: 4, fontWeight: '700' },
   bio: { marginTop: 6, color: '#4B5563' },
+
   actionsRow: { flexDirection: 'row', gap: 10, marginTop: 12 },
-  actionMain: {
-    flex: 1,
-    borderRadius: 12,
-    backgroundColor: '#7A5AF8',
-  },
+  actionMain: { flex: 1, borderRadius: 12, backgroundColor: '#7A5AF8' },
   actionMainText: { color: '#fff', fontWeight: '900', letterSpacing: 0.2 },
-  actionGhost: {
-    flex: 1,
-    borderRadius: 12,
-  },
+  actionGhost: { flex: 1, borderRadius: 12 },
   actionGhostText: { fontWeight: '800' },
+
   segmentWrap: {
     marginTop: 16,
     width: width - OUTER_PAD * 2,

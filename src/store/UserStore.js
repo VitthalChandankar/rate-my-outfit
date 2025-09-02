@@ -1,4 +1,4 @@
-// src/store/UserStore.js
+// src/store/userStore.js
 import { create } from 'zustand';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { firestore } from '../services/firebase';
@@ -13,46 +13,70 @@ const useUserStore = create((set, get) => ({
   profilesById: {},
   loading: false,
   updating: false,
+
+  // live subscription handle
   _unsubProfile: null,
 
+  // social lists
   followers: [],
   following: [],
   followersLast: null,
   followingLast: null,
   followersHasMore: true,
   followingHasMore: true,
+
+  // relationship cache
   relCache: {},
 
+  // Subscribe to the current user's profile doc for real-time updates
   subscribeMyProfile: (uid) => {
-    const prev = useUserStore.getState()._unsubProfile;
-    if (prev) { try { prev(); } catch {} }
+    // Unsubscribe any previous listener
+    const prev = get()._unsubProfile;
+    if (typeof prev === 'function') {
+      try { prev(); } catch {}
+    }
     if (!uid) return;
-    const unsub = onSnapshot(doc(firestore, 'users', uid), (snap) => {
-      if (snap.exists()) {
-        const user = { uid, ...snap.data() };
-        const { profilesById } = useUserStore.getState();
-        useUserStore.setState({ myProfile: user, profilesById: { ...profilesById, [uid]: user } });
+
+    const unsub = onSnapshot(
+      doc(firestore, 'users', uid),
+      (snap) => {
+        if (snap.exists()) {
+          const user = { uid, ...snap.data() };
+          const { profilesById } = get();
+          set({ myProfile: user, profilesById: { ...profilesById, [uid]: user } });
+        }
+      },
+      (err) => {
+        console.warn('subscribeMyProfile snapshot error:', err?.message || err);
       }
-    });
-    useUserStore.setState({ _unsubProfile: unsub });
+    );
+
+    set({ _unsubProfile: unsub });
     return unsub;
   },
 
+  // One-time load of the current user's profile
   loadMyProfile: async (uid) => {
     if (!uid) return;
     set({ loading: true });
     const res = await getUserProfile(uid);
-    if (res.success) set({ myProfile: res.user, profilesById: { ...get().profilesById, [uid]: res.user } });
+    if (res.success) {
+      set({ myProfile: res.user, profilesById: { ...get().profilesById, [uid]: res.user } });
+    }
     set({ loading: false });
     return res;
   },
 
+  // Load any other user's profile into profilesById (does NOT touch myProfile)
   loadUserProfile: async (uid) => {
     const res = await getUserProfile(uid);
-    if (res.success) set({ profilesById: { ...get().profilesById, [uid]: res.user } });
+    if (res.success) {
+      set({ profilesById: { ...get().profilesById, [uid]: res.user } });
+    }
     return res;
   },
 
+  // Update current user's profile (partial updates supported; username optional)
   updateProfile: async (uid, data) => {
     if (!uid) return { success: false, error: 'No uid' };
     set({ updating: true });
@@ -66,6 +90,7 @@ const useUserStore = create((set, get) => ({
     return res;
   },
 
+  // Update current user's avatar; service should append cache-busting query param
   setAvatar: async (uid, imageUrl) => {
     if (!uid) return { success: false, error: 'No uid' };
     set({ updating: true });
@@ -79,6 +104,7 @@ const useUserStore = create((set, get) => ({
     return res;
   },
 
+  // Follow/unfollow helpers; keep local relation cache
   follow: async (followerId, followingId) => {
     const res = await followUser({ followerId, followingId });
     if (res.success) set({ relCache: { ...get().relCache, [`${followerId}_${followingId}`]: true } });
@@ -100,6 +126,7 @@ const useUserStore = create((set, get) => ({
     return res;
   },
 
+  // Followers/following pagination
   fetchFollowers: async ({ userId, reset = false, limit = 30 }) => {
     const last = reset ? null : get().followersLast;
     const res = await listFollowers({ userId, limitCount: limit, startAfterDoc: last });
@@ -108,7 +135,7 @@ const useUserStore = create((set, get) => ({
     set({
       followers: next,
       followersLast: res.last,
-      followersHasMore: !!res.last
+      followersHasMore: !!res.last,
     });
     return res;
   },
@@ -121,9 +148,29 @@ const useUserStore = create((set, get) => ({
     set({
       following: next,
       followingLast: res.last,
-      followingHasMore: !!res.last
+      followingHasMore: !!res.last,
     });
     return res;
+  },
+
+  // Optional: clear state on logout (can be called from auth store on logout)
+  clearMyProfile: () => {
+    const prev = get()._unsubProfile;
+    if (typeof prev === 'function') {
+      try { prev(); } catch {}
+    }
+    set({
+      myProfile: null,
+      profilesById: {},
+      followers: [],
+      following: [],
+      followersLast: null,
+      followingLast: null,
+      followersHasMore: true,
+      followingHasMore: true,
+      relCache: {},
+      _unsubProfile: null,
+    });
   },
 }));
 

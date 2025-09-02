@@ -1,10 +1,9 @@
 // src/screens/profile/UserProfileScreen.js
+// Public profile for other users: Follow/Unfollow, no Edit button, Instagram-like stats row,
+// clean header and grid. No boxes around stats.
 
-// UserProfileScreen: any other user’s profile opened by navigating with userId; it shows Follow/Unfollow and the other user’s posts,
-// without self-only actions like Edit. Keeps responsibilities clean and route parameters explicit.
-
-import React, { useEffect, useState } from 'react';
-import { Alert, StyleSheet, Text, View, FlatList, Pressable } from 'react-native';
+import React, { useEffect, useState, useMemo } from 'react';
+import { Alert, StyleSheet, Text, View, FlatList, Pressable, Dimensions } from 'react-native';
 import { Image as ExpoImage } from 'expo-image';
 import * as Haptics from 'expo-haptics';
 import useAuthStore from '../../store/authStore';
@@ -12,12 +11,19 @@ import useUserStore from '../../store/UserStore';
 import useOutfitStore from '../../store/outfitStore';
 import Avatar from '../../components/Avatar';
 
+const { width } = Dimensions.get('window');
+const OUTER_PAD = 16;
+const COLS = 3;
+const GAP = 4;
+
 export default function UserProfileScreen({ route, navigation }) {
   const { userId } = route.params || {};
   const { user } = useAuthStore();
   const authedId = user?.uid || user?.user?.uid;
+
   const { loadUserProfile, profilesById, isFollowing, follow, unfollow } = useUserStore();
   const profile = profilesById[userId];
+
   const { fetchUserOutfits } = useOutfitStore();
   const [posts, setPosts] = useState([]);
   const [loadingPosts, setLoadingPosts] = useState(true);
@@ -46,6 +52,10 @@ export default function UserProfileScreen({ route, navigation }) {
     })();
   }, [userId, fetchUserOutfits]);
 
+  const tileSize = useMemo(() => {
+    return Math.floor((width - OUTER_PAD * 2 - GAP * (COLS - 1)) / COLS);
+  }, []);
+
   const onToggleFollow = async () => {
     if (!authedId) return Alert.alert('Sign in', 'Please sign in to follow');
     if (authedId === userId) return;
@@ -59,57 +69,58 @@ export default function UserProfileScreen({ route, navigation }) {
     Haptics.selectionAsync();
   };
 
-  const tileSize = 118;
-
   return (
     <FlatList
       data={posts}
       keyExtractor={(it) => String(it.id)}
       numColumns={3}
-      contentContainerStyle={{ paddingHorizontal: 12, paddingBottom: 24 }}
+      contentContainerStyle={{ paddingHorizontal: OUTER_PAD, paddingBottom: 24 }}
       ListHeaderComponent={
         <View style={styles.header}>
-          <View style={{ position: 'absolute', left: 0, right: 0, top: 0, height: 140, backgroundColor: '#F8F7FB' }} />
-          <View style={styles.row}>
-            <Avatar uri={profile?.profilePicture} size={92} ring />
-            <View style={styles.stats}>
-              <View style={styles.statItem}>
+          <View style={styles.headerRow}>
+            <View style={styles.avatarRing}>
+              <Avatar uri={profile?.profilePicture} size={96} ring />
+            </View>
+            <View style={styles.statsRow}>
+              <Pressable onPress={() => navigation.navigate('Followers', { userId })} style={styles.statBlock}>
                 <Text style={styles.statValue}>{profile?.stats?.followersCount || 0}</Text>
                 <Text style={styles.statLabel}>Followers</Text>
-              </View>
-              <View style={styles.statItem}>
+              </Pressable>
+              <Pressable onPress={() => navigation.navigate('Following', { userId })} style={styles.statBlock}>
                 <Text style={styles.statValue}>{profile?.stats?.followingCount || 0}</Text>
                 <Text style={styles.statLabel}>Following</Text>
-              </View>
-              <View style={styles.statItem}>
+              </Pressable>
+              <View style={styles.statBlock}>
                 <Text style={styles.statValue}>{profile?.stats?.postsCount || posts.length}</Text>
                 <Text style={styles.statLabel}>Posts</Text>
               </View>
             </View>
           </View>
+
           <Text style={styles.name}>{profile?.name || profile?.displayName || 'User'}</Text>
           {!!profile?.username && <Text style={styles.username}>@{profile.username}</Text>}
           {!!profile?.bio && <Text style={styles.bio}>{profile.bio}</Text>}
 
           {authedId !== userId && (
-            <Pressable onPress={onToggleFollow} style={({ pressed }) => [styles.followBtn, pressed && { opacity: 0.9, transform: [{ scale: 0.99 }] }]}>
+            <Pressable onPress={onToggleFollow} style={({ pressed }) => [styles.followBtn, pressed && { opacity: 0.9 }]}>
               <Text style={styles.followText}>{rel ? 'Following' : 'Follow'}</Text>
             </Pressable>
           )}
         </View>
       }
       renderItem={({ item, index }) => {
-        const isEndOfRow = (index + 1) % 3 === 0;
+        const isEndOfRow = (index + 1) % COLS === 0;
         return (
           <Pressable
             onPress={() => navigation.navigate('OutfitDetails', { outfitId: item.id })}
             style={({ pressed }) => [
               styles.gridItem,
-              !isEndOfRow && { marginRight: 3 },
-              pressed && { transform: [{ scale: 0.99 }] }
+              { width: tileSize, height: tileSize },
+              !isEndOfRow && { marginRight: GAP },
+              pressed && { transform: [{ scale: 0.985 }] }
             ]}
           >
-            <ExpoImage source={{ uri: item.imageUrl }} style={{ width: tileSize, height: tileSize }} contentFit="cover" transition={250} />
+            <ExpoImage source={{ uri: item.imageUrl }} style={{ width: '100%', height: '100%' }} contentFit="cover" transition={250} />
           </Pressable>
         );
       }}
@@ -119,16 +130,32 @@ export default function UserProfileScreen({ route, navigation }) {
 }
 
 const styles = StyleSheet.create({
-  header: { paddingHorizontal: 12, paddingTop: 12, paddingBottom: 8, backgroundColor: '#fff' },
-  row: { flexDirection: 'row', alignItems: 'center', marginTop: 8 },
-  stats: { flexDirection: 'row', marginLeft: 'auto', gap: 20, paddingRight: 4 },
-  statItem: { alignItems: 'center' },
-  statValue: { fontWeight: '900', color: '#111827' },
+  header: { paddingTop: 12, backgroundColor: '#fff', paddingBottom: 8 },
+  headerRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: OUTER_PAD, marginTop: 8 },
+  avatarRing: { padding: 3, borderRadius: 52, backgroundColor: '#EDE7FF' },
+  statsRow: { flexDirection: 'row', marginLeft: 'auto', gap: 16, paddingRight: 2 },
+  statBlock: { alignItems: 'center' },
+  statValue: { fontWeight: '900', color: '#111827', fontSize: 18 },
   statLabel: { color: '#6B7280', marginTop: 2, fontSize: 12 },
-  name: { fontWeight: '900', color: '#111827', fontSize: 18, marginTop: 8 },
-  username: { color: '#6B7280', marginTop: 2, fontWeight: '700' },
-  bio: { marginTop: 6, color: '#4B5563' },
-  followBtn: { marginTop: 12, backgroundColor: '#7A5AF8', paddingVertical: 10, borderRadius: 10, alignItems: 'center' },
+
+  name: { fontWeight: '900', color: '#111827', fontSize: 20, marginTop: 12, paddingHorizontal: OUTER_PAD },
+  username: { color: '#6B7280', marginTop: 4, fontWeight: '700', paddingHorizontal: OUTER_PAD },
+  bio: { marginTop: 6, color: '#4B5563', paddingHorizontal: OUTER_PAD },
+
+  followBtn: {
+    marginTop: 12,
+    marginHorizontal: OUTER_PAD,
+    backgroundColor: '#7A5AF8',
+    paddingVertical: 10,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
   followText: { color: '#fff', fontWeight: '900' },
-  gridItem: { borderRadius: 10, overflow: 'hidden', backgroundColor: '#F2F2F7', marginTop: 3 },
+
+  gridItem: {
+    borderRadius: 12,
+    overflow: 'hidden',
+    backgroundColor: '#F2F2F7',
+    marginTop: 6,
+  },
 });

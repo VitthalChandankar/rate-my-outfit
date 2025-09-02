@@ -1,4 +1,6 @@
 // src/screens/profile/FollowersScreen.js
+// Instagram-like list: simple rows, no boxes.
+
 import React, { useEffect, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import useUserStore from '../../store/UserStore';
@@ -30,12 +32,13 @@ export default function FollowersScreen({ route, navigation }) {
           </View>
         </Pressable>
       )}
+      ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
     />
   );
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#eee' },
+  row: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10 },
   name: { fontWeight: '700', color: '#111' },
   sub: { color: '#777', marginTop: 2, fontSize: 12 },
 });
