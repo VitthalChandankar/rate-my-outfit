@@ -7,6 +7,7 @@ import { useIsFocused, useNavigation } from '@react-navigation/native';
 
 import useAuthStore from '../../store/authStore';
 import useOutfitStore from '../../store/outfitStore';
+import useUserStore from '../../store/UserStore';
 import OutfitCard from '../../components/OutfitCard';
 
 function ensureKey(item) {
@@ -31,6 +32,8 @@ export default function HomeScreen() {
   const authedUid = authedUser?.uid || authedUser?.user?.uid || null;
 
   const feed = useOutfitStore((s) => s.feed);
+  const toggleLike = useOutfitStore((s) => s.toggleLike);
+  const myLikedIds = useUserStore((s) => s.myLikedIds);
   const fetchFeed = useOutfitStore((s) => s.fetchFeed);
   const loading = useOutfitStore((s) => s.loading);
   const refreshing = useOutfitStore((s) => s.refreshing);
@@ -57,10 +60,17 @@ export default function HomeScreen() {
     if (!loading && lastDoc) fetchFeed({ limit: 12, reset: false });
   }, [loading, lastDoc, fetchFeed]);
 
+  const handleLike = useCallback((outfitId) => {
+    if (!authedUid || !outfitId) return;
+    toggleLike(outfitId, authedUid);
+  }, [authedUid, toggleLike]);
+
   const handleOpen = useCallback((post) => {
     if (!post?.id) return;
-    navigation.navigate('OutfitDetails', { outfitId: post.id });
-  }, [navigation]);
+    const isContest = post.type === 'contest' || !!post.contestId;
+    if (isContest) handleRate(post);
+    else navigation.navigate('OutfitDetails', { outfitId: post.id });
+  }, [navigation, handleRate]);
 
   const handleRate = useCallback((post) => {
     // Navigate to RateEntryScreen with normalized payload
@@ -110,7 +120,9 @@ export default function HomeScreen() {
           item={item}
           onPress={handleOpen}
           onRate={handleRate}
+          onLike={handleLike}
           onUserPress={handleUserPress}
+          isLiked={myLikedIds.has(item.id)}
         />
       )}
       refreshControl={<RefreshControl refreshing={!!refreshing} onRefresh={onRefresh} />}

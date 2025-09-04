@@ -21,6 +21,7 @@ import {
   unfollowUser,        // kept for fallback
   isFollowing as svcIsFollowing,
   listFollowers,
+  fetchMyLikedOutfitIds,
   listFollowing,
 } from '../services/firebase';
 
@@ -46,6 +47,9 @@ const useUserStore = create((set, get) => ({
 
   // relationship cache (followerId_followingId -> boolean)
   relCache: {},
+
+  // Set of outfit IDs the user has liked
+  myLikedIds: new Set(),
 
   // Subscribe to the current user's profile doc for real-time updates
   subscribeMyProfile: (uid) => {
@@ -122,6 +126,22 @@ const useUserStore = create((set, get) => ({
     return res;
   },
 
+  // Hydrate the set of liked outfit IDs for the logged-in user
+  hydrateMyLikes: async (uid) => {
+    if (!uid) return;
+    const res = await fetchMyLikedOutfitIds(uid);
+    if (res.success) {
+      set({ myLikedIds: new Set(res.ids) });
+    }
+  },
+
+  // Client-side toggle for immediate UI feedback
+  toggleLikedId: (outfitId) => {
+    const current = get().myLikedIds;
+    if (current.has(outfitId)) current.delete(outfitId);
+    else current.add(outfitId);
+    set({ myLikedIds: new Set(current) });
+  },
   // Relationship check with cache
   isFollowing: async (followerId, followingId) => {
     const key = relIdOf(followerId, followingId);

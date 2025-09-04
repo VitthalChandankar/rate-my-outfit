@@ -4,6 +4,7 @@
 
 import React, { useMemo, memo } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View, Pressable } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { Image as ExpoImage } from 'expo-image';
 import formatDate from '../utils/formatDate';
 import { withCloudinaryTransforms, IMG_FEED } from '../utils/cloudinaryUrl';
@@ -17,7 +18,7 @@ function AvatarCircle({ uri, name }) {
   );
 }
 
-function OutfitCard({ item, onPress, onRate, onUserPress }) {
+function OutfitCard({ item, onPress, onRate, onUserPress, onLike, isLiked }) {
   const raw = item || null;
   if (!raw) return null;
 
@@ -27,6 +28,7 @@ function OutfitCard({ item, onPress, onRate, onUserPress }) {
   const type = raw.type || (raw.contestId ? 'contest' : 'normal');
   const isContest = type === 'contest';
   const averageRating = Number(raw.averageRating ?? 0) || 0;
+  const likesCount = Number(raw.likesCount ?? 0) || 0;
 
   const user = raw.user || {};
   const userId = raw.userId || user.uid || '';
@@ -47,6 +49,7 @@ function OutfitCard({ item, onPress, onRate, onUserPress }) {
 
   const handleOpen = () => { if (typeof onPress === 'function') onPress({ ...raw, id }); };
   const handleRate = () => { if (typeof onRate === 'function') onRate({ ...raw, id }); };
+  const handleLike = () => { if (typeof onLike === 'function') onLike(id); };
 
   const handleUserTap = () => {
     if (typeof onUserPress === 'function') {
@@ -98,9 +101,17 @@ function OutfitCard({ item, onPress, onRate, onUserPress }) {
       {/* Footer actions */}
       <View style={styles.footer}>
         <View style={styles.actionsLeft}>
-          <TouchableOpacity style={styles.action}><Text>❤</Text></TouchableOpacity>
-          <TouchableOpacity style={styles.action}><Text>💬</Text></TouchableOpacity>
-          <TouchableOpacity style={styles.action}><Text>↗</Text></TouchableOpacity>
+          {!isContest && (
+            <TouchableOpacity style={styles.action} onPress={handleLike}>
+              <Ionicons name={isLiked ? 'heart' : 'heart-outline'} size={26} color={isLiked ? '#FF3B30' : '#111'} />
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity style={styles.action}>
+            <Ionicons name="chatbubble-outline" size={24} color="#111" />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.action}>
+            <Ionicons name="arrow-redo-outline" size={24} color="#111" />
+          </TouchableOpacity>
         </View>
         <View style={{ marginLeft: 'auto' }}>
           {isContest ? <Text style={styles.avgRating}>Avg {averageRating.toFixed(1)}</Text> : null}
@@ -108,7 +119,12 @@ function OutfitCard({ item, onPress, onRate, onUserPress }) {
       </View>
 
       {/* Caption (only for normal posts) */}
-      {!isContest && !!caption && <Text style={{ paddingHorizontal: 12, paddingBottom: 12, color: '#333' }}>{caption}</Text>}
+      {!isContest && (
+        <View style={{ paddingHorizontal: 12, paddingBottom: 12 }}>
+          {likesCount > 0 && <Text style={styles.likesText}>{likesCount.toLocaleString()} {likesCount === 1 ? 'like' : 'likes'}</Text>}
+          {!!caption && <Text style={styles.captionText}>{caption}</Text>}
+        </View>
+      )}
     </View>
   );
 }
@@ -141,6 +157,8 @@ const styles = StyleSheet.create({
   actionsLeft: { flexDirection: 'row', gap: 14 },
   action: { paddingHorizontal: 6, paddingVertical: 4 },
   avgRating: { fontWeight: '900', color: '#111' },
+  likesText: { fontWeight: '800', color: '#111', marginBottom: 4 },
+  captionText: { color: '#333' },
 
   avatar: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#EEE' },
   avatarFallback: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#7A5AF8', alignItems: 'center', justifyContent: 'center' },

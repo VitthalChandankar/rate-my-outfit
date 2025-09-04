@@ -66,7 +66,7 @@ function MainTabs() {
 
 export default function AppNavigator() {
   const { loading, initializeAuth, isAuthenticated, user } = useAuthStore();
-  const { loadMyProfile, subscribeMyProfile } = useUserStore();
+  const { loadMyProfile, subscribeMyProfile, hydrateMyLikes } = useUserStore();
 
   useEffect(() => {
     initializeAuth();
@@ -79,6 +79,7 @@ export default function AppNavigator() {
       // One-time load for immediate data
       loadMyProfile(uid);
       // Real-time subscription to users/{uid}
+      hydrateMyLikes(uid);
       const unsub = subscribeMyProfile(uid);
       return () => {
         if (typeof unsub === 'function') {
@@ -86,7 +87,7 @@ export default function AppNavigator() {
         }
       };
     }
-  }, [user, loadMyProfile, subscribeMyProfile]);
+  }, [user, loadMyProfile, subscribeMyProfile, hydrateMyLikes]);
 
   if (loading) {
     return (
