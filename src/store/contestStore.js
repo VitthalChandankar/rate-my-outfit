@@ -13,6 +13,7 @@ import {
 import { doc, getDoc } from 'firebase/firestore';
 import useAuthStore from './authStore';
 import useUserStore from './UserStore';
+import useOutfitStore from './outfitStore'; // ADDED: to update main feed state
 
 // Generic helper to enrich items (entries, leaderboard rows) with user data
 async function enrichItemsWithUserData(items) {
@@ -153,6 +154,22 @@ const useContestStore = create((set, get) => ({
 
     const res = await fbCreateEntry({ contestId, userId: user.uid, imageUrl, caption, tags, userMeta });
     if (res.success) {
+      // ALSO create a copy in the 'outfits' collection for the main feed by calling the dedicated store function
+      try {
+        const { addRemoteOutfitToFeed } = useOutfitStore.getState();
+        await addRemoteOutfitToFeed({
+          userId: user.uid,
+          imageUrl,
+          caption,
+          tags,
+          userMeta,
+          type: 'contest',
+          contestId,
+        });
+      } catch (e) {
+        console.warn('Failed to duplicate contest entry to main feed:', e);
+      }
+
       // Optimistically prepend to entries list
       const bag = get().entries[contestId] || { items: [], last: null, hasMore: true, loading: false, refreshing: false };
       // Ensure the optimistic item has the same shape as an enriched one

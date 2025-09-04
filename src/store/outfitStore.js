@@ -84,6 +84,32 @@ const useOutfitStore = create((set, get) => ({
     }
   },
 
+  // NEW: Create an outfit post when the image URL is already known (e.g., from a contest entry)
+  addRemoteOutfitToFeed: async ({ userId, imageUrl, caption, tags, userMeta, type, contestId }) => {
+    if (!userId || !imageUrl) return { success: false, error: 'Missing userId or imageUrl' };
+    try {
+      const create = await createOutfitDocument({
+        userId,
+        imageUrl,
+        caption,
+        tags,
+        userMeta,
+        type,
+        contestId,
+      });
+
+      if (create.success) {
+        // Optimistically prepend to the main feed
+        set((state) => ({
+          feed: [{ id: create.id, ...create.data, imageUrl }, ...state.feed],
+        }));
+      }
+      return create;
+    } catch (error) {
+      return { success: false, error };
+    }
+  },
+
   // My uploads paginated
   fetchMyOutfits: async ({ reset = false, limit = 24 } = {}) => {
     const { user } = useAuthStore.getState();
