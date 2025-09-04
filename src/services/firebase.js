@@ -161,20 +161,27 @@ async function fetchFeed({ limitCount = 12, startAfterDoc = null } = {}) {
 }
 
 // FIX: server-side filter
-async function fetchUserOutfits(userId, { limitCount = 50 } = {}) {
+async function fetchUserOutfits(userId, { limitCount = 50, startAfterDoc = null } = {}) {
   try {
-    const qy = query(
+    let qy = query(
       collection(firestore, 'outfits'),
       where('userId', '==', userId),
       orderBy('createdAt', 'desc'),
       limit(limitCount)
     );
+    if (startAfterDoc) {
+      qy = query(
+        collection(firestore, 'outfits'),
+        where('userId', '==', userId),
+        orderBy('createdAt', 'desc'),
+        startAfter(startAfterDoc),
+        limit(limitCount)
+      );
+    }
     const snap = await getDocs(qy);
-    const items = [];
-    snap.forEach((docSnap) => {
-      items.push({ id: docSnap.id, ...docSnap.data() });
-    });
-    return { success: true, items };
+    const items = snap.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }));
+    const last = snap.docs[snap.docs.length - 1] || null;
+    return { success: true, items, last };
   } catch (error) {
     return { success: false, error };
   }

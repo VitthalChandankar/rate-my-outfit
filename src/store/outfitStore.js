@@ -47,9 +47,10 @@ const useOutfitStore = create((set, get) => ({
         set({ loading: false, refreshing: false });
       }
       return res;
-    } catch {
+    } catch (e) {
       set({ loading: false, refreshing: false });
-      return { success: false };
+      console.error('fetchFeed failed:', e); // Log the actual error
+      return { success: false, error: e };
     }
   },
 
@@ -90,7 +91,7 @@ const useOutfitStore = create((set, get) => ({
     if (!uid) return { success: false, error: 'Not authenticated' };
 
     const alreadyLoading = get().myOutfitsLoading || get().myOutfitsRefreshing;
-    if (alreadyLoading) return { success: false, error: 'Busy' };
+    if (alreadyLoading && !reset) return { success: false, error: 'Busy' };
 
     if (reset) set({ myOutfitsRefreshing: true, myOutfitsHasMore: true, myOutfitsLast: null });
     else set({ myOutfitsLoading: true });
@@ -107,7 +108,7 @@ const useOutfitStore = create((set, get) => ({
 
       const incoming = Array.isArray(res.items) ? res.items : [];
       const nextItems = reset ? incoming : [...get().myOutfits, ...incoming];
-      const hasMore = !!res.last; // if your service returns last cursor
+      const hasMore = !!res.last && incoming.length > 0;
       set({
         myOutfits: nextItems,
         myOutfitsLast: res.last || null,
