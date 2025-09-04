@@ -316,6 +316,40 @@ async function fetchMyLikedOutfitIds(userId) {
   }
 }
 
+async function fetchLikersForOutfit({ outfitId, limitCount = 30, startAfterDoc = null }) {
+  try {
+    let qy = query(
+      collection(firestore, 'likes'),
+      where('outfitId', '==', outfitId),
+      orderBy('createdAt', 'desc'),
+      limit(limitCount)
+    );
+    if (startAfterDoc) {
+      qy = query(
+        collection(firestore, 'likes'),
+        where('outfitId', '==', outfitId),
+        orderBy('createdAt', 'desc'),
+        startAfter(startAfterDoc),
+        limit(limitCount)
+      );
+    }
+    const snap = await getDocs(qy);
+    const likeDocs = snap.docs;
+    const last = likeDocs[likeDocs.length - 1] || null;
+
+    const userIds = likeDocs.map(like => like.data().userId).filter(Boolean);
+    if (userIds.length === 0) return { success: true, users: [], last: null };
+
+    const userPromises = userIds.map(uid => getDoc(doc(firestore, 'users', uid)));
+    const userSnaps = await Promise.all(userPromises);
+    const users = userSnaps.map(userSnap => userSnap.exists() ? { id: userSnap.id, ...userSnap.data() } : null).filter(Boolean);
+
+    return { success: true, users, last };
+  } catch (error) {
+    return { success: false, error };
+  }
+}
+
 // --- Contests utilities ---
 // Keep your existing implementations below; unchanged parts omitted for brevity.
 // Ensure function names/exports stay identical to maintain compatibility.
@@ -661,6 +695,7 @@ async function listFollowing({ userId, limitCount = 30, startAfterDoc = null }) 
     const last = snap.docs[snap.docs.length - 1] || null;
     return { success: true, items, last };
   } catch (error) {
+    console.error('fetchUserOutfits failed:', error);
     return { success: false, error };
   }
 }
@@ -669,7 +704,7 @@ export {
   addComment, auth, createOutfitDocument,
   fetchFeed, fetchOutfitDetails, fetchUserOutfits, firestore, loginWithEmail,
   logout, onAuthChange, sendResetEmail, signupWithEmail, submitRating, uploadImage,
-  toggleLikePost, fetchMyLikedOutfitIds, fbListContests, fbFetchContestEntries, fbCreateEntry, fbRateEntry, fbFetchContestLeaderboard,
+  toggleLikePost, fetchMyLikedOutfitIds, fetchLikersForOutfit, fbListContests, fbFetchContestEntries, fbCreateEntry, fbRateEntry, fbFetchContestLeaderboard,
   getUserProfile, updateUserProfile, setUserAvatar, ensureUsernameUnique,
   followUser, unfollowUser, isFollowing, listFollowers, listFollowing
 };

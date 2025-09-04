@@ -65,6 +65,11 @@ export default function HomeScreen() {
     toggleLike(outfitId, authedUid);
   }, [authedUid, toggleLike]);
 
+  const handleLikesPress = useCallback((outfitId) => {
+    if (!outfitId) return;
+    navigation.navigate('LikedBy', { outfitId });
+  }, [navigation]);
+
   const handleOpen = useCallback((post) => {
     if (!post?.id) return;
     const isContest = post.type === 'contest' || !!post.contestId;
@@ -122,6 +127,7 @@ export default function HomeScreen() {
           onRate={handleRate}
           onLike={handleLike}
           onUserPress={handleUserPress}
+          onPressLikes={handleLikesPress}
           isLiked={myLikedIds.has(item.id)}
         />
       )}

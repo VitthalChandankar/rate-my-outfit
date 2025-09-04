@@ -18,7 +18,7 @@ function AvatarCircle({ uri, name }) {
   );
 }
 
-function OutfitCard({ item, onPress, onRate, onUserPress, onLike, isLiked }) {
+function OutfitCard({ item, onPress, onRate, onUserPress, onLike, isLiked, onPressLikes }) {
   const raw = item || null;
   if (!raw) return null;
 
@@ -50,6 +50,7 @@ function OutfitCard({ item, onPress, onRate, onUserPress, onLike, isLiked }) {
   const handleOpen = () => { if (typeof onPress === 'function') onPress({ ...raw, id }); };
   const handleRate = () => { if (typeof onRate === 'function') onRate({ ...raw, id }); };
   const handleLike = () => { if (typeof onLike === 'function') onLike(id); };
+  const handleLikesPress = () => { if (typeof onPressLikes === 'function') onPressLikes(id); };
 
   const handleUserTap = () => {
     if (typeof onUserPress === 'function') {
@@ -121,7 +122,11 @@ function OutfitCard({ item, onPress, onRate, onUserPress, onLike, isLiked }) {
       {/* Caption (only for normal posts) */}
       {!isContest && (
         <View style={{ paddingHorizontal: 12, paddingBottom: 12 }}>
-          {likesCount > 0 && <Text style={styles.likesText}>{likesCount.toLocaleString()} {likesCount === 1 ? 'like' : 'likes'}</Text>}
+          {likesCount > 0 && (
+            <TouchableOpacity onPress={handleLikesPress} activeOpacity={0.7}>
+              <Text style={styles.likesText}>{likesCount.toLocaleString()} {likesCount === 1 ? 'like' : 'likes'}</Text>
+            </TouchableOpacity>
+          )}
           {!!caption && <Text style={styles.captionText}>{caption}</Text>}
         </View>
       )}

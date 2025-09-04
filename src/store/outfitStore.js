@@ -8,9 +8,12 @@ import {
   fetchFeed as fbFetchFeed,
   fetchOutfitDetails as fbFetchOutfitDetails,
   submitRating as fbSubmitRating,
+  toggleLikePost,
+  fetchLikersForOutfit,
   fetchUserOutfits,
   uploadImage,
 } from '../services/firebase';
+import useUserStore from './UserStore';
 import useAuthStore from './authStore';
 
 const useOutfitStore = create((set, get) => ({
@@ -26,6 +29,9 @@ const useOutfitStore = create((set, get) => ({
   myOutfitsLoading: false,
   myOutfitsRefreshing: false,
   myOutfitsHasMore: true,
+
+  // Likers list per outfit
+  likers: {},
 
   // Feed list
   fetchFeed: async ({ limit = 12, reset = false } = {}) => {
@@ -108,6 +114,63 @@ const useOutfitStore = create((set, get) => ({
     } catch (error) {
       return { success: false, error };
     }
+  },
+
+  // Like/unlike a post
+  toggleLike: async (outfitId, userId) => {
+    if (!outfitId || !userId) return;
+
+    const { toggleLikedId } = useUserStore.getState();
+
+    // Optimistic update
+    const originalFeed = get().feed;
+    const isCurrentlyLiked = useUserStore.getState().myLikedIds.has(outfitId);
+
+    const updatedFeed = originalFeed.map(post => {
+      if (post.id === outfitId) {
+        return {
+          ...post,
+          likesCount: (post.likesCount || 0) + (isCurrentlyLiked ? -1 : 1),
+        };
+      }
+      return post;
+    });
+    set({ feed: updatedFeed });
+    toggleLikedId(outfitId);
+
+    // Call firebase
+    const res = await toggleLikePost({ outfitId, userId });
+    if (!res.success) {
+      // Revert on failure
+      set({ feed: originalFeed });
+      toggleLikedId(outfitId); // toggle back
+    }
+  },
+
+  // Fetch users who liked a post
+  fetchLikers: async ({ outfitId, reset = false, limit = 30 }) => {
+    if (!outfitId) return { success: false, error: 'outfitId required' };
+
+    const bag = get().likers[outfitId] || { users: [], last: null, loading: false, hasMore: true };
+    if (bag.loading && !reset) return { success: false, error: 'Busy' };
+
+    const nextBag = { ...bag, loading: true };
+    set({ likers: { ...get().likers, [outfitId]: nextBag } });
+
+    const startAfterDoc = reset ? null : bag.last;
+    const res = await fetchLikersForOutfit({ outfitId, limitCount: limit, startAfterDoc });
+
+    if (res.success) {
+      const newUsers = res.users || [];
+      const existingIds = new Set(bag.users.map(u => u.id));
+      const uniqueNewUsers = newUsers.filter(u => !existingIds.has(u.id));
+      const merged = reset ? newUsers : [...bag.users, ...uniqueNewUsers];
+      const newBag = { users: merged, last: res.last || null, loading: false, hasMore: !!res.last && newUsers.length > 0 };
+      set({ likers: { ...get().likers, [outfitId]: newBag } });
+    } else {
+      set({ likers: { ...get().likers, [outfitId]: { ...bag, loading: false } } });
+    }
+    return res;
   },
 
   // My uploads paginated

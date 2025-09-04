@@ -34,6 +34,7 @@ import EditProfileScreen from '../screens/profile/EditProfileScreen';
 import UserProfileScreen from '../screens/profile/UserProfileScreen';
 import FollowersScreen from '../screens/profile/FollowersScreen';
 import FollowingScreen from '../screens/profile/FollowingScreen';
+import LikedByScreen from '../screens/details/LikedByScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -120,6 +121,19 @@ export default function AppNavigator() {
             <Stack.Screen name="UserProfile" component={UserProfileScreen} />
             <Stack.Screen name="Followers" component={FollowersScreen} />
             <Stack.Screen name="Following" component={FollowingScreen} />
+
+            {/* New screen for likes */}
+            <Stack.Screen
+              name="LikedBy"
+              component={LikedByScreen}
+              options={{
+                headerShown: true,
+                title: 'Likes',
+                headerStyle: { backgroundColor: '#fff' },
+                headerTintColor: '#111',
+                headerTitleStyle: { fontWeight: 'bold' },
+              }}
+            />
           </>
         ) : (
           <>
