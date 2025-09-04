@@ -35,6 +35,7 @@ export default function HomeScreen() {
   const loading = useOutfitStore((s) => s.loading);
   const refreshing = useOutfitStore((s) => s.refreshing);
   const lastDoc = useOutfitStore((s) => s.lastDoc);
+
   const [initialLoaded, setInitialLoaded] = useState(false);
 
   useEffect(() => {
@@ -78,7 +79,6 @@ export default function HomeScreen() {
     navigation.navigate('RateEntry', { item: target, mode: 'entry' });
   }, [navigation]);
 
-  // NEW: user header/username/ avatar tap handler
   const handleUserPress = useCallback((post) => {
     const clickedId = post?.userId || post?.user?.uid || null;
     if (!clickedId) return;
@@ -98,6 +98,9 @@ export default function HomeScreen() {
     );
   }
 
+  // Approximate row height: header ~56 + image 420 + CTA ~44 + footer ~44 + caption/margins ~30 => ~594
+  const ROW_HEIGHT = 594;
+
   return (
     <FlatList
       data={data}
@@ -116,6 +119,17 @@ export default function HomeScreen() {
       contentContainerStyle={styles.container}
       ListEmptyComponent={!loading ? <Text style={styles.empty}>No outfits yet — be the first to upload!</Text> : null}
       ListFooterComponent={loading ? <ActivityIndicator style={{ marginVertical: 16 }} /> : null}
+      // Performance tuning
+      initialNumToRender={6}
+      maxToRenderPerBatch={6}
+      updateRowsBatchNumber={6}
+      windowSize={7}
+      removeClippedSubviews
+      getItemLayout={(data, index) => ({
+        length: ROW_HEIGHT,
+        offset: ROW_HEIGHT * index,
+        index,
+      })}
     />
   );
 }

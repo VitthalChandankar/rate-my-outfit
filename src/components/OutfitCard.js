@@ -2,7 +2,7 @@
 // Instagram-like full-bleed card with contest ribbon and Rate CTA for contest posts.
 // Normal posts: like/comment/share and caption below image.
 
-import React, { useMemo } from 'react';
+import React, { useMemo, memo } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View, Pressable } from 'react-native';
 import { Image as ExpoImage } from 'expo-image';
 import formatDate from '../utils/formatDate';
@@ -17,7 +17,7 @@ function AvatarCircle({ uri, name }) {
   );
 }
 
-export default function OutfitCard({ item, onPress, onRate, onUserPress }) {
+function OutfitCard({ item, onPress, onRate, onUserPress }) {
   const raw = item || null;
   if (!raw) return null;
 
@@ -146,3 +146,5 @@ const styles = StyleSheet.create({
   avatarFallback: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#7A5AF8', alignItems: 'center', justifyContent: 'center' },
   avatarInitial: { color: '#fff', fontWeight: '700' },
 });
+
+export default memo(OutfitCard);

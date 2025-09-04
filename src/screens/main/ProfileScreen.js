@@ -215,6 +215,10 @@ export default function ProfileScreen({ navigation }) {
     );
   }
 
+  // Grid item height equals tile size; include marginTop ~6
+  const tileSize = Math.floor((width - OUTER_PAD * 2 - GAP * (COLS - 1)) / COLS);
+  const ROW_HEIGHT = tileSize + 6;
+
   return (
     <Animated.View style={{ flex: 1, backgroundColor: '#FFFFFF', opacity: fadeIn }}>
       <FlatList
@@ -229,6 +233,16 @@ export default function ProfileScreen({ navigation }) {
         ListFooterComponent={loading ? <ActivityIndicator style={{ marginVertical: 16 }} /> : null}
         contentContainerStyle={{ paddingHorizontal: OUTER_PAD, paddingBottom: 28 }}
         showsVerticalScrollIndicator={false}
+        // Performance tuning for grid
+        initialNumToRender={18}
+        maxToRenderPerBatch={24}
+        windowSize={9}
+        removeClippedSubviews
+        getItemLayout={(data, index) => ({
+          length: ROW_HEIGHT,
+          offset: ROW_HEIGHT * index,
+          index,
+        })}
       />
     </Animated.View>
   );
