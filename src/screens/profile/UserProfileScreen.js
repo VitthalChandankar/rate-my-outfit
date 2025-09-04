@@ -1,6 +1,5 @@
 // src/screens/profile/UserProfileScreen.js
-// Public profile for other users: Follow/Unfollow, no Edit button, Instagram-like stats row,
-// clean header and grid. No boxes around stats.
+// Public profile for other users: Follow/Unfollow, no Edit button, Instagram-like stats row.
 
 import React, { useEffect, useState, useMemo } from 'react';
 import { Alert, StyleSheet, Text, View, FlatList, Pressable, Dimensions } from 'react-native';
@@ -63,10 +62,17 @@ export default function UserProfileScreen({ route, navigation }) {
     if (authedId === userId) return;
     if (rel) {
       const r = await unfollow(authedId, userId);
-      if (r.success) setRel(false);
+      if (r.success) {
+        setRel(false);
+        // refresh header counters after client-side decrement
+        await loadUserProfile(userId);
+      }
     } else {
       const r = await follow(authedId, userId);
-      if (r.success) setRel(true);
+      if (r.success) {
+        setRel(true);
+        await loadUserProfile(userId);
+      }
     }
     Haptics.selectionAsync();
   };

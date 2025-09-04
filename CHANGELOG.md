@@ -155,3 +155,18 @@ upload screen also changed. if something breaks come to this commit . upload scr
 
 
 after uploading pic , not able to see that on homefeed and in profile
+
+
+todo:
+currently follow and following is not working. using option B as of now.
+Practical recommendation
+
+If the goal is robust counters for follows, use Firestore onCreate/onDelete triggers (background functions) and host on Blaze. This removes client security tradeoffs and ensures counts stay correct without letting clients write other users’ counters.
+
+If switching to Blaze isn’t possible right now, temporarily use the client-side counters write rule (Option B) you enabled, and schedule a migration to Functions later. Keep the rules strict to only allow numeric counters fields and deny other writes.
+
+
+added instagram like following and followeses screen.. still follow and followers are not reflecting 
+getting below
+ WARN  [2025-09-04T21:51:33.159Z]  @firebase/firestore: Firestore (12.1.0): RestConnection RPC 'Commit' 0x5fdf7f35 failed with error:  {"code":"permission-denied","name":"FirebaseError"} url:  https://firestore.googleapis.com/v1/projects/rateoutfit-d84af/databases/(default)/documents:commit request: {"writes":[{"update":{"name":"projects/rateoutfit-d84af/databases/(default)/documents/counters/S3YNVH6Tn8RCauiQrj2oy6e37FI3","fields":{"followersCount":{"integerValue":"0"},"followingCount":{"integerValue":"0"},"postsCount":{"integerValue":"0"}}},"updateMask":{"fieldPaths":["followersCount","followingCount","postsCount"]},"currentDocument":{"exists":false}},{"update":{"name":"projects/rateoutfit-d84af/databases/(default)/documents/counters/q6D3Srtac9cXqMMz39iPYxl25hy2","fields":{"followersCount":{"integerValue":"0"},"followingCount":{"integerValue":"0"},"postsCount":{"integerValue":"0"}}},"updateMask":{"fieldPaths":["followersCount","followingCount","postsCount"]},"currentDocument":{"exists":false}},{"update":{"name":"projects/rateoutfit-d84af/databases/(default)/documents/follows/S3YNVH6Tn8RCauiQrj2oy6e37FI3_q6D3Srtac9cXqMMz39iPYxl25hy2","fields":{"id":{"stringValue":"S3YNVH6Tn8RCauiQrj2oy6e37FI3_q6D3Srtac9cXqMMz39iPYxl25hy2"},"followerId":{"stringValue":"S3YNVH6Tn8RCauiQrj2oy6e37FI3"},"followingId":{"stringValue":"q6D3Srtac9cXqMMz39iPYxl25hy2"},"followerName":{"stringValue":"Vitthal"},"followerPicture":{"stringValue":"https://res.cloudinary.com/dvhwtormd/image/upload/v1756839103/av5o8mj2szod1ihgpld5.jpg?v=1756839104254"}}},"updateTransforms":[{"fieldPath":"createdAt","setToServerValue":"REQUEST_TIME"}],"currentDocument":{"exists":false}},{"update":{"name":"projects/rateoutfit-d84af/databases/(default)/documents/counters/S3YNVH6Tn8RCauiQrj2oy6e37FI3","fields":{"followingCount":{"integerValue":"1"}}},"updateMask":{"fieldPaths":["followingCount"]}},{"update":{"name":"projects/rateoutfit-d84af/databases/(default)/documents/counters/q6D3Srtac9cXqMMz39iPYxl25hy2","fields":{"followersCount":{"integerValue":"1"}}},"updateMask":{"fieldPaths":["followersCount"]}}]}
+ ERROR  follow (client counters) error: [FirebaseError: Missing or insufficient permissions.]

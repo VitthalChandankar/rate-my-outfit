@@ -1,12 +1,31 @@
 // src/store/UserStore.js
+// Zustand user store: profiles, avatar, follow graph, counters (client-side Option B)
+// Preserves existing services/firebase integration and adds counters maintenance.
+
 import { create } from 'zustand';
-import { doc, onSnapshot } from 'firebase/firestore';
+import {
+  doc,
+  onSnapshot,
+  getFirestore,
+  runTransaction,
+  serverTimestamp,
+  getDoc,
+  setDoc,
+} from 'firebase/firestore';
 import { firestore } from '../services/firebase';
 import {
-  getUserProfile, updateUserProfile, setUserAvatar,
-  followUser, unfollowUser, isFollowing,
-  listFollowers, listFollowing
+  getUserProfile,
+  updateUserProfile,
+  setUserAvatar,
+  followUser,          // kept for fallback
+  unfollowUser,        // kept for fallback
+  isFollowing as svcIsFollowing,
+  listFollowers,
+  listFollowing,
 } from '../services/firebase';
+
+// Helper: follow doc id
+const relIdOf = (followerId, followingId) => `${followerId}_${followingId}`;
 
 const useUserStore = create((set, get) => ({
   myProfile: null,
@@ -25,7 +44,7 @@ const useUserStore = create((set, get) => ({
   followersHasMore: true,
   followingHasMore: true,
 
-  // relationship cache
+  // relationship cache (followerId_followingId -> boolean)
   relCache: {},
 
   // Subscribe to the current user's profile doc for real-time updates
@@ -50,7 +69,6 @@ const useUserStore = create((set, get) => ({
         console.warn('subscribeMyProfile snapshot error:', err?.message || err);
       }
     );
-
     set({ _unsubProfile: unsub });
     return unsub;
   },
@@ -76,7 +94,7 @@ const useUserStore = create((set, get) => ({
     return res;
   },
 
-  // Update current user's profile (partial updates supported; username optional)
+  // Update current user's profile
   updateProfile: async (uid, data) => {
     if (!uid) return { success: false, error: 'No uid' };
     set({ updating: true });
@@ -90,7 +108,7 @@ const useUserStore = create((set, get) => ({
     return res;
   },
 
-  // Update current user's avatar; service should append cache-busting query param
+  // Update avatar
   setAvatar: async (uid, imageUrl) => {
     if (!uid) return { success: false, error: 'No uid' };
     set({ updating: true });
@@ -104,29 +122,117 @@ const useUserStore = create((set, get) => ({
     return res;
   },
 
-  // Follow/unfollow helpers; keep local relation cache
-  follow: async (followerId, followingId) => {
-    const res = await followUser({ followerId, followingId });
-    if (res.success) set({ relCache: { ...get().relCache, [`${followerId}_${followingId}`]: true } });
-    return res;
-  },
-
-  unfollow: async (followerId, followingId) => {
-    const res = await unfollowUser({ followerId, followingId });
-    if (res.success) set({ relCache: { ...get().relCache, [`${followerId}_${followingId}`]: false } });
-    return res;
-  },
-
+  // Relationship check with cache
   isFollowing: async (followerId, followingId) => {
-    const key = `${followerId}_${followingId}`;
+    const key = relIdOf(followerId, followingId);
     const cached = get().relCache[key];
     if (typeof cached === 'boolean') return { success: true, following: cached };
-    const res = await isFollowing({ followerId, followingId });
+    const res = await svcIsFollowing({ followerId, followingId });
     if (res.success) set({ relCache: { ...get().relCache, [key]: res.following } });
     return res;
   },
 
-  // Followers/following pagination
+  // FOLLOW: client-side counters with your exact transaction block
+  follow: async (followerId, followingId) => {
+    try {
+      if (!followerId || !followingId || followerId === followingId) {
+        return { success: false, error: 'invalid ids' };
+      }
+      const db = getFirestore();
+      const relRef = doc(db, 'follows', relIdOf(followerId, followingId));
+      const followerCtrRef = doc(db, 'counters', followerId);
+      const followingCtrRef = doc(db, 'counters', followingId);
+
+      await runTransaction(db, async (tx) => {
+        const [relSnap, fSnap, gSnap] = await Promise.all([
+          tx.get(relRef),
+          tx.get(followerCtrRef),
+          tx.get(followingCtrRef),
+        ]);
+        if (relSnap.exists()) return;
+
+        if (!fSnap.exists()) tx.set(followerCtrRef, { followersCount: 0, followingCount: 0, postsCount: 0 }, { merge: true });
+        if (!gSnap.exists()) tx.set(followingCtrRef, { followersCount: 0, followingCount: 0, postsCount: 0 }, { merge: true });
+
+        const mp = get().myProfile;
+        tx.set(relRef, {
+          id: relIdOf(followerId, followingId),
+          followerId,
+          followingId,
+          createdAt: serverTimestamp(),
+          followerName: mp?.name || mp?.displayName || '',
+          followerPicture: mp?.profilePicture || null,
+        });
+
+        const fFollowing = (fSnap.exists() ? (fSnap.data().followingCount || 0) : 0) + 1;
+        const gFollowers = (gSnap.exists() ? (gSnap.data().followersCount || 0) : 0) + 1;
+        tx.set(followerCtrRef, { followingCount: fFollowing }, { merge: true });
+        tx.set(followingCtrRef, { followersCount: gFollowers }, { merge: true });
+      });
+
+      set({ relCache: { ...get().relCache, [relIdOf(followerId, followingId)]: true } });
+      await Promise.allSettled([
+        get().loadUserProfile(followerId),
+        get().loadUserProfile(followingId),
+      ]);
+      return { success: true };
+    } catch (e) {
+      console.error('follow (client counters) error:', e);
+      // fallback to service helper if needed
+      try {
+        const res = await followUser({ followerId, followingId });
+        if (res.success) set({ relCache: { ...get().relCache, [relIdOf(followerId, followingId)]: true } });
+        return res;
+      } catch (e2) {
+        return { success: false, error: e2?.message || 'follow failed' };
+      }
+    }
+  },
+
+  // UNFOLLOW: symmetric decrement transaction
+  unfollow: async (followerId, followingId) => {
+    try {
+      const db = getFirestore();
+      const relRef = doc(db, 'follows', relIdOf(followerId, followingId));
+      const followerCtrRef = doc(db, 'counters', followerId);
+      const followingCtrRef = doc(db, 'counters', followingId);
+
+      await runTransaction(db, async (tx) => {
+        const [relSnap, fSnap, gSnap] = await Promise.all([
+          tx.get(relRef),
+          tx.get(followerCtrRef),
+          tx.get(followingCtrRef),
+        ]);
+        if (!relSnap.exists()) return;
+
+        tx.delete(relRef);
+
+        const fFollowing = Math.max(0, (fSnap.exists() ? fSnap.data().followingCount || 0 : 0) - 1);
+        const gFollowers = Math.max(0, (gSnap.exists() ? gSnap.data().followersCount || 0 : 0) - 1);
+
+        tx.set(followerCtrRef, { followingCount: fFollowing }, { merge: true });
+        tx.set(followingCtrRef, { followersCount: gFollowers }, { merge: true });
+      });
+
+      set({ relCache: { ...get().relCache, [relIdOf(followerId, followingId)]: false } });
+      await Promise.allSettled([
+        get().loadUserProfile(followerId),
+        get().loadUserProfile(followingId),
+      ]);
+      return { success: true };
+    } catch (e) {
+      console.error('unfollow (client counters) error:', e);
+      try {
+        const res = await unfollowUser({ followerId, followingId });
+        if (res.success) set({ relCache: { ...get().relCache, [relIdOf(followerId, followingId)]: false } });
+        return res;
+      } catch (e2) {
+        return { success: false, error: e2?.message || 'unfollow failed' };
+      }
+    }
+  },
+
+  // Followers list (pagination via services)
   fetchFollowers: async ({ userId, reset = false, limit = 30 }) => {
     const last = reset ? null : get().followersLast;
     const res = await listFollowers({ userId, limitCount: limit, startAfterDoc: last });
@@ -140,6 +246,7 @@ const useUserStore = create((set, get) => ({
     return res;
   },
 
+  // Following list (pagination via services)
   fetchFollowing: async ({ userId, reset = false, limit = 30 }) => {
     const last = reset ? null : get().followingLast;
     const res = await listFollowing({ userId, limitCount: limit, startAfterDoc: last });
@@ -153,7 +260,7 @@ const useUserStore = create((set, get) => ({
     return res;
   },
 
-  // Optional: clear state on logout (can be called from auth store on logout)
+  // Optional: clear state on logout
   clearMyProfile: () => {
     const prev = get()._unsubProfile;
     if (typeof prev === 'function') {

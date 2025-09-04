@@ -29,6 +29,9 @@ const useOutfitStore = create((set, get) => ({
 
   // Feed list
   fetchFeed: async ({ limit = 12, reset = false } = {}) => {
+    const alreadyLoading = get().loading || get().refreshing;
+    if (alreadyLoading && !reset) return { success: false, error: 'Busy' };
+
     try {
       if (reset) set({ refreshing: true }); else set({ loading: true });
       const startAfterDoc = reset ? null : get().lastDoc;
