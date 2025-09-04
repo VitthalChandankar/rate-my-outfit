@@ -119,7 +119,7 @@ export default function ContestDetailsScreen({ route, navigation }) {
   const entriesBag = useContestStore((s) => s.entries[contestId]);
   const rateEntry = useContestStore((s) => s.rateEntry);
   const fetchLeaderboard = useContestStore((s) => s.fetchLeaderboard);
-  const getContestById = useContestStore((s) => s.contestById?.(contestId)); // optional selector
+  const contest = useContestStore((s) => s.contests.find((c) => c.id === contestId));
 
   const [tab, setTab] = useState('enter');
 
@@ -132,14 +132,14 @@ export default function ContestDetailsScreen({ route, navigation }) {
   const loading = entriesBag?.loading && (entries?.length ?? 0) === 0;
 
   // Contest meta
-  const contest = getContestById || {};
-  const startMs = toMs(contest.startAt) || toMs(entries[0]?.contestStartAt) || toMs(entries[0]?.startAt);
-  const endMs = toMs(contest.endAt) || toMs(entries[0]?.contestEndAt) || toMs(entries[0]?.endAt);
+  const contestData = contest || {};
+  const startMs = toMs(contestData.startAt) || toMs(entries[0]?.contestStartAt) || toMs(entries[0]?.startAt);
+  const endMs = toMs(contestData.endAt) || toMs(entries[0]?.contestEndAt) || toMs(entries[0]?.endAt);
   const status = statusFromRange(startMs, endMs);
   const range = rangeLabel(startMs, endMs);
-  const host = contest.host || 'Host';
-  const bannerImage = contest.bannerImage || null;
-  const bannerCaption = contest.bannerCaption || '';
+  const host = contestData.host || 'Host';
+  const bannerImage = contestData.bannerImage || null;
+  const bannerCaption = contestData.bannerCaption || '';
 
   // hero animation
   const fade = useRef(new Animated.Value(0)).current;
@@ -207,12 +207,12 @@ export default function ContestDetailsScreen({ route, navigation }) {
           <StatusDot />
           <Text style={styles.metaStrong}>{status === 'active' ? 'Active' : status === 'upcoming' ? 'Upcoming' : 'Ended'}</Text>
           <Text style={[styles.metaDim, { marginLeft: 6 }]}>• {range}</Text>
-          {!!contest.country && <Text style={[styles.metaDim, { marginLeft: 6 }]}>• {contest.country}</Text>}
+          {!!contestData.country && <Text style={[styles.metaDim, { marginLeft: 6 }]}>• {contestData.country}</Text>}
         </View>
         <View style={styles.pillsRow}>
           <View style={[styles.pill, { backgroundColor: '#EEF2FF' }]}><Text style={[styles.pillText, { color: '#3B82F6' }]}>Host: {host}</Text></View>
-          <View style={[styles.pill, { backgroundColor: '#F0FFF4' }]}><Text style={[styles.pillText, { color: '#10B981' }]}>Prize: {contest.prize || '₹10,000 + Feature'}</Text></View>
-          <View style={[styles.pill, { backgroundColor: '#FFF7ED' }]}><Text style={[styles.pillText, { color: '#F97316' }]}>Entry: {contest.entryFee && contest.entryFee > 0 ? `₹${contest.entryFee}` : 'Free'}</Text></View>
+          <View style={[styles.pill, { backgroundColor: '#F0FFF4' }]}><Text style={[styles.pillText, { color: '#10B981' }]}>Prize: {contestData.prize || '₹10,000 + Feature'}</Text></View>
+          <View style={[styles.pill, { backgroundColor: '#FFF7ED' }]}><Text style={[styles.pillText, { color: '#F97316' }]}>Entry: {contestData.entryFee && contestData.entryFee > 0 ? `₹${contestData.entryFee}` : 'Free'}</Text></View>
         </View>
         <View style={styles.actionsRow}>
           <TouchableOpacity onPress={onEnter} style={styles.primaryBtn} activeOpacity={0.9}>
