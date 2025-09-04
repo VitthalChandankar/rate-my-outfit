@@ -17,7 +17,7 @@ function AvatarCircle({ uri, name }) {
   );
 }
 
-export default function OutfitCard({ item, onPress, onRate }) {
+export default function OutfitCard({ item, onPress, onRate, onUserPress }) {
   const raw = item || null;
   if (!raw) return null;
 
@@ -30,10 +30,7 @@ export default function OutfitCard({ item, onPress, onRate }) {
 
   const user = raw.user || {};
   const userId = raw.userId || user.uid || '';
-  const userName =
-    user.name ||
-    raw.userName ||
-    (userId ? `User ${String(userId).slice(0, 6)}` : 'User');
+  const userName = user.name || raw.userName || (userId ? `User ${String(userId).slice(0, 6)}` : 'User');
   const userPhoto = user.profilePicture || raw.userPhoto || null;
 
   const caption = typeof raw.caption === 'string' ? raw.caption : '';
@@ -51,10 +48,24 @@ export default function OutfitCard({ item, onPress, onRate }) {
   const handleOpen = () => { if (typeof onPress === 'function') onPress({ ...raw, id }); };
   const handleRate = () => { if (typeof onRate === 'function') onRate({ ...raw, id }); };
 
+  const handleUserTap = () => {
+    if (typeof onUserPress === 'function') {
+      onUserPress({
+        id,
+        user: {
+          uid: userId,
+          name: userName,
+          profilePicture: userPhoto,
+        },
+        ...raw,
+      });
+    }
+  };
+
   return (
     <View style={styles.card}>
-      {/* Header row */}
-      <View style={styles.header}>
+      {/* Header row (avatar + name/time are clickable to open user's profile) */}
+      <Pressable style={styles.header} onPress={handleUserTap}>
         <AvatarCircle uri={userPhoto} name={userName} />
         <View style={{ marginLeft: 10, flex: 1 }}>
           <Text style={styles.userName}>{userName}</Text>
@@ -65,7 +76,7 @@ export default function OutfitCard({ item, onPress, onRate }) {
             <Text style={styles.sponsoredText}>Contest Entry</Text>
           </View>
         ) : null}
-      </View>
+      </Pressable>
 
       {/* Media */}
       <TouchableOpacity activeOpacity={0.9} onPress={handleOpen}>
@@ -96,7 +107,7 @@ export default function OutfitCard({ item, onPress, onRate }) {
         </View>
       </View>
 
-      {/* Caption (only for normal posts, per request) */}
+      {/* Caption (only for normal posts) */}
       {!isContest && !!caption && <Text style={{ paddingHorizontal: 12, paddingBottom: 12, color: '#333' }}>{caption}</Text>}
     </View>
   );

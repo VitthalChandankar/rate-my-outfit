@@ -4,6 +4,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { useIsFocused, useNavigation } from '@react-navigation/native';
+
+import useAuthStore from '../../store/authStore';
 import useOutfitStore from '../../store/outfitStore';
 import OutfitCard from '../../components/OutfitCard';
 
@@ -24,6 +26,10 @@ function dedupeById(items) {
 export default function HomeScreen() {
   const navigation = useNavigation();
   const isFocused = useIsFocused();
+
+  const { user: authedUser } = useAuthStore();
+  const authedUid = authedUser?.uid || authedUser?.user?.uid || null;
+
   const feed = useOutfitStore((s) => s.feed);
   const fetchFeed = useOutfitStore((s) => s.fetchFeed);
   const loading = useOutfitStore((s) => s.loading);
@@ -43,8 +49,12 @@ export default function HomeScreen() {
   }, [feed]);
 
   const keyExtractor = useCallback((item) => String(item?.id || item?._localKey), []);
+
   const onRefresh = useCallback(() => { fetchFeed({ limit: 12, reset: true }); }, [fetchFeed]);
-  const loadMore = useCallback(() => { if (!loading && lastDoc) fetchFeed({ limit: 12, reset: false }); }, [loading, lastDoc, fetchFeed]);
+
+  const loadMore = useCallback(() => {
+    if (!loading && lastDoc) fetchFeed({ limit: 12, reset: false });
+  }, [loading, lastDoc, fetchFeed]);
 
   const handleOpen = useCallback((post) => {
     if (!post?.id) return;
@@ -68,11 +78,22 @@ export default function HomeScreen() {
     navigation.navigate('RateEntry', { item: target, mode: 'entry' });
   }, [navigation]);
 
+  // NEW: user header/username/ avatar tap handler
+  const handleUserPress = useCallback((post) => {
+    const clickedId = post?.userId || post?.user?.uid || null;
+    if (!clickedId) return;
+    if (authedUid && clickedId === authedUid) {
+      navigation.navigate('Profile');
+    } else {
+      navigation.navigate('UserProfile', { userId: clickedId });
+    }
+  }, [navigation, authedUid]);
+
   if (!initialLoaded && loading && (feed?.length ?? 0) === 0) {
     return (
       <View style={styles.center}>
         <ActivityIndicator />
-        <Text style={{ marginTop: 6, color: '#666' }}>Loading feed…</Text>
+        <Text style={{ marginTop: 8, color: '#666' }}>Loading feed…</Text>
       </View>
     );
   }
@@ -82,7 +103,12 @@ export default function HomeScreen() {
       data={data}
       keyExtractor={keyExtractor}
       renderItem={({ item }) => (
-        <OutfitCard item={item} onPress={handleOpen} onRate={handleRate} />
+        <OutfitCard
+          item={item}
+          onPress={handleOpen}
+          onRate={handleRate}
+          onUserPress={handleUserPress}
+        />
       )}
       refreshControl={<RefreshControl refreshing={!!refreshing} onRefresh={onRefresh} />}
       onEndReached={loadMore}
