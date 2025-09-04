@@ -330,11 +330,12 @@ async function fbFetchContestEntries({ contestId, limitCount = 24, startAfterDoc
   }
 }
 
-async function fbCreateEntry({ contestId, userId, imageUrl, caption = '', tags = [] }) {
+async function fbCreateEntry({ contestId, userId, imageUrl, caption = '', tags = [], userMeta = null }) {
   try {
     const docRef = await addDoc(collection(firestore, 'entries'), {
       contestId,
       userId,
+      user: userMeta || null,
       imageUrl,
       caption,
       tags,

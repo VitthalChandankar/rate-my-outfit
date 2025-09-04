@@ -12,34 +12,43 @@ import {
 } from '../services/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import useAuthStore from './authStore';
+import useUserStore from './UserStore';
 
-// Enrich leaderboard rows with users/{uid} -> { name, profilePicture }
-async function enrichLeaderboardUsers(items) {
+// Generic helper to enrich items (entries, leaderboard rows) with user data
+async function enrichItemsWithUserData(items) {
   const out = [...(items || [])];
   const userIds = Array.from(new Set(out.map((it) => it.userId).filter(Boolean)));
+  if (userIds.length === 0) return out;
 
-  // Fetch user docs; update matching rows
-  await Promise.all(
+  // Fetch user docs in parallel
+  const userDocs = await Promise.all(
     userIds.map(async (uid) => {
       try {
         const snap = await getDoc(doc(firestore, 'users', uid));
-        if (snap.exists()) {
-          const u = snap.data();
-          for (let i = 0; i < out.length; i++) {
-            if (out[i].userId === uid) {
-              out[i] = {
-                ...out[i],
-                userName: u?.name || out[i].userName || `User ${String(uid).slice(0, 6)}`,
-                userPhoto: u?.profilePicture || out[i].userPhoto || null,
-              };
-            }
-          }
-        }
+        return snap.exists() ? { uid, ...snap.data() } : null;
       } catch {
-        // ignore enrichment failures silently
+        return null;
       }
     })
   );
+
+  const userMap = new Map();
+  userDocs.filter(Boolean).forEach((u) => userMap.set(u.uid, u));
+
+  // Update matching rows
+  for (let i = 0; i < out.length; i++) {
+    const item = out[i];
+    if (item.userId && userMap.has(item.userId)) {
+      const u = userMap.get(item.userId);
+      // Add a 'user' object, which OutfitCard prefers
+      out[i].user = {
+        uid: u.uid,
+        name: u.name || u.displayName || `User ${String(u.uid).slice(0, 6)}`,
+        profilePicture: u.profilePicture || null,
+        username: u.username || '',
+      };
+    }
+  }
 
   return out;
 }
@@ -102,7 +111,9 @@ const useContestStore = create((set, get) => ({
     const res = await fbFetchContestEntries({ contestId, limitCount: limit, startAfterDoc });
 
     if (res.success) {
-      const merged = reset ? res.items : [...bag.items, ...res.items];
+      // Enrich items with user data (name, avatar)
+      const enrichedItems = await enrichItemsWithUserData(res.items);
+      const merged = reset ? enrichedItems : [...bag.items, ...enrichedItems];
       set({
         entries: {
           ...get().entries,
@@ -128,17 +139,24 @@ const useContestStore = create((set, get) => ({
   createEntry: async ({ contestId, imageUrl, caption = '', tags = [] }) => {
     const { user } = useAuthStore.getState();
     if (!user?.uid) return { success: false, error: 'Not authenticated' };
-    const res = await fbCreateEntry({ contestId, userId: user.uid, imageUrl, caption, tags });
+
+    // Get user meta for denormalization
+    const { myProfile } = useUserStore.getState();
+    const userMeta = myProfile
+      ? {
+          uid: myProfile.uid,
+          name: myProfile.name || myProfile.displayName || '',
+          username: myProfile.username || '',
+          profilePicture: myProfile.profilePicture || null,
+        }
+      : null;
+
+    const res = await fbCreateEntry({ contestId, userId: user.uid, imageUrl, caption, tags, userMeta });
     if (res.success) {
       // Optimistically prepend to entries list
-      const bag = get().entries[contestId] || {
-        items: [],
-        last: null,
-        hasMore: true,
-        loading: false,
-        refreshing: false,
-      };
-      const item = { id: res.id, ...res.data, imageUrl, caption, tags, userId: user.uid };
+      const bag = get().entries[contestId] || { items: [], last: null, hasMore: true, loading: false, refreshing: false };
+      // Ensure the optimistic item has the same shape as an enriched one
+      const item = { id: res.id, ...res.data, imageUrl, caption, tags, userId: user.uid, user: userMeta };
       set({ entries: { ...get().entries, [contestId]: { ...bag, items: [item, ...bag.items] } } });
     }
     return res;
@@ -175,7 +193,7 @@ const useContestStore = create((set, get) => ({
     if (!contestId) return { success: false, error: 'contestId required' };
     const res = await fbFetchContestLeaderboard({ contestId, limitCount: limit, minVotes });
     if (res.success) {
-      const enriched = await enrichLeaderboardUsers(res.items || []);
+      const enriched = await enrichItemsWithUserData(res.items || []);
       set({ leaderboards: { ...get().leaderboards, [contestId]: enriched } });
     }
     return res;
