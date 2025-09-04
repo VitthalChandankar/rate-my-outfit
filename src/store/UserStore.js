@@ -1,4 +1,4 @@
-// src/store/userStore.js
+// src/store/UserStore.js
 import { create } from 'zustand';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { firestore } from '../services/firebase';

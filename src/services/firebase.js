@@ -117,17 +117,25 @@ async function uploadImage(localUri) {
 }
 
 // --- Outfits CRUD ---
-async function createOutfitDocument({ userId, imageUrl, caption = '', tags = [] }) {
+// CHANGE: include denormalized user meta, type, contestId, and like/comment counters
+async function createOutfitDocument({ userId, imageUrl, caption = '', tags = [], userMeta = null, type = 'normal', contestId = null }) {
   try {
-    const docRef = await addDoc(collection(firestore, 'outfits'), {
+    const payload = {
       userId,
+      user: userMeta || null, // { uid, name, username, profilePicture }
+      type: type === 'contest' ? 'contest' : 'normal',
+      contestId: type === 'contest' ? (contestId || null) : null,
       imageUrl,
       caption,
       tags,
       createdAt: serverTimestamp(),
       averageRating: 0,
       ratingsCount: 0,
-    });
+      likesCount: 0,
+      commentsCount: 0,
+    };
+
+    const docRef = await addDoc(collection(firestore, 'outfits'), payload);
     const created = await getDoc(docRef);
     // bump counters.postsCount - optional: Cloud Function will also keep in sync
     return { success: true, id: docRef.id, data: created.data() };
@@ -257,6 +265,9 @@ async function addComment({ outfitId, userId, comment }) {
 }
 
 // --- Contests utilities ---
+// Keep your existing implementations below; unchanged parts omitted for brevity.
+// Ensure function names/exports stay identical to maintain compatibility.
+
 async function fbListContests({ limitCount = 20, startAfterDoc = null, status = 'active', country = 'all' } = {}) {
   try {
     let qBase = query(collection(firestore, 'contests'), orderBy('startAt', 'desc'));

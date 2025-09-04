@@ -6,6 +6,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { Alert, StyleSheet, Text, View, FlatList, Pressable, Dimensions } from 'react-native';
 import { Image as ExpoImage } from 'expo-image';
 import * as Haptics from 'expo-haptics';
+
 import useAuthStore from '../../store/authStore';
 import useUserStore from '../../store/UserStore';
 import useOutfitStore from '../../store/outfitStore';
@@ -19,18 +20,19 @@ const GAP = 4;
 export default function UserProfileScreen({ route, navigation }) {
   const { userId } = route.params || {};
   const { user } = useAuthStore();
-  const authedId = user?.uid || user?.user?.uid;
+  const authedId = user?.uid || user?.user?.uid || null;
 
   const { loadUserProfile, profilesById, isFollowing, follow, unfollow } = useUserStore();
   const profile = profilesById[userId];
 
   const { fetchUserOutfits } = useOutfitStore();
+
   const [posts, setPosts] = useState([]);
   const [loadingPosts, setLoadingPosts] = useState(true);
   const [rel, setRel] = useState(false);
 
   useEffect(() => {
-    loadUserProfile(userId);
+    if (userId) loadUserProfile(userId);
   }, [userId, loadUserProfile]);
 
   useEffect(() => {

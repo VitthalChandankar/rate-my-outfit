@@ -149,3 +149,9 @@ ProfileScreen: the owner’s self profile inside the MainTabs. It shows personal
 UserProfileScreen: any other user’s profile opened by navigating with userId; it shows Follow/Unfollow and the other user’s posts, without self-only actions like Edit. Keeps responsibilities clean and route parameters explicit.
 
 Both can share subcomponents (header, stats, grid). They are separated to simplify logic, permissions, and navigation flows (self vs other). In the future, you can unify into a single Profile screen that switches modes based on route.userId === authed uid, but keeping two screens is common for clarity.
+
+in this commit , changed the home feed . distinguish betn normal upload and contest upload 
+upload screen also changed. if something breaks come to this commit . upload screen is working best till here 
+
+
+after uploading pic , not able to see that on homefeed and in profile

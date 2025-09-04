@@ -2,7 +2,7 @@
 // Contest details with host banner, rich meta, animated tabs, and integrated Enter/Rate/Leaderboard.
 // Opens the new rating flow (RateEntry -> RateScreen).
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useMemo } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -17,6 +17,7 @@ import {
 } from 'react-native';
 import { Surface } from 'react-native-paper';
 import { Image as ExpoImage } from 'expo-image';
+
 import useContestStore from '../../store/contestStore';
 import useAuthStore from '../../store/authStore';
 import OutfitCard from '../../components/OutfitCard';
@@ -74,7 +75,7 @@ function SegTabs({ value, onChange }) {
       {tabs.map((t) => {
         const selected = t.key === value;
         return (
-          <TouchableOpacity key={t.key} style={styles.tabBtn} activeOpacity={0.9} onPress={() => onChange(t.key)}>
+          <TouchableOpacity key={t.key} onPress={() => onChange(t.key)} style={styles.tabBtn} activeOpacity={0.9}>
             <Text style={[styles.tabText, selected && styles.tabTextActive]}>{t.label}</Text>
           </TouchableOpacity>
         );
@@ -86,11 +87,13 @@ function SegTabs({ value, onChange }) {
 // ---------- Entry quick rate row ----------
 function EntryRateCard({ item, onRate, onFlagAI }) {
   return (
-    <Surface style={styles.entryCard} elevation={1}>
-      <Text style={styles.entryCaption} numberOfLines={1}>{item.caption || 'Entry'}</Text>
-      <Text style={styles.entryMeta}>{(item.averageRating || 0).toFixed(1)} · {item.ratingsCount || 0} votes</Text>
-      <View style={{ flexDirection: 'row', marginTop: 8, flexWrap: 'wrap' }}>
-        {[0,1,2,3,4,5,6,7,8,9,10].map((n) => (
+    <View style={styles.entryCard}>
+      <Text style={styles.entryCaption}>{item.caption || 'Entry'}</Text>
+      <Text style={styles.entryMeta}>
+        {(item.averageRating || 0).toFixed(1)} · {item.ratingsCount || 0} votes
+      </Text>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
+        {[1,2,3,4,5,6,7,8,9,10].map((n) => (
           <TouchableOpacity
             key={n}
             onPress={() => onRate(n)}
@@ -100,11 +103,11 @@ function EntryRateCard({ item, onRate, onFlagAI }) {
             <Text style={{ fontWeight: '800' }}>{n}</Text>
           </TouchableOpacity>
         ))}
-        <TouchableOpacity onPress={onFlagAI} style={[styles.ratePill, { backgroundColor: '#FFEFF5' }]} activeOpacity={0.85}>
-          <Text style={{ fontWeight: '800', color: '#E91E63' }}>Looks AI</Text>
+        <TouchableOpacity onPress={onFlagAI} style={[styles.ratePill, { backgroundColor: '#111' }]}>
+          <Text style={{ color: '#fff', fontWeight: '900' }}>Looks AI</Text>
         </TouchableOpacity>
       </View>
-    </Surface>
+    </View>
   );
 }
 
@@ -167,34 +170,32 @@ export default function ContestDetailsScreen({ route, navigation }) {
   const openEntryFlow = (item) => navigation.navigate('RateEntry', { item, mode: 'entry' });
 
   const renderRateItem = ({ item }) => (
-    <View style={{ marginBottom: 12 }}>
-      <OutfitCard item={item} onPress={() => openEntryFlow(item)} />
-      <EntryRateCard item={item} onRate={(v) => onRate(item.id, v, item)} onFlagAI={() => onFlagAI(item.id, item)} />
-    </View>
-  );
-
-  const StatusDot = () => (
-    <View
-      style={[
-        styles.statusDot,
-        status === 'active' ? styles.statusGreen : status === 'upcoming' ? styles.statusAmber : styles.statusGray,
-      ]}
+    <EntryRateCard
+      item={item}
+      onRate={(v) => onRate(item.id, v, item)}
+      onFlagAI={() => onFlagAI(item.id, item)}
     />
   );
 
+  const StatusDot = () => {
+    const style =
+      status === 'active' ? styles.statusGreen :
+      status === 'upcoming' ? styles.statusAmber :
+      styles.statusGray;
+    return <View style={[styles.statusDot, style]} />;
+  };
+
   const Header = (
-    <Animated.View style={{ opacity: fade, transform: [{ translateY: rise }] }}>
+    <View>
       {/* Host banner */}
       {bannerImage ? (
         <View style={styles.bannerWrap}>
-          <ExpoImage source={{ uri: bannerImage }} style={styles.bannerImg} contentFit="cover" transition={200} />
+          <ExpoImage source={{ uri: bannerImage }} style={styles.bannerImg} contentFit="cover" />
           <View style={styles.bannerOverlay} />
           <View style={styles.bannerContent}>
             <Text style={styles.bannerHost}>{host}</Text>
             {!!bannerCaption && (
-              <Text style={styles.bannerCaption} numberOfLines={2}>
-                {bannerCaption}
-              </Text>
+              <Text style={styles.bannerCaption}>{bannerCaption}</Text>
             )}
           </View>
         </View>
@@ -204,126 +205,89 @@ export default function ContestDetailsScreen({ route, navigation }) {
       <View style={styles.hero}>
         <View style={styles.metaRow}>
           <StatusDot />
-          <Text style={styles.metaStrong}>
-            {status === 'active' ? 'Active' : status === 'upcoming' ? 'Upcoming' : 'Ended'}
-          </Text>
-          <Text style={styles.metaDim}> • {range}</Text>
+          <Text style={styles.metaStrong}>{status === 'active' ? 'Active' : status === 'upcoming' ? 'Upcoming' : 'Ended'}</Text>
+          <Text style={[styles.metaDim, { marginLeft: 6 }]}>• {range}</Text>
           {!!contest.country && <Text style={[styles.metaDim, { marginLeft: 6 }]}>• {contest.country}</Text>}
         </View>
-
         <View style={styles.pillsRow}>
-          <View style={[styles.pill, { backgroundColor: '#F3E8FF' }]}>
-            <Text style={[styles.pillText, { color: '#7A5AF8' }]} numberOfLines={1}>
-              Host: {host}
-            </Text>
-          </View>
-          <View style={[styles.pill, { backgroundColor: '#E8F7EE' }]}>
-            <Text style={[styles.pillText, { color: '#10B981' }]} numberOfLines={1}>
-              Prize: {contest.prize || '₹10,000 + Feature'}
-            </Text>
-          </View>
-          <View style={[styles.pill, { backgroundColor: '#FFF7E6' }]}>
-            <Text style={[styles.pillText, { color: '#F59E0B' }]} numberOfLines={1}>
-              Entry: {contest.entryFee && contest.entryFee > 0 ? `₹${contest.entryFee}` : 'Free'}
-            </Text>
-          </View>
+          <View style={[styles.pill, { backgroundColor: '#EEF2FF' }]}><Text style={[styles.pillText, { color: '#3B82F6' }]}>Host: {host}</Text></View>
+          <View style={[styles.pill, { backgroundColor: '#F0FFF4' }]}><Text style={[styles.pillText, { color: '#10B981' }]}>Prize: {contest.prize || '₹10,000 + Feature'}</Text></View>
+          <View style={[styles.pill, { backgroundColor: '#FFF7ED' }]}><Text style={[styles.pillText, { color: '#F97316' }]}>Entry: {contest.entryFee && contest.entryFee > 0 ? `₹${contest.entryFee}` : 'Free'}</Text></View>
         </View>
-
         <View style={styles.actionsRow}>
-          <TouchableOpacity onPress={onEnter} style={styles.primaryBtn} activeOpacity={0.92}>
+          <TouchableOpacity onPress={onEnter} style={styles.primaryBtn} activeOpacity={0.9}>
             <Text style={styles.primaryBtnText}>Upload Outfit</Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={() => setTab('rate')} style={styles.secondaryBtn} activeOpacity={0.9}>
             <Text style={styles.secondaryBtnText}>Go to Rate</Text>
           </TouchableOpacity>
         </View>
-
-        <View style={{ marginTop: 14 }}>
-          <SegTabs value={tab} onChange={setTab} />
-        </View>
-
-        {tab === 'enter' && <Text style={styles.sectionLabel}>Reference & Recent entries</Text>}
       </View>
-    </Animated.View>
+
+      <SegTabs value={tab} onChange={setTab} />
+      {tab === 'enter' && <Text style={[styles.sectionLabel, { paddingHorizontal: PADDING_H }]}>Reference & Recent entries</Text>}
+    </View>
+  );
+
+  // Render entries with OutfitCard (contest ribbon is clickable inside)
+  const renderEntryCard = ({ item }) => (
+    <OutfitCard
+      item={{ ...item, type: 'contest' }}
+      onPress={(post) => openEntryFlow(post)}
+      onRate={(post) => openEntryFlow(post)}
+    />
   );
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#F7F7FB' }}>
+    <View style={{ flex: 1, backgroundColor: '#fff' }}>
       {tab === 'enter' && (
-        <View style={{ flex: 1 }}>
-          {Header}
-          {loading ? (
-            <View style={{ paddingVertical: 20, alignItems: 'center' }}>
-              <ActivityIndicator />
-            </View>
-          ) : (
-            <FlatList
-              data={entries}
-              keyExtractor={(it) => it.id}
-              renderItem={({ item }) => (
-                <View style={{ paddingHorizontal: PADDING_H, marginBottom: 10 }}>
-                  <OutfitCard item={item} onPress={() => openEntryFlow(item)} />
-                </View>
-              )}
-              contentContainerStyle={{ paddingBottom: 24 }}
-              onEndReachedThreshold={0.4}
-              onEndReached={() =>
-                !entriesBag?.loading && entriesBag?.hasMore && fetchEntries({ contestId })
-              }
-              ListFooterComponent={
-                entriesBag?.loading ? (
-                  <View style={{ paddingVertical: 16 }}>
-                    <ActivityIndicator />
-                  </View>
-                ) : null
-              }
-              ListEmptyComponent={
-                !loading ? (
-                  <Text style={{ textAlign: 'center', color: '#666', marginTop: 24 }}>
-                    No entries yet.
-                  </Text>
-                ) : null
-              }
-            />
-          )}
-        </View>
+        <FlatList
+          data={entries}
+          keyExtractor={(it) => String(it.id)}
+          ListHeaderComponent={Header}
+          renderItem={renderEntryCard}
+          contentContainerStyle={{ paddingBottom: 24 }}
+          onEndReachedThreshold={0.4}
+          onEndReached={() =>
+            !entriesBag?.loading && entriesBag?.hasMore && fetchEntries({ contestId })
+          }
+          ListFooterComponent={entriesBag?.loading ? (
+            <ActivityIndicator style={{ marginVertical: 16 }} />
+          ) : null}
+          ListEmptyComponent={!loading ? (
+            <Text style={{ textAlign: 'center', marginTop: 24, color: '#666' }}>No entries yet.</Text>
+          ) : null}
+        />
       )}
 
       {tab === 'rate' && (
-        <View style={{ flex: 1 }}>
-          {Header}
-          <FlatList
-            data={entries}
-            keyExtractor={(it) => it.id}
-            renderItem={renderRateItem}
-            contentContainerStyle={{ padding: 12, paddingBottom: 24 }}
-            onEndReachedThreshold={0.4}
-            onEndReached={() =>
-              !entriesBag?.loading && entriesBag?.hasMore && fetchEntries({ contestId })
-            }
-            ListFooterComponent={
-              entriesBag?.loading ? (
-                <View style={{ paddingVertical: 16 }}>
-                  <ActivityIndicator />
-                </View>
-              ) : null
-            }
-            ListEmptyComponent={
-              !loading ? (
-                <Text style={{ textAlign: 'center', marginTop: 24, color: '#666' }}>
-                  No entries yet.
-                </Text>
-              ) : null
-            }
-          />
-        </View>
+        <FlatList
+          data={entries}
+          keyExtractor={(it) => String(it.id)}
+          ListHeaderComponent={Header}
+          renderItem={renderRateItem}
+          contentContainerStyle={{ padding: 12, paddingBottom: 24 }}
+          onEndReachedThreshold={0.4}
+          onEndReached={() =>
+            !entriesBag?.loading && entriesBag?.hasMore && fetchEntries({ contestId })
+          }
+          ListFooterComponent={entriesBag?.loading ? (
+            <ActivityIndicator style={{ marginVertical: 16 }} />
+          ) : null}
+          ListEmptyComponent={!loading ? (
+            <Text style={{ textAlign: 'center', marginTop: 24, color: '#666' }}>No entries yet.</Text>
+          ) : null}
+        />
       )}
 
       {tab === 'leaderboard' && (
-        <View style={{ flex: 1 }}>
-          {Header}
-          <LeaderboardList contestId={contestId} limit={50} minVotes={5} />
-        </View>
+        <FlatList
+          data={[]}
+          keyExtractor={() => 'header-only'}
+          ListHeaderComponent={Header}
+          renderItem={null}
+          ListEmptyComponent={<LeaderboardList contestId={contestId} />}
+        />
       )}
     </View>
   );
@@ -354,11 +318,9 @@ const styles = StyleSheet.create({
   statusGray: { backgroundColor: '#9CA3AF' },
   metaStrong: { fontWeight: '900', color: '#111827' },
   metaDim: { color: '#6B7280' },
-
   pillsRow: { flexDirection: 'row', gap: 8, marginTop: 10, flexWrap: 'wrap' },
   pill: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12 },
   pillText: { fontWeight: '800' },
-
   actionsRow: { flexDirection: 'row', gap: 10, marginTop: 12 },
   primaryBtn: { flex: 1, backgroundColor: '#7A5AF8', paddingVertical: 13, borderRadius: 12, alignItems: 'center' },
   primaryBtnText: { color: '#fff', fontWeight: '900', letterSpacing: 0.2 },

@@ -1,5 +1,5 @@
 // File: src/store/outfitStore.js
-// Description: Zustand store for managing feed, uploads and ratings.
+// Description: Zustand store for managing feed, uploads, ratings, and my-outfits pagination.
 
 import { create } from 'zustand';
 import {
@@ -9,25 +9,30 @@ import {
   fetchOutfitDetails as fbFetchOutfitDetails,
   submitRating as fbSubmitRating,
   fetchUserOutfits,
-  uploadImage, // now Cloudinary upload
+  uploadImage,
 } from '../services/firebase';
 import useAuthStore from './authStore';
 
 const useOutfitStore = create((set, get) => ({
+  // Feed
   feed: [],
   lastDoc: null,
   loading: false,
   refreshing: false,
-  myOutfits: [],
 
+  // My uploads (profile grid) pagination
+  myOutfits: [],
+  myOutfitsLast: null,
+  myOutfitsLoading: false,
+  myOutfitsRefreshing: false,
+  myOutfitsHasMore: true,
+
+  // Feed list
   fetchFeed: async ({ limit = 12, reset = false } = {}) => {
     try {
-      if (reset) set({ refreshing: true });
-      else set({ loading: true });
-
+      if (reset) set({ refreshing: true }); else set({ loading: true });
       const startAfterDoc = reset ? null : get().lastDoc;
       const res = await fbFetchFeed({ limitCount: limit, startAfterDoc });
-
       if (res.success) {
         set((state) => ({
           feed: reset ? res.items : [...state.feed, ...res.items],
@@ -38,30 +43,34 @@ const useOutfitStore = create((set, get) => ({
       } else {
         set({ loading: false, refreshing: false });
       }
+      return res;
     } catch {
       set({ loading: false, refreshing: false });
+      return { success: false };
     }
   },
 
-  uploadOutfit: async ({ userId, imageUri, caption = '', tags = [] }) => {
+  // Upload (normal)
+  uploadOutfit: async ({ userId, imageUri, caption = '', tags = [], userMeta = null, type = 'normal', contestId = null }) => {
     if (!userId) return { success: false, error: 'Not authenticated' };
     try {
       const up = await uploadImage(imageUri);
       if (!up.success) return up;
-  
+
       const create = await createOutfitDocument({
         userId,
         imageUrl: up.url,
         caption,
         tags,
+        userMeta,
+        type,
+        contestId,
       });
-  
+
       if (create.success) {
+        // Optimistically prepend to feed only; profile list will refresh on demand
         set((state) => ({
-          feed: [
-            { id: create.id, ...create.data, imageUrl: up.url, caption, tags, userId },
-            ...state.feed,
-          ],
+          feed: [{ id: create.id, ...create.data, imageUrl: up.url }, ...state.feed],
         }));
       }
       return create;
@@ -70,18 +79,45 @@ const useOutfitStore = create((set, get) => ({
       return { success: false, error };
     }
   },
-  
 
-  fetchMyOutfits: async () => {
+  // My uploads paginated
+  fetchMyOutfits: async ({ reset = false, limit = 24 } = {}) => {
     const { user } = useAuthStore.getState();
-    if (!user) return { success: false, error: 'Not authenticated' };
+    const uid = user?.uid || user?.user?.uid || null;
+    if (!uid) return { success: false, error: 'Not authenticated' };
 
-    const res = await fetchUserOutfits(user.uid);
-    if (res.success) {
-      set({ myOutfits: res.items });
-      return { success: true, items: res.items };
+    const alreadyLoading = get().myOutfitsLoading || get().myOutfitsRefreshing;
+    if (alreadyLoading) return { success: false, error: 'Busy' };
+
+    if (reset) set({ myOutfitsRefreshing: true, myOutfitsHasMore: true, myOutfitsLast: null });
+    else set({ myOutfitsLoading: true });
+
+    // Reuse fetchUserOutfits to support limit and cursor when available; we’ll pass a lastDoc if your service supports it.
+    try {
+      // Extend your firebase service fetchUserOutfits to accept startAfterDoc if you want true cursoring.
+      // For now, fetch full and slice client-side using lastDoc reference stubs.
+      const res = await fetchUserOutfits(uid, { limitCount: limit, startAfterDoc: reset ? null : get().myOutfitsLast });
+      if (!res.success) {
+        set({ myOutfitsLoading: false, myOutfitsRefreshing: false });
+        return res;
+      }
+
+      const incoming = Array.isArray(res.items) ? res.items : [];
+      const nextItems = reset ? incoming : [...get().myOutfits, ...incoming];
+      const hasMore = !!res.last; // if your service returns last cursor
+      set({
+        myOutfits: nextItems,
+        myOutfitsLast: res.last || null,
+        myOutfitsHasMore: hasMore,
+        myOutfitsLoading: false,
+        myOutfitsRefreshing: false,
+      });
+
+      return { success: true, items: nextItems, last: res.last || null };
+    } catch (e) {
+      set({ myOutfitsLoading: false, myOutfitsRefreshing: false });
+      return { success: false, error: e };
     }
-    return res;
   },
 
   submitRating: async ({ outfitId, stars, comment = '' }) => {

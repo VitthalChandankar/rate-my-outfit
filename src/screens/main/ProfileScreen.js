@@ -1,9 +1,7 @@
 // src/screens/main/ProfileScreen.js
 // Premium self profile: gradient header, avatar ring, clean stats row (no boxes),
 // segmented control, crisp grid, and actions (Edit/Share/Logout) for the signed-in user.
-//ProfileScreen: the owner’s self profile inside the MainTabs. 
-//It shows personal stats, own uploads, and provides actions like Edit Profile.
-// It assumes the current authenticated user.
+// ProfileScreen: the owner’s self profile inside the MainTabs.
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -21,6 +19,7 @@ import {
 } from 'react-native';
 import { Image as ExpoImage } from 'expo-image';
 import { Button } from 'react-native-paper';
+
 import useAuthStore from '../../store/authStore';
 import useOutfitStore from '../../store/outfitStore';
 import useUserStore from '../../store/UserStore';
@@ -48,15 +47,15 @@ function dedupeById(items) {
 
 export default function ProfileScreen({ navigation }) {
   const { user, logout } = useAuthStore();
-  const uid = user?.uid || user?.user?.uid;
+  const uid = user?.uid || user?.user?.uid || null;
 
   const { myProfile, loadMyProfile } = useUserStore();
 
   const myOutfits = useOutfitStore((s) => s.myOutfits);
   const fetchMyOutfits = useOutfitStore((s) => s.fetchMyOutfits);
   const loading = useOutfitStore((s) => s.myOutfitsLoading);
-  const hasMore = useOutfitStore((s) => s.myOutfitsHasMore);
   const refreshing = useOutfitStore((s) => s.myOutfitsRefreshing);
+  const hasMore = useOutfitStore((s) => s.myOutfitsHasMore);
 
   const [tab, setTab] = useState('posts'); // posts | achievements | contests
 
@@ -71,6 +70,7 @@ export default function ProfileScreen({ navigation }) {
   }, [myOutfits]);
 
   const onRefresh = useCallback(() => fetchMyOutfits({ reset: true }), [fetchMyOutfits]);
+
   const onEnd = useCallback(() => {
     if (!loading && hasMore) fetchMyOutfits({ reset: false });
   }, [loading, hasMore, fetchMyOutfits]);
@@ -98,11 +98,7 @@ export default function ProfileScreen({ navigation }) {
           const sel = tab === k;
           const label = k === 'posts' ? 'Posts' : k === 'achievements' ? 'Achievements' : 'Contests';
           return (
-            <Pressable
-              key={k}
-              onPress={() => setTab(k)}
-              style={({ pressed }) => [styles.segmentTab, pressed && { opacity: 0.95 }]}
-            >
+            <Pressable key={k} onPress={() => setTab(k)} style={({ pressed }) => [styles.segmentTab, pressed && { opacity: 0.95 }]}>
               <Text style={[styles.segmentText, sel && styles.segmentTextActive]}>{label}</Text>
             </Pressable>
           );
@@ -113,18 +109,16 @@ export default function ProfileScreen({ navigation }) {
 
   const Header = () => (
     <View style={styles.header}>
-      {/* Gradient header background */}
       <View style={styles.headerBg}>
         <View style={styles.gradA} />
         <View style={styles.gradB} />
       </View>
 
       <View style={styles.headerRow}>
-        <View style={styles.avatarRing}>
+        <View style={{ padding: 3, borderRadius: 52, backgroundColor: '#EDE7FF' }}>
           <Avatar uri={myProfile?.profilePicture} size={96} ring />
         </View>
 
-        {/* Stats in plain row, Instagram-like */}
         <View style={styles.statsRow}>
           <Pressable onPress={() => navigation.navigate('Followers', { userId: uid })} style={styles.statBlock}>
             <Text style={styles.statValue}>{myProfile?.stats?.followersCount || 0}</Text>
@@ -141,13 +135,11 @@ export default function ProfileScreen({ navigation }) {
         </View>
       </View>
 
-      {/* Identity */}
       <Text style={styles.name}>{myProfile?.name || myProfile?.displayName || 'Your Name'}</Text>
       {!!myProfile?.username && <Text style={styles.username}>@{myProfile.username}</Text>}
       {!!myProfile?.bio && <Text style={styles.bio}>{myProfile.bio}</Text>}
 
-      {/* Actions for self only */}
-      <View style={styles.actionsRow}>
+      <View style={{ flexDirection: 'row', gap: 10, marginTop: 12 }}>
         <Button mode="contained" onPress={() => navigation.navigate('EditProfile')} style={styles.actionMain} labelStyle={styles.actionMainText}>
           Edit Profile
         </Button>
@@ -184,7 +176,7 @@ export default function ProfileScreen({ navigation }) {
           {uri ? (
             <ExpoImage source={{ uri }} style={styles.gridImage} contentFit="cover" transition={250} />
           ) : (
-            <View />
+            <View style={[styles.gridImage, { backgroundColor: '#EEE' }]} />
           )}
         </Pressable>
       );
@@ -198,6 +190,7 @@ export default function ProfileScreen({ navigation }) {
       <Text style={styles.emptySub}>Join contests and earn badges.</Text>
     </View>
   );
+
   const ContestsEmpty = () => (
     <View style={styles.emptyWrap}>
       <Text style={styles.emptyTitle}>No contest history</Text>
@@ -208,7 +201,7 @@ export default function ProfileScreen({ navigation }) {
   const listData = tab === 'posts' ? data : [];
   const listEmpty =
     tab === 'posts'
-      ? !loading && <Text style={styles.empty}>No uploads yet — be the first to upload!</Text>
+      ? (!loading ? <Text style={styles.empty}>No uploads yet — be the first to upload!</Text> : null)
       : tab === 'achievements'
       ? <AchievementsEmpty />
       : <ContestsEmpty />;
@@ -267,7 +260,6 @@ const styles = StyleSheet.create({
     transform: [{ skewY: '5deg' }],
   },
   headerRow: { flexDirection: 'row', alignItems: 'center', marginTop: 8 },
-  avatarRing: { padding: 3, borderRadius: 52, backgroundColor: '#EDE7FF' },
   statsRow: { flexDirection: 'row', marginLeft: 'auto', gap: 16, paddingRight: 2 },
   statBlock: { alignItems: 'center' },
   statValue: { fontWeight: '900', color: '#111827', fontSize: 18, textAlign: 'center' },
@@ -277,7 +269,6 @@ const styles = StyleSheet.create({
   username: { color: '#6B7280', marginTop: 4, fontWeight: '700' },
   bio: { marginTop: 6, color: '#4B5563' },
 
-  actionsRow: { flexDirection: 'row', gap: 10, marginTop: 12 },
   actionMain: { flex: 1, borderRadius: 12, backgroundColor: '#7A5AF8' },
   actionMainText: { color: '#fff', fontWeight: '900', letterSpacing: 0.2 },
   actionGhost: { flex: 1, borderRadius: 12 },

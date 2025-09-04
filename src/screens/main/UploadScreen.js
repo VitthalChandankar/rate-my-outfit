@@ -1,4 +1,5 @@
 // File: src/screens/main/UploadScreen.js
+
 // Rich, animated progress UI with distinct contest vs normal themes and robust upload flow.
 // Keyboard-safe: caption always visible on iOS/Android, auto-scrolls on focus, Done actions dismiss keyboard.
 // Restores iconified buttons (Pick Image, Camera, Submit) and preserves all existing functionality.
@@ -36,6 +37,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import useAuthStore from '../../store/authStore';
 import useOutfitStore from '../../store/outfitStore'; // general feed upload
 import useContestStore from '../../store/contestStore'; // contest entry upload
+import useUserStore from '../../store/UserStore'; // ADDED: read myProfile meta
+
 import { uploadImageToCloudinary } from '../../services/cloudinaryService'; // direct Cloudinary when entering contests
 
 const hasImageManipulator = !!ImageManipulator?.manipulateAsync;
@@ -47,6 +50,7 @@ export default function UploadScreen({ navigation, route }) {
   const { user } = useAuthStore();
   const uploadOutfit = useOutfitStore((s) => s.uploadOutfit);
   const createEntry = useContestStore((s) => s.createEntry);
+  const { myProfile } = useUserStore(); // ADDED
 
   const [selectedUri, setSelectedUri] = useState(null);
   const [caption, setCaption] = useState('');
@@ -57,6 +61,7 @@ export default function UploadScreen({ navigation, route }) {
 
   // Animated progress shimmer
   const progAnim = useRef(new Animated.Value(0)).current;
+
   useEffect(() => {
     if (uploading) {
       Animated.loop(
@@ -123,7 +128,6 @@ export default function UploadScreen({ navigation, route }) {
   // Extracts a URI from the picker result and resolves it when needed
   const extractAndResolveUri = async (result) => {
     if (!result) return null;
-
     // Modern shape
     if (typeof result.canceled === 'boolean') {
       if (result.canceled) return null;
@@ -133,7 +137,6 @@ export default function UploadScreen({ navigation, route }) {
       const resolved = await resolveToFileUri(raw);
       return resolved || raw;
     }
-
     // Legacy shape
     if (!result.cancelled && result.uri) {
       const resolved = await resolveToFileUri(result.uri);
@@ -220,7 +223,6 @@ export default function UploadScreen({ navigation, route }) {
 
   const handleUpload = async () => {
     Keyboard.dismiss();
-
     if (!selectedUri) return Alert.alert('No image', 'Please choose or capture an image first.');
     if (caption.trim().length === 0) return Alert.alert('Add a caption', 'Please enter a caption before uploading.');
     if (!user?.uid) return Alert.alert('Not signed in', 'Please sign in before uploading.');
@@ -246,12 +248,22 @@ export default function UploadScreen({ navigation, route }) {
           });
         }
       } else {
-        // General feed
+        // General feed: minimal addition -> include userMeta
+        const meta = myProfile ? {
+          uid: myProfile.uid,
+          name: myProfile.name || myProfile.displayName || '',
+          username: myProfile.username || '',
+          profilePicture: myProfile.profilePicture || null,
+        } : null;
+
         res = await uploadOutfit({
           userId: user.uid,
           imageUri: selectedUri,
           caption: caption.trim(),
           tags: [],
+          userMeta: meta,       // ADDED
+          type: 'normal',       // ADDED
+          contestId: null,      // ADDED
         });
       }
 
@@ -265,6 +277,7 @@ export default function UploadScreen({ navigation, route }) {
         setSelectedUri(null);
         setSnack({ visible: true, text: isContest ? 'Entry submitted!' : 'Uploaded successfully.' });
 
+        // Note: Keeping navigation exactly as-is to preserve current behavior
         setTimeout(() => {
           Keyboard.dismiss();
           if (isContest) navigation.navigate?.('ContestDetails', { contestId });
@@ -290,17 +303,14 @@ export default function UploadScreen({ navigation, route }) {
   // Themed progress bar
   const ProgressBarFancy = () => {
     if (!uploading && progress <= 0) return null;
-
     const widthPct = `${Math.round(progress * 100)}%`;
     const shimmerPos = progAnim.interpolate({
       inputRange: [0, 1],
       outputRange: ['0%', '100%'],
     });
-
     const theme = isContest
       ? { bg: '#F3E8FF', bar: '#7A5AF8', accent: '#B794F4', label: 'Submitting entry' }
       : { bg: '#E6F4FF', bar: '#1E90FF', accent: '#8EC5FF', label: 'Uploading' };
-
     return (
       <View style={[styles.progressWrap, { backgroundColor: theme.bg }]}>
         <View style={[styles.progressBar, { backgroundColor: '#FFFFFF' }]}>
@@ -323,7 +333,6 @@ export default function UploadScreen({ navigation, route }) {
   // Auto-scroll caption into view on focus (iOS improvement)
   const scrollRef = useRef(null);
   const captionRef = useRef(null);
-
   const onCaptionFocus = () => {
     // Small delay lets keyboard animate; then scroll caption visibly into view
     setTimeout(() => {
@@ -352,34 +361,34 @@ export default function UploadScreen({ navigation, route }) {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
       >
-        {/* Tap outside to dismiss */}
+      {/* Tap outside to dismiss */}
         <Pressable style={{ flex: 1 }} onPress={Keyboard.dismiss}>
           <ScrollView
             ref={scrollRef}
             contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24 }}
             keyboardShouldPersistTaps="handled"
           >
-            {/* Header */}
-            <View style={styles.header}>
+          {/* Header */}
+          <View style={styles.header}>
               <Text variant="titleMedium" style={styles.title}>
-                {isContest ? 'Enter Contest' : 'Upload Outfit'}
-              </Text>
-              <IconButton
-                icon="close"
+              {isContest ? 'Enter Contest' : 'Upload Outfit'}
+            </Text>
+            <IconButton
+              icon="close"
                 size={20}
-                onPress={() => {
-                  Keyboard.dismiss();
-                  navigation.goBack?.();
-                }}
-                accessibilityLabel="Close"
-              />
-            </View>
+              onPress={() => {
+                Keyboard.dismiss();
+                navigation.goBack?.();
+              }}
+              accessibilityLabel="Close"
+            />
+          </View>
 
-            {/* Preview card */}
+          {/* Preview card */}
             <Surface style={styles.card} elevation={1}>
-              <View style={styles.previewWrap}>
-                {selectedUri ? (
-                  <>
+            <View style={styles.previewWrap}>
+              {selectedUri ? (
+                <>
                     <ExpoImage source={{ uri: selectedUri }} style={styles.preview} contentFit="cover" transition={120} />
                     <IconButton
                       icon="close"
@@ -388,17 +397,17 @@ export default function UploadScreen({ navigation, route }) {
                       style={styles.clearBtn}
                       accessibilityLabel="Remove selected image"
                     />
-                  </>
-                ) : (
+                </>
+              ) : (
                   <View style={styles.placeholder}>
                     <IconButton icon="image-multiple" size={30} disabled />
                     <Text variant="labelLarge">No image selected</Text>
                   </View>
-                )}
-              </View>
+              )}
+            </View>
 
-              {/* Actions (restored: icons and filled Pick Image) */}
-              <View style={styles.actionsRow}>
+            {/* Actions (restored: icons and filled Pick Image) */}
+            <View style={styles.actionsRow}>
                 <Button
                   mode="contained" // filled as requested
                   icon="image"
@@ -406,8 +415,8 @@ export default function UploadScreen({ navigation, route }) {
                   style={styles.actionBtn}
                   disabled={uploading}
                 >
-                  Pick image
-                </Button>
+                Pick image
+              </Button>
                 <Button
                   mode="outlined"
                   icon="camera"
@@ -415,53 +424,53 @@ export default function UploadScreen({ navigation, route }) {
                   style={styles.actionBtn}
                   disabled={uploading}
                 >
-                  Camera
-                </Button>
-              </View>
+                Camera
+              </Button>
+            </View>
 
-              {/* Caption */}
-              <TextInput
-                ref={captionRef}
+            {/* Caption */}
+            <TextInput
+              ref={captionRef}
                 label={isContest ? 'Caption for your contest entry' : 'Caption'}
                 mode="outlined"
-                value={caption}
-                onChangeText={setCaption}
-                style={styles.input}
-                multiline
+              value={caption}
+              onChangeText={setCaption}
+              style={styles.input}
+              multiline
                 numberOfLines={3}
                 returnKeyType="done"
                 blurOnSubmit
-                onFocus={onCaptionFocus}
+              onFocus={onCaptionFocus}
                 onSubmitEditing={Keyboard.dismiss}
                 keyboardAppearance={Platform.OS === 'ios' ? 'default' : undefined}
                 inputAccessoryViewID={Platform.OS === 'ios' ? 'captionDoneBar' : undefined}
                 disabled={uploading}
-              />
+            />
 
-              {/* iOS Done bar */}
-              {Platform.OS === 'ios' && (
-                <InputAccessoryView nativeID={inputAccessoryViewID}>
-                  <View style={styles.accessoryBar}>
+          {/* iOS Done bar */}
+          {Platform.OS === 'ios' && (
+            <InputAccessoryView nativeID={inputAccessoryViewID}>
+              <View style={styles.accessoryBar}>
                     <Button compact onPress={Keyboard.dismiss}>Done</Button>
-                  </View>
-                </InputAccessoryView>
-              )}
+              </View>
+            </InputAccessoryView>
+          )}
 
-              {/* Progress */}
-              <ProgressBarFancy />
+          {/* Progress */}
+          <ProgressBarFancy />
             </Surface>
 
-            {/* Upload CTA (restored icon) */}
-            <Button
-              mode="contained"
+          {/* Upload CTA (restored icon) */}
+          <Button
+            mode="contained"
               icon={isContest ? 'trophy' : 'cloud-upload'}
-              onPress={handleUpload}
-              style={styles.uploadBtn}
+            onPress={handleUpload}
+            style={styles.uploadBtn}
               disabled={!canUpload}
-            >
-              {uploading ? (isContest ? 'Submitting...' : 'Uploading...') : (isContest ? 'Submit Entry' : 'Upload Outfit')}
-            </Button>
-          </ScrollView>
+          >
+            {uploading ? (isContest ? 'Submitting...' : 'Uploading...') : (isContest ? 'Submit Entry' : 'Upload Outfit')}
+          </Button>
+        </ScrollView>
         </Pressable>
       </KeyboardAvoidingView>
 
@@ -475,7 +484,6 @@ export default function UploadScreen({ navigation, route }) {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: '#fff' },
-
   header: {
     paddingHorizontal: 16,
     paddingBottom: 4,
@@ -484,27 +492,20 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   title: { fontWeight: '700' },
-
   card: { borderRadius: 16, padding: 14, backgroundColor: '#ffffff' },
-
   previewWrap: { width: '100%', height: 340, borderRadius: 12, overflow: 'hidden', backgroundColor: '#F4F4F4' },
   preview: { width: '100%', height: '100%' },
   placeholder: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   clearBtn: { position: 'absolute', right: 6, top: 6, backgroundColor: 'rgba(255,255,255,0.9)', borderRadius: 16 },
-
   actionsRow: { marginTop: 12, flexDirection: 'row', gap: 10, justifyContent: 'space-between' },
   actionBtn: { flex: 1 },
-
   input: { marginTop: 10 },
-
   uploadBtn: { marginTop: 16 },
-
   // Fancy progress
   progressWrap: { marginTop: 12, borderRadius: 12, padding: 8 },
   progressBar: { height: 10, borderRadius: 6, overflow: 'hidden' },
   shimmer: { position: 'absolute', width: 40, height: 10, opacity: 0.3 },
   progressMeta: { marginTop: 8, flexDirection: 'row', justifyContent: 'space-between' },
-
   // iOS accessory bar
   accessoryBar: {
     backgroundColor: '#F2F2F7',
