@@ -17,6 +17,7 @@ import {
   Platform,
   FlatList,
 } from 'react-native';
+import { useIsFocused } from '@react-navigation/native';
 import { Image as ExpoImage } from 'expo-image';
 import { Button } from 'react-native-paper';
 
@@ -49,6 +50,7 @@ function dedupeById(items) {
 }
 
 export default function ProfileScreen({ navigation }) {
+  const isFocused = useIsFocused();
   const { user, logout } = useAuthStore();
   const uid = user?.uid || user?.user?.uid || null;
 
@@ -63,9 +65,11 @@ export default function ProfileScreen({ navigation }) {
   const [tab, setTab] = useState('posts'); // posts | achievements | contests
 
   useEffect(() => {
-    fetchMyOutfits({ reset: true });
-    if (uid) loadMyProfile(uid);
-  }, [fetchMyOutfits, uid, loadMyProfile]);
+    if (isFocused) {
+      fetchMyOutfits({ reset: true });
+      if (uid) loadMyProfile(uid);
+    }
+  }, [isFocused, fetchMyOutfits, uid, loadMyProfile]);
 
   const data = useMemo(() => {
     const withKeys = (myOutfits || []).map(ensureKey);

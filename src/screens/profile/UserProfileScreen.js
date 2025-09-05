@@ -2,13 +2,13 @@
 // Public profile for other users: Follow/Unfollow, no Edit button, Instagram-like stats row.
 
 import React, { useEffect, useState, useCallback } from 'react';
-import { Alert, StyleSheet, Text, View, FlatList, Pressable } from 'react-native';
+import { Alert, StyleSheet, Text, View, FlatList, Pressable, RefreshControl, ActivityIndicator } from 'react-native';
 import { Image as ExpoImage } from 'expo-image';
 import * as Haptics from 'expo-haptics';
 
 import useAuthStore from '../../store/authStore';
 import useUserStore from '../../store/UserStore';
-import useOutfitStore from '../../store/outfitStore';
+import { fetchUserOutfits } from '../../services/firebase';
 import Avatar from '../../components/Avatar';
 import ProfileGridItem from '../../components/ProfileGridItem';
 
@@ -20,15 +20,33 @@ export default function UserProfileScreen({ route, navigation }) {
   const { loadUserProfile, profilesById, isFollowing, follow, unfollow } = useUserStore();
   const profile = profilesById[userId];
 
-  const { fetchUserOutfits } = useOutfitStore();
-
   const [posts, setPosts] = useState([]);
-  const [loadingPosts, setLoadingPosts] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [lastDoc, setLastDoc] = useState(null);
+  const [hasMore, setHasMore] = useState(true);
   const [rel, setRel] = useState(false);
 
   useEffect(() => {
     if (userId) loadUserProfile(userId);
   }, [userId, loadUserProfile]);
+
+  const loadPosts = useCallback(async (isReset = false) => {
+    if (loading || refreshing) return;
+    if (isReset) setRefreshing(true); else setLoading(true);
+
+    const startAfter = isReset ? null : lastDoc;
+    const res = await fetchUserOutfits(userId, { startAfterDoc: startAfter, limitCount: 24 });
+
+    if (res.success) {
+      const newItems = res.items || [];
+      setPosts(isReset ? newItems : [...posts, ...newItems]);
+      setLastDoc(res.last);
+      setHasMore(!!res.last && newItems.length > 0);
+    }
+
+    if (isReset) setRefreshing(false); else setLoading(false);
+  }, [userId, loading, refreshing, lastDoc, posts]);
 
   useEffect(() => {
     let mounted = true;
@@ -41,13 +59,8 @@ export default function UserProfileScreen({ route, navigation }) {
   }, [authedId, userId, isFollowing]);
 
   useEffect(() => {
-    (async () => {
-      setLoadingPosts(true);
-      const res = await fetchUserOutfits(userId, { limitCount: 60 });
-      setLoadingPosts(false);
-      if (res.success) setPosts(res.items || []);
-    })();
-  }, [userId, fetchUserOutfits]);
+    loadPosts(true); // Initial load
+  }, [userId]);
 
   const handlePostPress = useCallback((post) => {
     if (!post?.id) return;
@@ -95,6 +108,13 @@ export default function UserProfileScreen({ route, navigation }) {
     <ProfileGridItem item={item} onPress={handlePostPress} />
   ), [handlePostPress]);
 
+  const onRefresh = () => loadPosts(true);
+  const onEndReached = () => {
+    if (!loading && hasMore) {
+      loadPosts(false);
+    }
+  };
+
   return (
     <FlatList
       data={posts}
@@ -135,8 +155,12 @@ export default function UserProfileScreen({ route, navigation }) {
         </View>
       }
       renderItem={renderItem}
-      ListEmptyComponent={!loadingPosts ? <Text style={{ textAlign: 'center', marginTop: 24, color: '#666' }}>No posts</Text> : null}
+      ListEmptyComponent={!loading && !refreshing ? <Text style={{ textAlign: 'center', marginTop: 24, color: '#666' }}>No posts</Text> : null}
       contentContainerStyle={{ paddingBottom: 24 }}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+      onEndReached={onEndReached}
+      onEndReachedThreshold={0.5}
+      ListFooterComponent={loading ? <ActivityIndicator style={{ margin: 20 }} /> : null}
     />
   );
 }
