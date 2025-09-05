@@ -31,5 +31,6 @@ export function withCloudinaryTransforms(url, transforms = 'w_600,q_auto,f_auto'
   // Optional constants for reuse
   export const IMG_FEED = 'w_600,q_auto,f_auto';
   export const IMG_GRID = 'w_300,q_auto,f_auto';
+  export const IMG_SQUARE_THUMB = 'c_fill,g_auto,w_300,h_300,q_auto,f_auto';
   export const IMG_DETAIL = 'w_1080,dpr_auto,q_auto,f_auto';
   

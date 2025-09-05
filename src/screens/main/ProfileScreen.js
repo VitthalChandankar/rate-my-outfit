@@ -24,12 +24,15 @@ import useAuthStore from '../../store/authStore';
 import useOutfitStore from '../../store/outfitStore';
 import useUserStore from '../../store/UserStore';
 import Avatar from '../../components/Avatar';
+import ProfileGridItem from '../../components/ProfileGridItem';
 
 const { width } = Dimensions.get('window');
 const SAFE_H = Platform.select({ ios: 44, android: 0, default: 0 });
+
+// Layout constants
 const OUTER_PAD = 16;
 const COLS = 3;
-const GAP = 4;
+const GAP = 2;
 
 function ensureKey(item) {
   if (item?.id) return item;
@@ -69,6 +72,28 @@ export default function ProfileScreen({ navigation }) {
     return dedupeById(withKeys);
   }, [myOutfits]);
 
+  const handlePostPress = useCallback((post) => {
+    if (!post?.id) return;
+    const isContest = post.type === 'contest' || !!post.contestId;
+    if (isContest) {
+      const target = {
+        id: post.id,
+        userId: post.userId || post.user?.uid || '',
+        userName: post.user?.name || 'Creator',
+        userPhoto: post.user?.profilePicture || null,
+        imageUrl: post.imageUrl || null,
+        caption: post.caption || '',
+        createdAt: post.createdAt || null,
+        contestId: post.contestId || null,
+        averageRating: Number(post.averageRating ?? 0) || 0,
+        ratingsCount: Number(post.ratingsCount ?? 0) || 0,
+      };
+      navigation.navigate('RateEntry', { item: target, mode: 'entry' });
+    } else {
+      navigation.navigate('OutfitDetails', { outfitId: post.id });
+    }
+  }, [navigation]);
+
   const onRefresh = useCallback(() => fetchMyOutfits({ reset: true }), [fetchMyOutfits]);
 
   const onEnd = useCallback(() => {
@@ -83,7 +108,7 @@ export default function ProfileScreen({ navigation }) {
   const postsCount = (myProfile?.stats?.postsCount ?? 0) || (data?.length ?? 0);
 
   const SegBar = () => {
-    const idx = { posts: 0, achievements: 1, contests: 2 }[tab] ?? 0;
+    const idx = { posts: 0, achievements: 1, contests: 2 }[tab] ?? 0; // Keep achievements/contests tabs for future
     const IND_W = (width - OUTER_PAD * 2 - 8) / 3;
     const anim = useRef(new Animated.Value(idx)).current;
     useEffect(() => {
@@ -156,33 +181,9 @@ export default function ProfileScreen({ navigation }) {
     </View>
   );
 
-  const renderItem = useCallback(
-    ({ item, index }) => {
-      const key = item?.id || item?._localKey;
-      const uri = item?.imageUrl;
-      const tileSize = Math.floor((width - OUTER_PAD * 2 - GAP * (COLS - 1)) / COLS);
-      const isEndOfRow = (index + 1) % COLS === 0;
-      return (
-        <Pressable
-          key={key}
-          onPress={() => item?.id && navigation.navigate('OutfitDetails', { outfitId: item.id })}
-          style={({ pressed }) => [
-            styles.gridItem,
-            { width: tileSize, height: tileSize },
-            !isEndOfRow && { marginRight: GAP },
-            pressed && styles.gridItemPressed,
-          ]}
-        >
-          {uri ? (
-            <ExpoImage source={{ uri }} style={styles.gridImage} contentFit="cover" transition={250} />
-          ) : (
-            <View style={[styles.gridImage, { backgroundColor: '#EEE' }]} />
-          )}
-        </Pressable>
-      );
-    },
-    [navigation]
-  );
+  const renderItem = useCallback(({ item }) => (
+    <ProfileGridItem item={item} onPress={handlePostPress} />
+  ), [handlePostPress]);
 
   const AchievementsEmpty = () => (
     <View style={styles.emptyWrap}>
@@ -224,6 +225,8 @@ export default function ProfileScreen({ navigation }) {
       <FlatList
         data={listData}
         keyExtractor={(item) => String(item?.id || item?._localKey)}
+        numColumns={3}
+        columnWrapperStyle={{ margin: -1 }}
         renderItem={renderItem}
         ListHeaderComponent={Header}
         refreshControl={<RefreshControl refreshing={!!refreshing} onRefresh={onRefresh} />}
@@ -231,7 +234,6 @@ export default function ProfileScreen({ navigation }) {
         onEndReached={onEnd}
         ListEmptyComponent={listEmpty}
         ListFooterComponent={loading ? <ActivityIndicator style={{ marginVertical: 16 }} /> : null}
-        contentContainerStyle={{ paddingHorizontal: OUTER_PAD, paddingBottom: 28 }}
         showsVerticalScrollIndicator={false}
         // Performance tuning for grid
         initialNumToRender={18}
@@ -250,6 +252,7 @@ export default function ProfileScreen({ navigation }) {
 
 const styles = StyleSheet.create({
   header: {
+    // The header now controls its own padding
     paddingTop: SAFE_H ? SAFE_H / 2 : 12,
     paddingHorizontal: OUTER_PAD,
     paddingBottom: 8,
@@ -316,15 +319,6 @@ const styles = StyleSheet.create({
   segmentTab: { flex: 1, alignItems: 'center', justifyContent: 'center', height: '100%' },
   segmentText: { fontWeight: '700', color: '#6B7280' },
   segmentTextActive: { color: '#1F2937' },
-
-  gridItem: {
-    borderRadius: 12,
-    overflow: 'hidden',
-    backgroundColor: '#F2F2F7',
-    marginTop: 6,
-  },
-  gridItemPressed: { transform: [{ scale: 0.985 }] },
-  gridImage: { width: '100%', height: '100%' },
 
   empty: { textAlign: 'center', marginTop: 40, color: '#666' },
   emptyWrap: { alignItems: 'center', paddingVertical: 40 },

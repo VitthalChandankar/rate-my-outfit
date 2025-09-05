@@ -1,8 +1,8 @@
 // src/screens/profile/UserProfileScreen.js
 // Public profile for other users: Follow/Unfollow, no Edit button, Instagram-like stats row.
 
-import React, { useEffect, useState, useMemo } from 'react';
-import { Alert, StyleSheet, Text, View, FlatList, Pressable, Dimensions } from 'react-native';
+import React, { useEffect, useState, useCallback } from 'react';
+import { Alert, StyleSheet, Text, View, FlatList, Pressable } from 'react-native';
 import { Image as ExpoImage } from 'expo-image';
 import * as Haptics from 'expo-haptics';
 
@@ -10,11 +10,7 @@ import useAuthStore from '../../store/authStore';
 import useUserStore from '../../store/UserStore';
 import useOutfitStore from '../../store/outfitStore';
 import Avatar from '../../components/Avatar';
-
-const { width } = Dimensions.get('window');
-const OUTER_PAD = 16;
-const COLS = 3;
-const GAP = 4;
+import ProfileGridItem from '../../components/ProfileGridItem';
 
 export default function UserProfileScreen({ route, navigation }) {
   const { userId } = route.params || {};
@@ -53,9 +49,27 @@ export default function UserProfileScreen({ route, navigation }) {
     })();
   }, [userId, fetchUserOutfits]);
 
-  const tileSize = useMemo(() => {
-    return Math.floor((width - OUTER_PAD * 2 - GAP * (COLS - 1)) / COLS);
-  }, []);
+  const handlePostPress = useCallback((post) => {
+    if (!post?.id) return;
+    const isContest = post.type === 'contest' || !!post.contestId;
+    if (isContest) {
+      const target = {
+        id: post.id,
+        userId: post.userId || post.user?.uid || '',
+        userName: post.user?.name || 'Creator',
+        userPhoto: post.user?.profilePicture || null,
+        imageUrl: post.imageUrl || null,
+        caption: post.caption || '',
+        createdAt: post.createdAt || null,
+        contestId: post.contestId || null,
+        averageRating: Number(post.averageRating ?? 0) || 0,
+        ratingsCount: Number(post.ratingsCount ?? 0) || 0,
+      };
+      navigation.navigate('RateEntry', { item: target, mode: 'entry' });
+    } else {
+      navigation.navigate('OutfitDetails', { outfitId: post.id });
+    }
+  }, [navigation]);
 
   const onToggleFollow = async () => {
     if (!authedId) return Alert.alert('Sign in', 'Please sign in to follow');
@@ -77,12 +91,16 @@ export default function UserProfileScreen({ route, navigation }) {
     Haptics.selectionAsync();
   };
 
+  const renderItem = useCallback(({ item }) => (
+    <ProfileGridItem item={item} onPress={handlePostPress} />
+  ), [handlePostPress]);
+
   return (
     <FlatList
       data={posts}
       keyExtractor={(it) => String(it.id)}
       numColumns={3}
-      contentContainerStyle={{ paddingHorizontal: OUTER_PAD, paddingBottom: 24 }}
+      columnWrapperStyle={{ margin: -1 }}
       ListHeaderComponent={
         <View style={styles.header}>
           <View style={styles.headerRow}>
@@ -116,54 +134,32 @@ export default function UserProfileScreen({ route, navigation }) {
           )}
         </View>
       }
-      renderItem={({ item, index }) => {
-        const isEndOfRow = (index + 1) % COLS === 0;
-        return (
-          <Pressable
-            onPress={() => navigation.navigate('OutfitDetails', { outfitId: item.id })}
-            style={({ pressed }) => [
-              styles.gridItem,
-              { width: tileSize, height: tileSize },
-              !isEndOfRow && { marginRight: GAP },
-              pressed && { transform: [{ scale: 0.985 }] }
-            ]}
-          >
-            <ExpoImage source={{ uri: item.imageUrl }} style={{ width: '100%', height: '100%' }} contentFit="cover" transition={250} />
-          </Pressable>
-        );
-      }}
+      renderItem={renderItem}
       ListEmptyComponent={!loadingPosts ? <Text style={{ textAlign: 'center', marginTop: 24, color: '#666' }}>No posts</Text> : null}
+      contentContainerStyle={{ paddingBottom: 24 }}
     />
   );
 }
 
 const styles = StyleSheet.create({
-  header: { paddingTop: 12, backgroundColor: '#fff', paddingBottom: 8 },
-  headerRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: OUTER_PAD, marginTop: 8 },
+  header: { paddingTop: 12, backgroundColor: '#fff', paddingBottom: 16, paddingHorizontal: 16 },
+  headerRow: { flexDirection: 'row', alignItems: 'center', marginTop: 8 },
   avatarRing: { padding: 3, borderRadius: 52, backgroundColor: '#EDE7FF' },
   statsRow: { flexDirection: 'row', marginLeft: 'auto', gap: 16, paddingRight: 2 },
   statBlock: { alignItems: 'center' },
   statValue: { fontWeight: '900', color: '#111827', fontSize: 18 },
   statLabel: { color: '#6B7280', marginTop: 2, fontSize: 12 },
 
-  name: { fontWeight: '900', color: '#111827', fontSize: 20, marginTop: 12, paddingHorizontal: OUTER_PAD },
-  username: { color: '#6B7280', marginTop: 4, fontWeight: '700', paddingHorizontal: OUTER_PAD },
-  bio: { marginTop: 6, color: '#4B5563', paddingHorizontal: OUTER_PAD },
+  name: { fontWeight: '900', color: '#111827', fontSize: 20, marginTop: 12 },
+  username: { color: '#6B7280', marginTop: 4, fontWeight: '700' },
+  bio: { marginTop: 6, color: '#4B5563' },
 
   followBtn: {
     marginTop: 12,
-    marginHorizontal: OUTER_PAD,
     backgroundColor: '#7A5AF8',
     paddingVertical: 10,
     borderRadius: 12,
     alignItems: 'center',
   },
   followText: { color: '#fff', fontWeight: '900' },
-
-  gridItem: {
-    borderRadius: 12,
-    overflow: 'hidden',
-    backgroundColor: '#F2F2F7',
-    marginTop: 6,
-  },
 });
