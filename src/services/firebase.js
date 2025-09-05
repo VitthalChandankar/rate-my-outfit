@@ -346,6 +346,7 @@ async function fetchLikersForOutfit({ outfitId, limitCount = 30, startAfterDoc =
 
     return { success: true, users, last };
   } catch (error) {
+    console.error('fetchLikersForOutfit failed:', error);
     return { success: false, error };
   }
 }

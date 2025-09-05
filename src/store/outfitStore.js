@@ -168,7 +168,7 @@ const useOutfitStore = create((set, get) => ({
       const newBag = { users: merged, last: res.last || null, loading: false, hasMore: !!res.last && newUsers.length > 0 };
       set({ likers: { ...get().likers, [outfitId]: newBag } });
     } else {
-      set({ likers: { ...get().likers, [outfitId]: { ...bag, loading: false } } });
+      set({ likers: { ...get().likers, [outfitId]: { ...bag, loading: false, hasMore: false } } });
     }
     return res;
   },
