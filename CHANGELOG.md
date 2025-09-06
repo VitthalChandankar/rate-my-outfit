@@ -173,3 +173,83 @@ getting below
 
 able to upload the normal image and its visible on homescreen with avatar and name. 
 but still not visible in profile screen
+
+
+open issue :- 
+
+android - able to comment and delete but keybord hides the text bar, 
+comment count isnot visible for contest post
+
+
+
+in profile screen of user we dont see all the post we see 8 post butthere are 10 .. 2 looks grey what is the issue 
+same on home screen also. -> images got deleted but entry in firebase
+
+NEW: 
+rate entry screen changes.
+Rate screen changes. Creator change
+
+home screen - header part will have app name and when screolled down it is not visible but some part of header like where mobile tower and other info is visible stays fix and app homescreen scrolls. when scrolls upword appname shows 
+Settings screen generation with all the required options.
+
+profile screen same we want fix header part in profile screen
+
+dark mode : - font colour should change to white
+normal mode :- font colour should change to black
+
+
+
+class trademark falls into :
+
+social app: 
+Trendly → modern, has the –ly suffix (like Spotify, Grammarly) 
+Stylora → style + aura, chic.
+
+My pick if you want to stay close to TREND but still own a unique brand: Trendo or Trendly (easy recall, good for marketing, domain likely findable).
+👉 If you want something that feels like a standalone global brand: Stylora
+Styla,TENUE / TenueApp / Tenuely.
+If you want a word with dictionary meaning that clearly defines the app: use TENUE (my pick). It communicates “outfit” naturally and looks premium.
+
+all above are taken globally
+
+new sugggesion 
+
+Tenuora → rooted in Tenue (outfit) + “aura”; unique twist, no heavy TM footprints yet.
+
+Summary Table
+Word	Trademark Registrations Found	Notable Existing Use	Risk Level
+Trenzaa	None	Common term for braids online	Low – Fairly clear
+Tenuora	None	Olive oil product in China	Low–Moderate
+
+all are taken..
+
+trendygram
+
+Premium Domain
+Call 040-67607600 for buying assistance.
+trendygram.com is available.
+₹ 2,83,097.34
++ ₹ 1,499.00/yr
+
+
+GREAT NAME
+trendygrams.com
+₹1.60
+₹1,499
+1st yr only with 3 yr term
+
+
+
+
+
+Class 9 → Downloadable mobile apps, software.
+
+Class 38 → Online communication, social networking, content sharing.
+
+Class 41 → Entertainment services (outfit rating, contests, style challenges, gamified fashion engagement).
+
+Class 42 → Hosting platform, SaaS, providing tech infrastructure for the app.
+
+This combo protects you on all fronts — the app itself, the networking part, the entertainment side, and the backend platform.
+
+Would you like me to also draft the exact descriptions you can use under each class (the way lawyers/filers write it so it’s clear and strong)?

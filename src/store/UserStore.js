@@ -295,6 +295,7 @@ const useUserStore = create((set, get) => ({
       followingLast: null,
       followersHasMore: true,
       followingHasMore: true,
+      myLikedIds: new Set(),
       relCache: {},
       _unsubProfile: null,
     });

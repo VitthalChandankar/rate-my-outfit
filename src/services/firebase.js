@@ -193,19 +193,17 @@ async function fetchOutfitDetails(outfitId) {
     const oSnap = await getDoc(oRef);
     if (!oSnap.exists()) return { success: false, error: 'Not found' };
 
-    const ratingsSnap = await getDocs(query(collection(firestore, 'ratings')));
-    const ratings = [];
-    ratingsSnap.forEach((r) => {
-      const d = r.data();
-      if (d.outfitId === outfitId) ratings.push({ id: r.id, ...d });
-    });
+    // Efficiently fetch related documents instead of all of them
+    const ratingsQuery = query(collection(firestore, 'ratings'), where('outfitId', '==', outfitId));
+    const commentsQuery = query(collection(firestore, 'comments'), where('outfitId', '==', outfitId));
 
-    const commentsSnap = await getDocs(query(collection(firestore, 'comments')));
-    const comments = [];
-    commentsSnap.forEach((c) => {
-      const d = c.data();
-      if (d.outfitId === outfitId) comments.push({ id: c.id, ...d });
-    });
+    const [ratingsSnap, commentsSnap] = await Promise.all([
+      getDocs(ratingsQuery),
+      getDocs(commentsQuery),
+    ]);
+
+    const ratings = ratingsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    const comments = commentsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
     return { success: true, outfit: { id: oSnap.id, ...oSnap.data() }, ratings, comments };
   } catch (error) {
@@ -257,15 +255,91 @@ async function submitRating({ outfitId, userId, stars, comment = '' }) {
   }
 }
 
-async function addComment({ outfitId, userId, comment }) {
+async function addComment({ outfitId, userId, text, userMeta, parentId = null }) {
+  const outfitRef = doc(firestore, 'outfits', outfitId);
+  const commentRef = doc(collection(firestore, 'comments'));
+  const parentCommentRef = parentId ? doc(firestore, 'comments', parentId) : null;
+
   try {
-    const docRef = await addDoc(collection(firestore, 'comments'), {
-      outfitId,
-      userId,
-      comment,
-      createdAt: serverTimestamp(),
+    await runTransaction(firestore, async (tx) => {
+      const outfitSnap = await tx.get(outfitRef);
+      if (!outfitSnap.exists()) throw new Error('Outfit not found');
+
+      // Increment commentsCount on the outfit
+      const newCount = (outfitSnap.data().commentsCount || 0) + 1;
+      tx.update(outfitRef, { commentsCount: newCount });
+
+      // If it's a reply, increment replyCount on the parent comment
+      if (parentCommentRef) {
+        const parentSnap = await tx.get(parentCommentRef);
+        if (parentSnap.exists()) {
+          const newReplyCount = (parentSnap.data().replyCount || 0) + 1;
+          tx.update(parentCommentRef, { replyCount: newReplyCount });
+        }
+      }
+
+      // Create the new comment document
+      tx.set(commentRef, {
+        outfitId,
+        userId,
+        user: userMeta,
+        text,
+        parentId,
+        replyCount: 0,
+        createdAt: serverTimestamp(),
+      });
     });
-    return { success: true, id: docRef.id };
+    const newCommentSnap = await getDoc(commentRef);
+    return { success: true, id: newCommentSnap.id, data: newCommentSnap.data() };
+  } catch (error) {
+    console.error('addComment error:', error);
+    return { success: false, error };
+  }
+}
+
+async function deleteComment({ commentId, outfitId, parentId }) {
+  const outfitRef = doc(firestore, 'outfits', outfitId);
+  const commentRef = doc(firestore, 'comments', commentId);
+  const parentCommentRef = parentId ? doc(firestore, 'comments', parentId) : null;
+
+  try {
+    await runTransaction(firestore, async (tx) => {
+      // Decrement commentsCount on the outfit
+      const outfitSnap = await tx.get(outfitRef);
+      if (outfitSnap.exists()) {
+        const newCount = Math.max(0, (outfitSnap.data().commentsCount || 0) - 1);
+        tx.update(outfitRef, { commentsCount: newCount });
+      }
+
+      // If it was a reply, decrement replyCount on the parent
+      if (parentCommentRef) {
+        const parentSnap = await tx.get(parentCommentRef);
+        if (parentSnap.exists()) {
+          const newReplyCount = Math.max(0, (parentSnap.data().replyCount || 0) - 1);
+          tx.update(parentCommentRef, { replyCount: newReplyCount });
+        }
+      }
+
+      // Delete the comment itself
+      tx.delete(commentRef);
+    });
+    return { success: true };
+  } catch (error) {
+    console.error('deleteComment error:', error);
+    return { success: false, error };
+  }
+}
+
+async function fetchCommentsForOutfit(outfitId) {
+  try {
+    const q = query(
+      collection(firestore, 'comments'),
+      where('outfitId', '==', outfitId),
+      orderBy('createdAt', 'asc')
+    );
+    const snap = await getDocs(q);
+    const items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    return { success: true, items };
   } catch (error) {
     return { success: false, error };
   }
@@ -413,7 +487,7 @@ async function fbFetchContestEntries({ contestId, limitCount = 24, startAfterDoc
 async function fbCreateEntry({ contestId, userId, imageUrl, caption = '', tags = [], userMeta = null }) {
   try {
     const docRef = await addDoc(collection(firestore, 'entries'), {
-      contestId,
+      outfitId,
       userId,
       user: userMeta || null,
       imageUrl,
@@ -703,7 +777,7 @@ async function listFollowing({ userId, limitCount = 30, startAfterDoc = null }) 
 
 export {
   addComment, auth, createOutfitDocument,
-  fetchFeed, fetchOutfitDetails, fetchUserOutfits, firestore, loginWithEmail,
+  deleteComment, fetchCommentsForOutfit, fetchFeed, fetchOutfitDetails, fetchUserOutfits, firestore, loginWithEmail,
   logout, onAuthChange, sendResetEmail, signupWithEmail, submitRating, uploadImage,
   toggleLikePost, fetchMyLikedOutfitIds, fetchLikersForOutfit, fbListContests, fbFetchContestEntries, fbCreateEntry, fbRateEntry, fbFetchContestLeaderboard,
   getUserProfile, updateUserProfile, setUserAvatar, ensureUsernameUnique,

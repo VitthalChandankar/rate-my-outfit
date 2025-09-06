@@ -21,6 +21,7 @@ const ProfileGridItem = ({ item, onPress }) => {
         style={styles.image}
         contentFit="cover"
         transition={200}
+        onError={(e) => console.warn(`ProfileGridItem failed to load image: ${transformedUrl}`, e.error)}
       />
       {isContest && (
         <View style={styles.badgeContainer}>
@@ -49,4 +50,3 @@ const styles = StyleSheet.create({
 });
 
 export default React.memo(ProfileGridItem);
-

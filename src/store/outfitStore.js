@@ -4,9 +4,11 @@
 import { create } from 'zustand';
 import {
   createOutfitDocument,
-  addComment as fbAddComment,
+  addComment,
+  deleteComment,
   fetchFeed as fbFetchFeed,
   fetchOutfitDetails as fbFetchOutfitDetails,
+  fetchCommentsForOutfit,
   submitRating as fbSubmitRating,
   toggleLikePost,
   fetchLikersForOutfit,
@@ -32,6 +34,9 @@ const useOutfitStore = create((set, get) => ({
 
   // Likers list per outfit
   likers: {},
+
+  // Comments per outfit
+  comments: {},
 
   // Feed list
   fetchFeed: async ({ limit = 12, reset = false } = {}) => {
@@ -173,6 +178,69 @@ const useOutfitStore = create((set, get) => ({
     return res;
   },
 
+  // Fetch comments for a post
+  fetchComments: async ({ outfitId, reset = false }) => {
+    if (!outfitId) return { success: false, error: 'outfitId required' };
+
+    const bag = get().comments[outfitId] || { items: [], loading: false };
+    if (bag.loading && !reset) return { success: false, error: 'Busy' };
+
+    set({ comments: { ...get().comments, [outfitId]: { ...bag, loading: true } } });
+
+    const res = await fetchCommentsForOutfit(outfitId);
+
+    if (res.success) {
+      set({ comments: { ...get().comments, [outfitId]: { items: res.items, loading: false } } });
+    } else {
+      set({ comments: { ...get().comments, [outfitId]: { ...bag, loading: false } } });
+    }
+    return res;
+  },
+
+  // Post a new comment
+  postComment: async ({ outfitId, text, userMeta, parentId = null }) => {
+    const { user } = useAuthStore.getState();
+    if (!user?.uid) return { success: false, error: 'Not authenticated' };
+
+    // Optimistic update
+    const tempId = `temp_${Date.now()}`;
+    const optimisticComment = { id: tempId, outfitId, userId: user.uid, text, user: userMeta, parentId, createdAt: new Date() };
+    const bag = get().comments[outfitId] || { items: [], loading: false };
+    set({ comments: { ...get().comments, [outfitId]: { ...bag, items: [...bag.items, optimisticComment] } } });
+
+    const res = await addComment({ outfitId, userId: user.uid, text, userMeta, parentId });
+
+    // Replace temp comment with real one from server
+    if (res.success) {
+      const finalBag = get().comments[outfitId];
+      const finalItems = finalBag.items.map(c => (c.id === tempId ? { ...res.data, id: res.id } : c));
+      set({ comments: { ...get().comments, [outfitId]: { ...finalBag, items: finalItems } } });
+    } else {
+      // Revert on failure
+      const finalBag = get().comments[outfitId];
+      const finalItems = finalBag.items.filter(c => c.id !== tempId);
+      set({ comments: { ...get().comments, [outfitId]: { ...finalBag, items: finalItems } } });
+    }
+    return res;
+  },
+
+  // Delete a comment
+  removeComment: async ({ commentId, outfitId, parentId = null }) => {
+    // Optimistic update
+    const bag = get().comments[outfitId] || { items: [], loading: false };
+    const originalItems = bag.items;
+    const newItems = originalItems.filter(c => c.id !== commentId);
+    set({ comments: { ...get().comments, [outfitId]: { ...bag, items: newItems } } });
+
+    const res = await deleteComment({ commentId, outfitId, parentId });
+
+    if (!res.success) {
+      // Revert on failure
+      set({ comments: { ...get().comments, [outfitId]: { ...bag, items: originalItems } } });
+    }
+    return res;
+  },
+
   // My uploads paginated
   fetchMyOutfits: async ({ reset = false, limit = 24 } = {}) => {
     const { user } = useAuthStore.getState();
@@ -223,11 +291,6 @@ const useOutfitStore = create((set, get) => ({
     return await fbFetchOutfitDetails(outfitId);
   },
 
-  addComment: async ({ outfitId, comment }) => {
-    const { user } = useAuthStore.getState();
-    if (!user) return { success: false, error: 'Not authenticated' };
-    return await fbAddComment({ outfitId, userId: user.uid, comment });
-  },
 }));
 
 export default useOutfitStore;

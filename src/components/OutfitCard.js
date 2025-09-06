@@ -18,7 +18,7 @@ function AvatarCircle({ uri, name }) {
   );
 }
 
-function OutfitCard({ item, onPress, onRate, onUserPress, onLike, isLiked, onPressLikes }) {
+function OutfitCard({ item, onPress, onRate, onUserPress, onLike, isLiked, onPressLikes, onPressComments }) {
   const raw = item || null;
   if (!raw) return null;
 
@@ -28,6 +28,7 @@ function OutfitCard({ item, onPress, onRate, onUserPress, onLike, isLiked, onPre
   const type = raw.type || (raw.contestId ? 'contest' : 'normal');
   const isContest = type === 'contest';
   const averageRating = Number(raw.averageRating ?? 0) || 0;
+  const commentsCount = Number(raw.commentsCount ?? 0) || 0;
   const likesCount = Number(raw.likesCount ?? 0) || 0;
 
   const user = raw.user || {};
@@ -51,6 +52,7 @@ function OutfitCard({ item, onPress, onRate, onUserPress, onLike, isLiked, onPre
   const handleRate = () => { if (typeof onRate === 'function') onRate({ ...raw, id }); };
   const handleLike = () => { if (typeof onLike === 'function') onLike(id); };
   const handleLikesPress = () => { if (typeof onPressLikes === 'function') onPressLikes(id); };
+  const handleCommentsPress = () => { if (typeof onPressComments === 'function') onPressComments({ outfitId: id, postOwnerId: userId }); };
 
   const handleUserTap = () => {
     if (typeof onUserPress === 'function') {
@@ -85,7 +87,13 @@ function OutfitCard({ item, onPress, onRate, onUserPress, onLike, isLiked, onPre
       {/* Media */}
       <TouchableOpacity activeOpacity={0.9} onPress={handleOpen}>
         {transformedUrl ? (
-          <ExpoImage source={{ uri: transformedUrl }} style={styles.image} contentFit="cover" transition={250} />
+          <ExpoImage
+            source={{ uri: transformedUrl }}
+            style={styles.image}
+            contentFit="cover"
+            transition={250}
+            onError={(e) => console.warn(`OutfitCard failed to load image: ${transformedUrl}`, e.error)}
+          />
         ) : (
           <View style={[styles.image, styles.imagePlaceholder]} />
         )}
@@ -94,7 +102,7 @@ function OutfitCard({ item, onPress, onRate, onUserPress, onLike, isLiked, onPre
       {/* Ribbon/CTA row (clickable) */}
       {isContest ? (
         <Pressable style={styles.ctaBar} onPress={handleRate}>
-          <Text style={styles.ctaText}>Rate my Outfit</Text>
+          <Text style={styles.ctaText}>Rate the Fit</Text>
           <Text style={styles.ctaBtnText}>›</Text>
         </Pressable>
       ) : null}
@@ -102,35 +110,34 @@ function OutfitCard({ item, onPress, onRate, onUserPress, onLike, isLiked, onPre
       {/* Footer actions */}
       <View style={styles.footer}>
         <View style={styles.actionsLeft}>
-          {!isContest && (
+          {!isContest && likesCount >= 0 && (
             <TouchableOpacity style={styles.action} onPress={handleLike}>
               <Ionicons name={isLiked ? 'heart' : 'heart-outline'} size={26} color={isLiked ? '#FF3B30' : '#111'} />
             </TouchableOpacity>
           )}
-          <TouchableOpacity style={styles.action}>
+          <TouchableOpacity style={styles.action} onPress={handleCommentsPress}>
             <Ionicons name="chatbubble-outline" size={24} color="#111" />
           </TouchableOpacity>
           <TouchableOpacity style={styles.action}>
             <Ionicons name="arrow-redo-outline" size={24} color="#111" />
           </TouchableOpacity>
         </View>
-        <View style={{ marginLeft: 'auto' }}>
-          {isContest ? <Text style={styles.avgRating}>Avg {averageRating.toFixed(1)}</Text> : null}
+        <View style={styles.footerRight}>
+          {isContest && <Text style={styles.avgRating}>Avg {averageRating.toFixed(1)}</Text>}
         </View>
       </View>
 
-      {/* Caption (only for normal posts) */}
-      {!isContest && (
-        <View style={{ paddingHorizontal: 12, paddingBottom: 12 }}>
-          {likesCount > 0 && (
-            <TouchableOpacity onPress={handleLikesPress} activeOpacity={0.7}>
-              <Text style={styles.likesText}>{likesCount.toLocaleString()} {likesCount === 1 ? 'like' : 'likes'}</Text>
-            </TouchableOpacity>
-          )}
+      {/* Likes, Comments, and Caption Section */}
+      <View style={{ paddingHorizontal: 12, paddingBottom: 12 }}>
+        {!isContest && likesCount > 0 && ( /* Only show likes if not a contest and likes > 0 */
+          <TouchableOpacity onPress={handleLikesPress} activeOpacity={0.7}>
+            <Text style={styles.likesText}>{likesCount.toLocaleString()} {likesCount === 1 ? 'like' : 'likes'}</Text>
+          </TouchableOpacity>
+        )}
+        {commentsCount > 0 && <Text style={styles.viewCommentsText} onPress={handleCommentsPress}>View all {commentsCount} comments</Text>}
           {!!caption && <Text style={styles.captionText}>{caption}</Text>}
         </View>
-      )}
-    </View>
+      </View>
   );
 }
 
@@ -158,11 +165,14 @@ const styles = StyleSheet.create({
   ctaText: { fontWeight: '800', color: '#C2185B' },
   ctaBtnText: { color: '#7A5AF8', fontWeight: '900', fontSize: 18 },
 
-  footer: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 10 },
+  footer: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 10, gap: 16 },
   actionsLeft: { flexDirection: 'row', gap: 14 },
   action: { paddingHorizontal: 6, paddingVertical: 4 },
+  footerRight: { marginLeft: 'auto', flexDirection: 'row', alignItems: 'center', gap: 16 },
   avgRating: { fontWeight: '900', color: '#111' },
+  footerCountText: { color: '#6B7280', fontWeight: '600', fontSize: 13 },
   likesText: { fontWeight: '800', color: '#111', marginBottom: 4 },
+  viewCommentsText: { color: '#6B7280', marginBottom: 6 },
   captionText: { color: '#333' },
 
   avatar: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#EEE' },

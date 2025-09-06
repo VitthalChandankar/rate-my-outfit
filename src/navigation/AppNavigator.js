@@ -35,6 +35,7 @@ import UserProfileScreen from '../screens/profile/UserProfileScreen';
 import FollowersScreen from '../screens/profile/FollowersScreen';
 import FollowingScreen from '../screens/profile/FollowingScreen';
 import LikedByScreen from '../screens/details/LikedByScreen';
+import CommentsScreen from '../screens/details/CommentsScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -66,29 +67,8 @@ function MainTabs() {
 }
 
 export default function AppNavigator() {
-  const { loading, initializeAuth, isAuthenticated, user } = useAuthStore();
-  const { loadMyProfile, subscribeMyProfile, hydrateMyLikes } = useUserStore();
-
-  useEffect(() => {
-    initializeAuth();
-  }, [initializeAuth]);
-
-  // Hydrate normalized profile once user is present
-  useEffect(() => {
-    const uid = user?.uid || user?.user?.uid;
-    if (uid) {
-      // One-time load for immediate data
-      loadMyProfile(uid);
-      // Real-time subscription to users/{uid}
-      hydrateMyLikes(uid);
-      const unsub = subscribeMyProfile(uid);
-      return () => {
-        if (typeof unsub === 'function') {
-          try { unsub(); } catch {}
-        }
-      };
-    }
-  }, [user, loadMyProfile, subscribeMyProfile, hydrateMyLikes]);
+  const { loading, isAuthenticated } = useAuthStore();
+  // Profile loading is now handled centrally by authStore.initializeAuth
 
   if (loading) {
     return (
@@ -129,6 +109,18 @@ export default function AppNavigator() {
               options={{
                 headerShown: true,
                 title: 'Likes',
+                headerStyle: { backgroundColor: '#fff' },
+                headerTintColor: '#111',
+                headerTitleStyle: { fontWeight: 'bold' },
+              }}
+            />
+
+            {/* New screen for comments */}
+            <Stack.Screen
+              name="Comments"
+              component={CommentsScreen}
+              options={{
+                headerShown: true,
                 headerStyle: { backgroundColor: '#fff' },
                 headerTintColor: '#111',
                 headerTitleStyle: { fontWeight: 'bold' },
