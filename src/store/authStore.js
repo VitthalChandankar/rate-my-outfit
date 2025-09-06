@@ -22,23 +22,25 @@ const useAuthStore = create((set, get) => ({
     return onAuthChange(async (firebaseUser) => {
       try {
         const { loadMyProfile, subscribeMyProfile, hydrateMyLikes, clearMyProfile } = useUserStore.getState();
+        const previousUser = get().user;
 
         if (firebaseUser) {
-          const uid = firebaseUser.uid;
+          // User is signed in or their state has changed (e.g., email verification).
+          // We always update the user object to ensure the latest state is reflected.
           set({ user: firebaseUser, loading: false });
 
-          // Trigger all user-specific data loading from one central place.
-          await Promise.all([
-            loadMyProfile(uid),
-            hydrateMyLikes(uid),
-          ]);
-
-          // Set up the real-time listener for the profile.
-          subscribeMyProfile(uid);
+          // If this is a new login (no previous user), load all their data.
+          if (!previousUser) {
+            const uid = firebaseUser.uid;
+            await Promise.all([loadMyProfile(uid), hydrateMyLikes(uid)]);
+            subscribeMyProfile(uid);
+          }
         } else {
           // Signed out
+          if (previousUser) { // Only clear if there was a user before
+            clearMyProfile();
+          }
           set({ user: null, loading: false });
-          clearMyProfile();
         }
       } catch (e) {
         console.error('Auth state change error:', e);
@@ -53,7 +55,7 @@ const useAuthStore = create((set, get) => ({
   },
 
   // Email/password signup
-  signup: async (email, password, name) => {
+  signup: async (name, email, password) => {
     return await signupWithEmail(name, email, password);
   },
 

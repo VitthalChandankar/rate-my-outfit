@@ -1,29 +1,58 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import React, { useState } from 'react';
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, ActivityIndicator, Alert } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import useAuthStore from '../../store/authStore';
 
 export default function SignupScreen({ navigation }) {
-  const { signup } = useAuthStore();
+  const signup = useAuthStore((s) => s.signup);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [isPasswordSecure, setIsPasswordSecure] = useState(true);
+  const [isConfirmPasswordSecure, setIsConfirmPasswordSecure] = useState(true);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      // This runs when the screen is focused
+      return () => {
+        // This runs when the screen is unfocused (e.g., navigating away)
+        setName('');
+        setEmail('');
+        setPassword('');
+        setConfirmPassword('');
+        setError('');
+      };
+    }, [])
+  );
 
   const handleSignup = async () => {
+    if (loading) return;
     setError('');
     if (!name.trim() || !email.trim() || !password.trim() || !confirmPassword.trim()) {
       setError('Please fill in all fields');
       return;
     }
     if (password !== confirmPassword) {
-      setError('Passwords do not match');
+      setError('Passwords do not match.');
       return;
     }
-    const success = await signup(name, email, password);
-    if (!success) {
-      setError('Signup failed. Try again.');
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters.');
+      return;
+    }
+
+    setLoading(true);
+    const res = await signup(name.trim(), email.trim(), password);
+    setLoading(false);
+
+    if (res.success) {
+      navigation.navigate('EmailVerification');
+    } else {
+      setError(res.error?.message || 'Signup failed. The email may already be in use.');
     }
   };
 
@@ -72,10 +101,13 @@ export default function SignupScreen({ navigation }) {
           <TextInput
             style={styles.input}
             placeholder="Password"
-            secureTextEntry
+            secureTextEntry={isPasswordSecure}
             value={password}
             onChangeText={setPassword}
           />
+          <TouchableOpacity onPress={() => setIsPasswordSecure(!isPasswordSecure)}>
+            <Ionicons name={isPasswordSecure ? 'eye-off' : 'eye'} size={24} color="#888" />
+          </TouchableOpacity>
         </View>
 
         {/* Confirm Password Input */}
@@ -84,15 +116,26 @@ export default function SignupScreen({ navigation }) {
           <TextInput
             style={styles.input}
             placeholder="Confirm Password"
-            secureTextEntry
+            secureTextEntry={isConfirmPasswordSecure}
             value={confirmPassword}
             onChangeText={setConfirmPassword}
           />
+          <TouchableOpacity onPress={() => setIsConfirmPasswordSecure(!isConfirmPasswordSecure)}>
+            <Ionicons name={isConfirmPasswordSecure ? 'eye-off' : 'eye'} size={24} color="#888" />
+          </TouchableOpacity>
         </View>
 
         {/* Signup Button */}
-        <TouchableOpacity style={styles.button} onPress={handleSignup}>
-          <Text style={styles.buttonText}>Sign Up</Text>
+        <TouchableOpacity style={[styles.button, loading && { opacity: 0.7 }]} onPress={handleSignup} disabled={loading}>
+          {loading ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Text style={styles.buttonText}>Sign Up</Text>
+          )}
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.altLoginButton} onPress={() => navigation.navigate('PhoneNumber')} disabled={loading}>
+          <Text style={styles.altLoginText}>Sign up with Phone Number</Text>
         </TouchableOpacity>
 
         {/* Login Link */}
@@ -164,5 +207,19 @@ const styles = StyleSheet.create({
     color: 'red',
     marginBottom: 12,
     fontSize: 14,
+    alignSelf: 'flex-start',
+  },
+  altLoginButton: {
+    marginTop: 16,
+    borderColor: '#E0E0E0',
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingVertical: 14,
+    width: '100%',
+    alignItems: 'center',
+  },
+  altLoginText: {
+    color: '#333',
+    fontWeight: '600',
   },
 });

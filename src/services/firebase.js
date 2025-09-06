@@ -6,6 +6,7 @@ import {
   createUserWithEmailAndPassword,
   initializeAuth,
   getReactNativePersistence,
+  sendEmailVerification,
   onAuthStateChanged,
   sendPasswordResetEmail,
   signInWithEmailAndPassword,
@@ -49,24 +50,32 @@ const auth = initializeAuth(app, {
 
 const firestore = getFirestore(app);
 
+// --- User creation helper ---
+async function createUser(uid, email, name) {
+  const userDoc = {
+    uid,
+    name: name || 'New User',
+    email: email || null,
+    profilePicture: null,
+    createdAt: serverTimestamp(),
+    bio: '',
+    stats: { followersCount: 0, followingCount: 0, postsCount: 0, contestWins: 0, averageRating: 0 },
+    preferences: { privacyLevel: 'public', notificationsEnabled: true },
+  };
+  await setDoc(doc(firestore, 'users', uid), userDoc);
+  await setDoc(doc(firestore, 'counters', uid), { followersCount: 0, followingCount: 0, postsCount: 0 }, { merge: true });
+  return userDoc;
+}
+
 // --- Auth helpers ---
 async function signupWithEmail(name, email, password) {
   try {
     const cred = await createUserWithEmailAndPassword(auth, email, password);
     if (auth.currentUser) {
       await updateProfile(auth.currentUser, { displayName: name });
+      await sendEmailVerification(auth.currentUser);
     }
-    const userDoc = {
-      uid: cred.user.uid,
-      name,
-      email,
-      profilePicture: null,
-      createdAt: serverTimestamp(),
-      stats: { followersCount: 0, followingCount: 0, postsCount: 0, contestWins: 0, averageRating: 0 },
-      preferences: { privacyLevel: 'public', notificationsEnabled: true },
-    };
-    await setDoc(doc(firestore, 'users', cred.user.uid), userDoc);
-    await setDoc(doc(firestore, 'counters', cred.user.uid), { followersCount: 0, followingCount: 0, postsCount: 0 }, { merge: true });
+    const userDoc = await createUser(cred.user.uid, email, name);
     return { success: true, user: userDoc };
   } catch (error) {
     return { success: false, error };
@@ -76,6 +85,11 @@ async function signupWithEmail(name, email, password) {
 async function loginWithEmail(email, password) {
   try {
     const cred = await signInWithEmailAndPassword(auth, email, password);
+    if (!cred.user.emailVerified) {
+      // Prevent login if email is not verified and sign them out.
+      await signOut(auth);
+      return { success: false, error: { message: 'Please verify your email address before logging in. Check your inbox for a verification link.' } };
+    }
     const userSnap = await getDoc(doc(firestore, 'users', cred.user.uid));
     return { success: true, user: userSnap.exists() ? userSnap.data() : { uid: cred.user.uid, email } };
   } catch (error) {
@@ -776,7 +790,7 @@ async function listFollowing({ userId, limitCount = 30, startAfterDoc = null }) 
 }
 
 export {
-  addComment, auth, createOutfitDocument,
+  addComment, auth, createUser, createOutfitDocument,
   deleteComment, fetchCommentsForOutfit, fetchFeed, fetchOutfitDetails, fetchUserOutfits, firestore, loginWithEmail,
   logout, onAuthChange, sendResetEmail, signupWithEmail, submitRating, uploadImage,
   toggleLikePost, fetchMyLikedOutfitIds, fetchLikersForOutfit, fbListContests, fbFetchContestEntries, fbCreateEntry, fbRateEntry, fbFetchContestLeaderboard,

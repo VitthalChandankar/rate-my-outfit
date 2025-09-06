@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "165872377893",
+    "project_id": "rateoutfit-d84af",
+    "storage_bucket": "rateoutfit-d84af.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:165872377893:android:cb75f45e0bcfabb7895fcc",
+        "android_client_info": {
+          "package_name": "com.yourcompany.ratemyoutfit"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "165872377893-gihclkig65u6t6io7mejdtk2l2r4gim4.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCTMUK9BGIdEOqJMTqv_L-TWRVpymkbr-4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "165872377893-gihclkig65u6t6io7mejdtk2l2r4gim4.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

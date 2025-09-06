@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import {
+  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -9,13 +10,13 @@ import {
   TextInput,
   TouchableOpacity,
   View,
-  ActivityIndicator
+  ActivityIndicator,
 } from 'react-native';
 import useAuthStore from '../../store/authStore';
 
 export default function LoginScreen({ navigation }) {
   const { login } = useAuthStore();
-  const [email, setEmail] = useState('');
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -24,21 +25,23 @@ export default function LoginScreen({ navigation }) {
     if (loading) return;
     setError('');
 
-    if (!email.trim() || !password.trim()) {
-      setError('Please fill in all fields');
+    if (!identifier.trim()) {
+      setError('Please enter your email or phone number');
       return;
     }
 
-    try {
+    // This screen now only handles email/password. Phone login is separate.
+    if (!password) {
+      setError('Please enter your password.');
+      return;
+    }
+    if (identifier.includes('@')) { // Simple check for email
       setLoading(true);
-      const ok = await login(email.trim(), password);
-      if (!ok) {
-        setError('Invalid email or password');
-      }
-    } catch (e) {
-      setError('Something went wrong. Please try again.');
-    } finally {
+      const res = await login(identifier.trim(), password);
+      if (!res.success) setError(res.error?.message || 'Invalid email or password.');
       setLoading(false);
+    } else {
+      setError('Please enter a valid email address.');
     }
   };
 
@@ -55,12 +58,12 @@ export default function LoginScreen({ navigation }) {
         <Ionicons name="shirt" size={64} color="#FF5A5F" style={{ marginBottom: 16 }} />
        
         <Text style={styles.title}>Rate My Outfit</Text>
-        <Text style={styles.subtitle}>Login to continue</Text>
+        <Text style={styles.subtitle}>Sign in or create an account</Text>
 
         {/* Error message */}
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-        {/* Email Input */}
+        {/* Input for Email or Phone */}
         <View style={styles.inputContainer}>
           <Ionicons name="mail-outline" size={20} color="#999" style={{ marginRight: 8 }} />
           <TextInput
@@ -69,8 +72,8 @@ export default function LoginScreen({ navigation }) {
             placeholderTextColor="#999"
             autoCapitalize="none"
             keyboardType="email-address"
-            value={email}
-            onChangeText={setEmail}
+            value={identifier}
+            onChangeText={setIdentifier}
             editable={!loading}
             returnKeyType="next"
           />
@@ -92,27 +95,26 @@ export default function LoginScreen({ navigation }) {
           />
         </View>
 
-        {/* Login Button */}
+        {/* Continue Button */}
         <TouchableOpacity
           style={[styles.button, loading && { opacity: 0.7 }]}
           onPress={handleLogin}
           disabled={loading}
           activeOpacity={0.85}
         >
-          {loading ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text style={styles.buttonText}>Login</Text>
-          )}
+          {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Continue</Text>}
         </TouchableOpacity>
 
-        {/* Signup Link */}
-        <TouchableOpacity
-          onPress={() => navigation.navigate('Signup')}
-          style={{ marginTop: 14 }}
-          disabled={loading}
-        >
-          <Text style={styles.signupText}>Don't have an account? Sign up</Text>
+        <View style={styles.linksContainer}>
+          <TouchableOpacity onPress={() => navigation.navigate('ForgotPassword')} disabled={loading}>
+            <Text style={styles.linkText}>Forgot Password?</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => navigation.navigate('Signup')} disabled={loading}>
+            <Text style={styles.linkText}>Create Account</Text>
+          </TouchableOpacity>
+        </View>
+        <TouchableOpacity style={styles.altLoginButton} onPress={() => navigation.navigate('PhoneNumber')} disabled={loading}>
+          <Text style={styles.altLoginText}>Login with Phone OTP</Text>
         </TouchableOpacity>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -167,15 +169,30 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
   },
-  signupText: {
-    fontSize: 14,
-    color: '#666',
-    marginTop: 8,
-  },
   errorText: {
     color: 'red',
     marginBottom: 12,
     fontSize: 14,
     alignSelf: 'flex-start',
+  },
+  linksContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+    marginTop: 12,
+  },
+  linkText: { color: '#FF5A5F', fontWeight: '600', fontSize: 14 },
+  altLoginButton: {
+    marginTop: 24,
+    borderColor: '#E0E0E0',
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingVertical: 14,
+    width: '100%',
+    alignItems: 'center',
+  },
+  altLoginText: {
+    color: '#333',
+    fontWeight: '600',
   },
 });

@@ -12,6 +12,11 @@ import useUserStore from '../store/UserStore';
 // Auth
 import LoginScreen from '../screens/auth/LoginScreen';
 import SignupScreen from '../screens/auth/SignupScreen';
+import CompleteProfileScreen from '../screens/auth/CompleteProfileScreen';
+import ForgotPasswordScreen from '../screens/auth/ForgotPasswordScreen';
+import CreatePasswordScreen from '../screens/auth/CreatePasswordScreen';
+import EmailVerificationScreen from '../screens/auth/EmailVerificationScreen';
+import PhoneNumberScreen from '../screens/auth/PhoneNumberScreen';
 
 // Main
 import HomeScreen from '../screens/main/HomeScreen';
@@ -67,10 +72,12 @@ function MainTabs() {
 }
 
 export default function AppNavigator() {
-  const { loading, isAuthenticated } = useAuthStore();
-  // Profile loading is now handled centrally by authStore.initializeAuth
+  const { loading: authLoading, user } = useAuthStore();
+  const { myProfile, loading: profileLoading } = useUserStore();
 
-  if (loading) {
+  // Wait for both authentication and the initial profile load to complete
+  // to prevent a screen flicker on login.
+  if (authLoading || (user && !myProfile && profileLoading)) {
     return (
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
         <ActivityIndicator />
@@ -78,62 +85,82 @@ export default function AppNavigator() {
     );
   }
 
-  const authed = isAuthenticated();
+  const authed = !!user;
+  const emailVerified = !!user?.emailVerified;
+  // Show CompleteProfile screen if user is new (hasn't set a username yet)
+  const isNewUser = authed && myProfile && !myProfile.username;
 
   return (
     <NavigationContainer>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {authed ? (
-          <>
-            {/* Root tabs */}
-            <Stack.Screen name="MainTabs" component={MainTabs} />
-
-            {/* Details accessible from any tab */}
-            <Stack.Screen name="OutfitDetails" component={OutfitDetailsScreen} />
-            <Stack.Screen name="ContestDetails" component={ContestDetailsScreen} />
-
-            {/* Rating flow */}
-            <Stack.Screen name="RateEntry" component={RateEntryScreen} />
-            <Stack.Screen name="RateScreen" component={RateScreen} />
-
-            {/* Profile additions */}
-            <Stack.Screen name="EditProfile" component={EditProfileScreen} />
-            <Stack.Screen name="UserProfile" component={UserProfileScreen} />
-            <Stack.Screen name="Followers" component={FollowersScreen} />
-            <Stack.Screen name="Following" component={FollowingScreen} />
-
-            {/* New screen for likes */}
-            <Stack.Screen
-              name="LikedBy"
-              component={LikedByScreen}
-              options={{
-                headerShown: true,
-                title: 'Likes',
-                headerStyle: { backgroundColor: '#fff' },
-                headerTintColor: '#111',
-                headerTitleStyle: { fontWeight: 'bold' },
-              }}
-            />
-
-            {/* New screen for comments */}
-            <Stack.Screen
-              name="Comments"
-              component={CommentsScreen}
-              options={{
-                headerShown: true,
-                headerStyle: { backgroundColor: '#fff' },
-                headerTintColor: '#111',
-                headerTitleStyle: { fontWeight: 'bold' },
-              }}
-            />
-          </>
+          !emailVerified ? (
+            <Stack.Screen name="EmailVerification" component={EmailVerificationScreen} />
+          ) : isNewUser ? (
+            <Stack.Screen name="CompleteProfile" component={CompleteProfileScreen} />
+          ) : (
+            <Stack.Screen name="Main" component={MainAppStack} />
+          )
         ) : (
           <>
             <Stack.Screen name="Login" component={LoginScreen} />
             <Stack.Screen name="Signup" component={SignupScreen} />
+            <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+            <Stack.Screen name="CreatePassword" component={CreatePasswordScreen} />
+            <Stack.Screen name="PhoneNumber" component={PhoneNumberScreen} />
+            {/* Add EmailVerification here so it can be navigated to from Signup */}
+            <Stack.Screen name="EmailVerification" component={EmailVerificationScreen} />
           </>
         )}
       </Stack.Navigator>
     </NavigationContainer>
+  );
+}
+
+function MainAppStack() {
+  return (
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      {/* Root tabs */}
+      <Stack.Screen name="MainTabs" component={MainTabs} />
+
+      {/* Details accessible from any tab */}
+      <Stack.Screen name="OutfitDetails" component={OutfitDetailsScreen} />
+      <Stack.Screen name="ContestDetails" component={ContestDetailsScreen} />
+
+      {/* Rating flow */}
+      <Stack.Screen name="RateEntry" component={RateEntryScreen} />
+      <Stack.Screen name="RateScreen" component={RateScreen} />
+
+      {/* Profile additions */}
+      <Stack.Screen name="EditProfile" component={EditProfileScreen} />
+      <Stack.Screen name="UserProfile" component={UserProfileScreen} />
+      <Stack.Screen name="Followers" component={FollowersScreen} />
+      <Stack.Screen name="Following" component={FollowingScreen} />
+
+      {/* New screen for likes */}
+      <Stack.Screen
+        name="LikedBy"
+        component={LikedByScreen}
+        options={{
+          headerShown: true,
+          title: 'Likes',
+          headerStyle: { backgroundColor: '#fff' },
+          headerTintColor: '#111',
+          headerTitleStyle: { fontWeight: 'bold' },
+        }}
+      />
+
+      {/* New screen for comments */}
+      <Stack.Screen
+        name="Comments"
+        component={CommentsScreen}
+        options={{
+          headerShown: true,
+          headerStyle: { backgroundColor: '#fff' },
+          headerTintColor: '#111',
+          headerTitleStyle: { fontWeight: 'bold' },
+        }}
+      />
+    </Stack.Navigator>
   );
 }
