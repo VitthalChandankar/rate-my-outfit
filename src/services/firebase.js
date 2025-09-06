@@ -276,7 +276,12 @@ async function addComment({ outfitId, userId, text, userMeta, parentId = null })
 
   try {
     await runTransaction(firestore, async (tx) => {
-      const outfitSnap = await tx.get(outfitRef);
+      // Perform all reads first
+      const [outfitSnap, parentSnap] = await Promise.all([
+        tx.get(outfitRef),
+        parentCommentRef ? tx.get(parentCommentRef) : Promise.resolve(null)
+      ]);
+
       if (!outfitSnap.exists()) throw new Error('Outfit not found');
 
       // Increment commentsCount on the outfit
@@ -284,12 +289,9 @@ async function addComment({ outfitId, userId, text, userMeta, parentId = null })
       tx.update(outfitRef, { commentsCount: newCount });
 
       // If it's a reply, increment replyCount on the parent comment
-      if (parentCommentRef) {
-        const parentSnap = await tx.get(parentCommentRef);
-        if (parentSnap.exists()) {
-          const newReplyCount = (parentSnap.data().replyCount || 0) + 1;
-          tx.update(parentCommentRef, { replyCount: newReplyCount });
-        }
+      if (parentSnap && parentSnap.exists()) {
+        const newReplyCount = (parentSnap.data().replyCount || 0) + 1;
+        tx.update(parentCommentRef, { replyCount: newReplyCount });
       }
 
       // Create the new comment document
@@ -501,7 +503,7 @@ async function fbFetchContestEntries({ contestId, limitCount = 24, startAfterDoc
 async function fbCreateEntry({ contestId, userId, imageUrl, caption = '', tags = [], userMeta = null }) {
   try {
     const docRef = await addDoc(collection(firestore, 'entries'), {
-      outfitId,
+      contestId,
       userId,
       user: userMeta || null,
       imageUrl,

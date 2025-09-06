@@ -25,11 +25,12 @@ const useAuthStore = create((set, get) => ({
         const previousUser = get().user;
 
         if (firebaseUser) {
-          // User is signed in or their state has changed (e.g., email verification).
-          // We always update the user object to ensure the latest state is reflected.
+          const justVerified = !previousUser?.emailVerified && firebaseUser.emailVerified;
+
+          // Always update the user object in the store to reflect the latest state from Firebase.
           set({ user: firebaseUser, loading: false });
 
-          // If this is a new login (no previous user), load all their data.
+          // If this is the first time we see this user (new login/signup), load their profile.
           if (!previousUser) {
             const uid = firebaseUser.uid;
             await Promise.all([loadMyProfile(uid), hydrateMyLikes(uid)]);
@@ -37,9 +38,7 @@ const useAuthStore = create((set, get) => ({
           }
         } else {
           // Signed out
-          if (previousUser) { // Only clear if there was a user before
-            clearMyProfile();
-          }
+          clearMyProfile();
           set({ user: null, loading: false });
         }
       } catch (e) {
@@ -61,13 +60,7 @@ const useAuthStore = create((set, get) => ({
 
   // Logout
   logout: async () => {
-    try {
-      await firebaseLogout();
-      // onAuthChange will handle clearing state
-    } catch (error) {
-      console.error('Logout failed:', error);
-      throw error;
-    }
+    return await firebaseLogout(); // This will trigger the onAuthChange listener
   },
 
   // Auth check

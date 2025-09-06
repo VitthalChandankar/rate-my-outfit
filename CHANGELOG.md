@@ -255,4 +255,21 @@ This combo protects you on all fronts — the app itself, the networking part, t
 Would you like me to also draft the exact descriptions you can use under each class (the way lawyers/filers write it so it’s clear and strong)?
 
 
-before this commit, like comment was working fine , user was able to upload in contest . but i think contestId is changed with outfitId this is the issue in one of the commit
+before this commit, like comment was working fine , user was able to upload in contest - . but i think contestId is changed with outfitId this is the issue in one of the commit - fixed the issue 
+
+open issues:
+user is stuck on verify email screen - back to login is not working 
+
+
+a user commented on my post - tried to reply to comment getting : - ERROR  addComment error: [FirebaseError: Firestore transactions require all reads to be executed before all writes.]
+
+
+
+How can I add push notifications for new comments and likes?
+
+----------------------
+
+cant reply to comment 
+
+WARN  [2025-09-06T20:51:14.452Z]  @firebase/firestore: Firestore (12.1.0): RestConnection RPC 'Commit' 0x294ca9e3 failed with error:  {"code":"permission-denied","name":"FirebaseError"} url:  https://firestore.googleapis.com/v1/projects/rateoutfit-d84af/databases/(default)/documents:commit request: {"writes":[{"update":{"name":"projects/rateoutfit-d84af/databases/(default)/documents/outfits/iX4aRp2uHuzRCbs7IrQY","fields":{"commentsCount":{"integerValue":"3"}}},"updateMask":{"fieldPaths":["commentsCount"]},"currentDocument":{"updateTime":"2025-09-06T18:22:23.756417000Z"}},{"update":{"name":"projects/rateoutfit-d84af/databases/(default)/documents/comments/fU32vlPLvzipbMC5bLsK","fields":{"replyCount":{"integerValue":"1"}}},"updateMask":{"fieldPaths":["replyCount"]},"currentDocument":{"updateTime":"2025-09-05T16:05:44.691950000Z"}},{"update":{"name":"projects/rateoutfit-d84af/databases/(default)/documents/comments/HZFUjtLB1DDn8dzmi3x5","fields":{"outfitId":{"stringValue":"iX4aRp2uHuzRCbs7IrQY"},"userId":{"stringValue":"RZn3p0ih5ycR2BmhD2kz77wVHnf2"},"user":{"mapValue":{"fields":{"uid":{"stringValue":"RZn3p0ih5ycR2BmhD2kz77wVHnf2"},"name":{"stringValue":"Temp account"},"profilePicture":{"nullValue":"NULL_VALUE"}}}},"text":{"stringValue":"Best"},"parentId":{"stringValue":"fU32vlPLvzipbMC5bLsK"},"replyCount":{"integerValue":"0"}}},"updateTransforms":[{"fieldPath":"createdAt","setToServerValue":"REQUEST_TIME"}]}]}
+ ERROR  addComment error: [FirebaseError: Missing or insufficient permissions.]

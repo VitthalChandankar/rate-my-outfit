@@ -60,7 +60,11 @@ export default function EmailVerificationScreen({ navigation }) {
         <Text style={styles.buttonText}>{isResending ? 'Sending...' : 'Resend Email'}</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity onPress={logout}>
+      <TouchableOpacity onPress={async () => {
+        try { await logout(); } catch (e) { Alert.alert('Logout Failed', 'Please try again.'); }
+        // The onAuthChange listener will navigate to the Login screen.
+      }}
+      >
         <Text style={styles.backText}>Back to Login</Text>
       </TouchableOpacity>
     </View>
