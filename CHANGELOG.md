@@ -253,3 +253,6 @@ Class 42 → Hosting platform, SaaS, providing tech infrastructure for the app.
 This combo protects you on all fronts — the app itself, the networking part, the entertainment side, and the backend platform.
 
 Would you like me to also draft the exact descriptions you can use under each class (the way lawyers/filers write it so it’s clear and strong)?
+
+
+before this commit, like comment was working fine , user was able to upload in contest . but i think contestId is changed with outfitId this is the issue in one of the commit
