@@ -22,6 +22,7 @@ import {
   isFollowing as svcIsFollowing,
   listFollowers,
   fetchMyLikedOutfitIds,
+  updateUserPushToken,
   listFollowing,
 } from '../services/firebase';
 
@@ -278,6 +279,13 @@ const useUserStore = create((set, get) => ({
       followingHasMore: !!res.last,
     });
     return res;
+  },
+
+  // NEW action to save push token
+  updateMyPushToken: async (token, remove = false) => {
+    const uid = get().myProfile?.uid;
+    if (!uid || !token) return { success: false, error: 'Not logged in or no token' };
+    return await updateUserPushToken({ uid, token, remove });
   },
 
   // Optional: clear state on logout

@@ -71,7 +71,7 @@ function MainTabs() {
   );
 }
 
-export default function AppNavigator() {
+export default function AppNavigator({ navigationRef }) {
   const { loading: authLoading, user } = useAuthStore();
   const { myProfile, loading: profileLoading } = useUserStore();
 
@@ -91,7 +91,7 @@ export default function AppNavigator() {
   const isNewUser = authed && myProfile && !myProfile.username;
 
   return (
-    <NavigationContainer>
+    <NavigationContainer ref={navigationRef}>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {authed ? (
           !emailVerified ? (

@@ -122,7 +122,7 @@ const useOutfitStore = create((set, get) => ({
   },
 
   // Like/unlike a post
-  toggleLike: async (outfitId, userId) => {
+  toggleLike: async (outfitId, userId, postOwnerId) => {
     if (!outfitId || !userId) return;
 
     const { toggleLikedId } = useUserStore.getState();
@@ -144,7 +144,7 @@ const useOutfitStore = create((set, get) => ({
     toggleLikedId(outfitId);
 
     // Call firebase
-    const res = await toggleLikePost({ outfitId, userId });
+    const res = await toggleLikePost({ outfitId, userId, postOwnerId });
     if (!res.success) {
       // Revert on failure
       set({ feed: originalFeed });

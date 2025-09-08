@@ -60,9 +60,9 @@ export default function HomeScreen() {
     if (!loading && lastDoc) fetchFeed({ limit: 12, reset: false });
   }, [loading, lastDoc, fetchFeed]);
 
-  const handleLike = useCallback((outfitId) => {
-    if (!authedUid || !outfitId) return;
-    toggleLike(outfitId, authedUid);
+  const handleLike = useCallback((post) => {
+    if (!authedUid || !post?.id) return;
+    toggleLike(post.id, authedUid, post.userId);
   }, [authedUid, toggleLike]);
 
   const handleLikesPress = useCallback((outfitId) => {

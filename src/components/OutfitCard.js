@@ -49,8 +49,8 @@ function OutfitCard({ item, onPress, onRate, onUserPress, onLike, isLiked, onPre
   );
 
   const handleOpen = () => { if (typeof onPress === 'function') onPress({ ...raw, id }); };
-  const handleRate = () => { if (typeof onRate === 'function') onRate({ ...raw, id }); };
-  const handleLike = () => { if (typeof onLike === 'function') onLike(id); };
+  const handleRate = () => { if (typeof onRate === 'function') onRate(raw); };
+  const handleLike = () => { if (typeof onLike === 'function') onLike(raw); };
   const handleLikesPress = () => { if (typeof onPressLikes === 'function') onPressLikes(id); };
   const handleCommentsPress = () => { if (typeof onPressComments === 'function') onPressComments({ outfitId: id, postOwnerId: userId }); };
 

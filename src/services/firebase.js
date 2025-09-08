@@ -1,7 +1,7 @@
 // src/services/firebase.js
 import { getApps, initializeApp } from 'firebase/app';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { where, updateDoc, deleteDoc } from 'firebase/firestore';
+import { where, updateDoc, deleteDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
 import {
   createUserWithEmailAndPassword,
   initializeAuth,
@@ -275,6 +275,7 @@ async function addComment({ outfitId, userId, text, userMeta, parentId = null })
   const parentCommentRef = parentId ? doc(firestore, 'comments', parentId) : null;
 
   try {
+    let postOwnerId = null;
     await runTransaction(firestore, async (tx) => {
       // Perform all reads first
       const [outfitSnap, parentSnap] = await Promise.all([
@@ -283,9 +284,11 @@ async function addComment({ outfitId, userId, text, userMeta, parentId = null })
       ]);
 
       if (!outfitSnap.exists()) throw new Error('Outfit not found');
+      const outfitData = outfitSnap.data();
+      postOwnerId = outfitData.userId; // Get owner ID
 
       // Increment commentsCount on the outfit
-      const newCount = (outfitSnap.data().commentsCount || 0) + 1;
+      const newCount = (outfitData.commentsCount || 0) + 1;
       tx.update(outfitRef, { commentsCount: newCount });
 
       // If it's a reply, increment replyCount on the parent comment
@@ -304,6 +307,23 @@ async function addComment({ outfitId, userId, text, userMeta, parentId = null })
         replyCount: 0,
         createdAt: serverTimestamp(),
       });
+
+      // Create notification if not commenting on own post
+      if (postOwnerId && userId !== postOwnerId) {
+        const notificationRef = doc(collection(firestore, 'notifications'));
+        tx.set(notificationRef, {
+          recipientId: postOwnerId,
+          senderId: userId,
+          senderName: userMeta?.name || 'Someone',
+          senderAvatar: userMeta?.profilePicture || null,
+          type: 'comment',
+          outfitId: outfitId,
+          outfitImage: outfitData.imageUrl,
+          commentText: text,
+          createdAt: serverTimestamp(),
+          read: false,
+        });
+      }
     });
     const newCommentSnap = await getDoc(commentRef);
     return { success: true, id: newCommentSnap.id, data: newCommentSnap.data() };
@@ -361,20 +381,22 @@ async function fetchCommentsForOutfit(outfitId) {
   }
 }
 
-async function toggleLikePost({ outfitId, userId }) {
+async function toggleLikePost({ outfitId, userId, postOwnerId }) {
   const likeRef = doc(firestore, 'likes', `${outfitId}_${userId}`);
   const outfitRef = doc(firestore, 'outfits', outfitId);
   try {
     let isLiked = false;
     await runTransaction(firestore, async (tx) => {
-      const [likeSnap, outfitSnap] = await Promise.all([
+      const [likeSnap, outfitSnap, senderProfileSnap] = await Promise.all([
         tx.get(likeRef),
         tx.get(outfitRef),
+        // Get sender's profile for notification, only if it's a like action
+        tx.get(doc(firestore, 'users', userId)),
       ]);
 
       if (!outfitSnap.exists()) throw new Error('Outfit not found');
-
-      const currentLikes = outfitSnap.data().likesCount || 0;
+      const outfitData = outfitSnap.data();
+      const currentLikes = outfitData.likesCount || 0;
 
       if (likeSnap.exists()) {
         // It's already liked, so we are unliking it
@@ -382,10 +404,27 @@ async function toggleLikePost({ outfitId, userId }) {
         tx.update(outfitRef, { likesCount: Math.max(0, currentLikes - 1) });
         isLiked = false;
       } else {
-        // It's not liked, so we are liking it
+        // It's not liked, so we are liking it.
         tx.set(likeRef, { outfitId, userId, createdAt: serverTimestamp() });
         tx.update(outfitRef, { likesCount: currentLikes + 1 });
         isLiked = true;
+
+        // Create notification if not liking own post
+        if (postOwnerId && userId !== postOwnerId) {
+          const senderProfile = senderProfileSnap.data();
+          const notificationRef = doc(collection(firestore, 'notifications'));
+          tx.set(notificationRef, {
+            recipientId: postOwnerId,
+            senderId: userId,
+            senderName: senderProfile?.name || 'Someone',
+            senderAvatar: senderProfile?.profilePicture || null,
+            type: 'like',
+            outfitId: outfitId,
+            outfitImage: outfitData.imageUrl,
+            createdAt: serverTimestamp(),
+            read: false,
+          });
+        }
       }
     });
     return { success: true, isLiked };
@@ -672,6 +711,21 @@ async function updateUserProfile({ uid, data }) {
   }
 }
 
+async function updateUserPushToken({ uid, token, remove = false }) {
+  if (!uid || !token) return { success: false, error: 'Missing uid or token' };
+  try {
+    const userRef = doc(firestore, 'users', uid);
+    const update = remove
+      ? { pushTokens: arrayRemove(token) }
+      : { pushTokens: arrayUnion(token) }; // Use arrayUnion to avoid duplicates
+    await updateDoc(userRef, update);
+    return { success: true };
+  } catch (error) {
+    console.error('updateUserPushToken error:', error);
+    return { success: false, error };
+  }
+}
+
 async function setUserAvatar({ uid, imageUrl }) {
   try {
     // Add a cache-busting version param so clients refresh the image
@@ -795,7 +849,7 @@ export {
   addComment, auth, createUser, createOutfitDocument,
   deleteComment, fetchCommentsForOutfit, fetchFeed, fetchOutfitDetails, fetchUserOutfits, firestore, loginWithEmail,
   logout, onAuthChange, sendResetEmail, signupWithEmail, submitRating, uploadImage,
-  toggleLikePost, fetchMyLikedOutfitIds, fetchLikersForOutfit, fbListContests, fbFetchContestEntries, fbCreateEntry, fbRateEntry, fbFetchContestLeaderboard,
+  toggleLikePost, fetchMyLikedOutfitIds, fetchLikersForOutfit, fbListContests, fbFetchContestEntries, fbCreateEntry, fbRateEntry, fbFetchContestLeaderboard, updateUserPushToken,
   getUserProfile, updateUserProfile, setUserAvatar, ensureUsernameUnique,
   followUser, unfollowUser, isFollowing, listFollowers, listFollowing
 };

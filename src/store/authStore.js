@@ -9,10 +9,13 @@ import {
 
 // IMPORTANT: import the user store to hydrate normalized profile
 import useUserStore from './UserStore';
+import * as Notifications from 'expo-notifications';
+import { registerForPushNotificationsAsync } from '../services/pushNotifications';
 
 const useAuthStore = create((set, get) => ({
   user: null,
   loading: true,
+  pushToken: null, // Add a place to store the current device's token
 
   // Listen to Firebase Auth state changes and hydrate normalized Firestore profile
   initializeAuth: () => {
@@ -21,25 +24,37 @@ const useAuthStore = create((set, get) => ({
 
     return onAuthChange(async (firebaseUser) => {
       try {
-        const { loadMyProfile, subscribeMyProfile, hydrateMyLikes, clearMyProfile } = useUserStore.getState();
+        const { loadMyProfile, subscribeMyProfile, hydrateMyLikes, clearMyProfile, updateMyPushToken } = useUserStore.getState();
         const previousUser = get().user;
 
         if (firebaseUser) {
-          const justVerified = !previousUser?.emailVerified && firebaseUser.emailVerified;
-
           // Always update the user object in the store to reflect the latest state from Firebase.
           set({ user: firebaseUser, loading: false });
 
-          // If this is the first time we see this user (new login/signup), load their profile.
-          if (!previousUser) {
+          // If this is a new login/signup, load their profile and register for push notifications.
+          if (firebaseUser.uid !== previousUser?.uid) {
             const uid = firebaseUser.uid;
             await Promise.all([loadMyProfile(uid), hydrateMyLikes(uid)]);
             subscribeMyProfile(uid);
+
+            // After loading profile, register for push notifications
+            registerForPushNotificationsAsync().then(token => {
+              if (token) {
+                console.log('Saving push token to profile...');
+                set({ pushToken: token }); // Store the token in the auth store
+                updateMyPushToken(token);
+              }
+            });
           }
         } else {
           // Signed out
+          const { myProfile, updateMyPushToken } = useUserStore.getState();
+          const tokenToRemove = get().pushToken; // Use the stored token
+          if (myProfile?.uid && tokenToRemove) {
+            updateMyPushToken(tokenToRemove, true); // on logout, remove token
+          }
           clearMyProfile();
-          set({ user: null, loading: false });
+          set({ user: null, loading: false, pushToken: null }); // Clear user and token
         }
       } catch (e) {
         console.error('Auth state change error:', e);

@@ -240,7 +240,7 @@ trendygrams.com
 
 
 
-
+vastrayl - finalyzed doamin
 
 Class 9 → Downloadable mobile apps, software.
 
@@ -273,3 +273,23 @@ cant reply to comment
 
 WARN  [2025-09-06T20:51:14.452Z]  @firebase/firestore: Firestore (12.1.0): RestConnection RPC 'Commit' 0x294ca9e3 failed with error:  {"code":"permission-denied","name":"FirebaseError"} url:  https://firestore.googleapis.com/v1/projects/rateoutfit-d84af/databases/(default)/documents:commit request: {"writes":[{"update":{"name":"projects/rateoutfit-d84af/databases/(default)/documents/outfits/iX4aRp2uHuzRCbs7IrQY","fields":{"commentsCount":{"integerValue":"3"}}},"updateMask":{"fieldPaths":["commentsCount"]},"currentDocument":{"updateTime":"2025-09-06T18:22:23.756417000Z"}},{"update":{"name":"projects/rateoutfit-d84af/databases/(default)/documents/comments/fU32vlPLvzipbMC5bLsK","fields":{"replyCount":{"integerValue":"1"}}},"updateMask":{"fieldPaths":["replyCount"]},"currentDocument":{"updateTime":"2025-09-05T16:05:44.691950000Z"}},{"update":{"name":"projects/rateoutfit-d84af/databases/(default)/documents/comments/HZFUjtLB1DDn8dzmi3x5","fields":{"outfitId":{"stringValue":"iX4aRp2uHuzRCbs7IrQY"},"userId":{"stringValue":"RZn3p0ih5ycR2BmhD2kz77wVHnf2"},"user":{"mapValue":{"fields":{"uid":{"stringValue":"RZn3p0ih5ycR2BmhD2kz77wVHnf2"},"name":{"stringValue":"Temp account"},"profilePicture":{"nullValue":"NULL_VALUE"}}}},"text":{"stringValue":"Best"},"parentId":{"stringValue":"fU32vlPLvzipbMC5bLsK"},"replyCount":{"integerValue":"0"}}},"updateTransforms":[{"fieldPath":"createdAt","setToServerValue":"REQUEST_TIME"}]}]}
  ERROR  addComment error: [FirebaseError: Missing or insufficient permissions.]
+
+
+=====
+Firebase functions enbled in this commit for push notifications 
+
+5. Monitor usage
+
+Firebase Console → Functions → Usage.
+Google Cloud Console → Billing → Reports.
+
+If you stay inside the free quotas:
+2M invocations/month
+400,000 GB-seconds compute
+5GB outbound traffic
+you’ll pay ₹0.
+
+imp
+Delete unused functions:
+firebase functions:delete myFunctionName
+Check Artifact Registry manually once in a while → delete old repos if Firebase didn’t.
