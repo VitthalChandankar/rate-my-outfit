@@ -1,7 +1,7 @@
 // src/screens/main/HomeScreen.js
 // Edge-to-edge feed, uses OutfitCard with contest CTA -> RateEntryScreen.
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { useIsFocused, useNavigation } from '@react-navigation/native';
 
@@ -28,6 +28,7 @@ export default function HomeScreen() {
   const navigation = useNavigation();
   const isFocused = useIsFocused();
 
+  const listRef = useRef(null);
   const { user: authedUser } = useAuthStore();
   const authedUid = authedUser?.uid || authedUser?.user?.uid || null;
 
@@ -45,6 +46,17 @@ export default function HomeScreen() {
     if (isFocused) {
       fetchFeed({ limit: 12, reset: true }).finally(() => setInitialLoaded(true));
     }
+  }, [isFocused, fetchFeed]);
+
+  // Add listener for tab press to scroll to top
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('tabPress', () => {
+      // Only scroll to top if the screen is currently focused
+      if (isFocused) {
+        listRef.current?.scrollToOffset({ animated: true, offset: 0 });
+      }
+    });
+    return unsubscribe;
   }, [isFocused, fetchFeed]);
 
   const data = useMemo(() => {
@@ -128,6 +140,7 @@ export default function HomeScreen() {
 
   return (
     <FlatList
+      ref={listRef}
       data={data}
       keyExtractor={keyExtractor}
       renderItem={({ item }) => (
