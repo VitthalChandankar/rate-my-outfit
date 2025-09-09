@@ -18,7 +18,7 @@ function AvatarCircle({ uri, name }) {
   );
 }
 
-function OutfitCard({ item, onPress, onRate, onUserPress, onLike, isLiked, onPressLikes, onPressComments }) {
+function OutfitCard({ item, onPress, onRate, onUserPress, onLike, isLiked, onPressLikes, onPressComments, onPressContest }) {
   const raw = item || null;
   if (!raw) return null;
 
@@ -53,6 +53,7 @@ function OutfitCard({ item, onPress, onRate, onUserPress, onLike, isLiked, onPre
   const handleLike = () => { if (typeof onLike === 'function') onLike(raw); };
   const handleLikesPress = () => { if (typeof onPressLikes === 'function') onPressLikes(id); };
   const handleCommentsPress = () => { if (typeof onPressComments === 'function') onPressComments({ outfitId: id, postOwnerId: userId }); };
+  const handleContestTap = () => { if (typeof onPressContest === 'function') onPressContest(raw); };
 
   const handleUserTap = () => {
     if (typeof onUserPress === 'function') {
@@ -71,18 +72,22 @@ function OutfitCard({ item, onPress, onRate, onUserPress, onLike, isLiked, onPre
   return (
     <View style={styles.card}>
       {/* Header row (avatar + name/time are clickable to open user's profile) */}
-      <Pressable style={styles.header} onPress={handleUserTap}>
-        <AvatarCircle uri={userPhoto} name={userName} />
-        <View style={{ marginLeft: 10, flex: 1 }}>
-          <Text style={styles.userName}>{userName}</Text>
-          {!!timeText && <Text style={styles.time}>{timeText}</Text>}
-        </View>
-        {isContest ? (
-          <View style={styles.sponsoredBadge}>
-            <Text style={styles.sponsoredText}>Contest Entry</Text>
+      <View style={styles.header}>
+        <Pressable style={styles.headerUserInfo} onPress={handleUserTap}>
+          <AvatarCircle uri={userPhoto} name={userName} />
+          <View style={{ marginLeft: 10, flex: 1 }}>
+            <Text style={styles.userName}>{userName}</Text>
+            {!!timeText && <Text style={styles.time}>{timeText}</Text>}
           </View>
+        </Pressable>
+        {isContest ? (
+          <Pressable onPress={handleContestTap}>
+            <View style={styles.sponsoredBadge}>
+              <Text style={styles.sponsoredText}>Contest Entry</Text>
+            </View>
+          </Pressable>
         ) : null}
-      </Pressable>
+      </View>
 
       {/* Media */}
       <TouchableOpacity activeOpacity={0.9} onPress={handleOpen}>
@@ -143,7 +148,8 @@ function OutfitCard({ item, onPress, onRate, onUserPress, onLike, isLiked, onPre
 
 const styles = StyleSheet.create({
   card: { marginVertical: 10, backgroundColor: '#fff' },
-  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8 },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12, paddingVertical: 8 },
+  headerUserInfo: { flexDirection: 'row', alignItems: 'center', flex: 1, marginRight: 8 },
   userName: { fontWeight: '700' },
   time: { color: '#888', fontSize: 12 },
 

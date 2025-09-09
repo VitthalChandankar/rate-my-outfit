@@ -75,6 +75,11 @@ export default function HomeScreen() {
     navigation.navigate('Comments', { outfitId, postOwnerId });
   }, [navigation]);
 
+  const handleContestPress = useCallback((post) => {
+    if (!post?.contestId) return;
+    navigation.navigate('ContestDetails', { contestId: post.contestId });
+  }, [navigation]);
+
   const handleOpen = useCallback((post) => {
     if (!post?.id) return;
     const isContest = post.type === 'contest' || !!post.contestId;
@@ -134,6 +139,7 @@ export default function HomeScreen() {
           onUserPress={handleUserPress}
           onPressLikes={handleLikesPress}
           onPressComments={handleCommentsPress}
+          onPressContest={handleContestPress}
           isLiked={myLikedIds.has(item.id)}
         />
       )}
