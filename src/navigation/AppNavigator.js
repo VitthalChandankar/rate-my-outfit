@@ -33,6 +33,7 @@ import ContestDetailsScreen from '../screens/contests/ContestDetailsScreen';
 // Rating flow
 import RateEntryScreen from '../screens/rating/RateEntryScreen';
 import RateScreen from '../screens/rating/RateScreen';
+import RatingSuccessScreen from '../screens/rating/RatingSuccessScreen';
 
 // Profile additions
 import EditProfileScreen from '../screens/profile/EditProfileScreen';
@@ -130,6 +131,7 @@ function MainAppStack() {
       {/* Rating flow */}
       <Stack.Screen name="RateEntry" component={RateEntryScreen} />
       <Stack.Screen name="RateScreen" component={RateScreen} />
+      <Stack.Screen name="RatingSuccess" component={RatingSuccessScreen} />
 
       {/* Profile additions */}
       <Stack.Screen name="EditProfile" component={EditProfileScreen} />

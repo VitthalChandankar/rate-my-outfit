@@ -2,10 +2,11 @@
 // Ensures we always pass a well-formed target object to RateScreen.
 
 import React, { useMemo, useEffect, useRef } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, Animated, Easing } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, Animated, Easing, Alert } from 'react-native';
 import { Image as ExpoImage } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { withCloudinaryTransforms, IMG_DETAIL } from '../../utils/cloudinaryUrl';
+import { Ionicons } from '@expo/vector-icons';
 import Avatar from '../../components/Avatar';
 
 export default function RateEntryScreen({ route, navigation }) {
@@ -14,6 +15,10 @@ export default function RateEntryScreen({ route, navigation }) {
     () => (item?.imageUrl ? withCloudinaryTransforms(item.imageUrl, IMG_DETAIL) : null),
     [item?.imageUrl]
   );
+
+  const ratingsCount = item?.ratingsCount || 0;
+  const avgRating = item?.averageRating || 0;
+  const aiFlags = item?.aiFlagsCount || 0;
 
   // Animations
   const scaleAnim = useRef(new Animated.Value(0.9)).current;
@@ -46,6 +51,13 @@ export default function RateEntryScreen({ route, navigation }) {
     navigation.navigate('RateScreen', { mode, target });
   };
 
+  const onInfoPress = () => {
+    Alert.alert(
+      'AI Flag Info',
+      'This number shows how many users have flagged this image as potentially AI-generated. Your feedback helps maintain the authenticity of our community.'
+    );
+  };
+
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <View style={styles.header}>
@@ -54,6 +66,16 @@ export default function RateEntryScreen({ route, navigation }) {
           <Text style={styles.userName}>{item?.userName || 'Creator'}</Text>
           <Text style={styles.contestName}>Contest Entry</Text>
         </View>
+      </View>
+
+      <View style={styles.bgContainer}>
+        <ExpoImage
+          source={{ uri: displayUrl }}
+          style={styles.bgImage}
+          contentFit="cover"
+          blurRadius={30}
+        />
+        <View style={styles.bgOverlay} />
       </View>
 
       <Animated.View style={[styles.mediaWrap, animatedImageStyle]}>
@@ -71,8 +93,24 @@ export default function RateEntryScreen({ route, navigation }) {
         </Text>
       </View>
 
+      <View style={styles.statsRow}>
+        <View style={styles.statItem}>
+          <Text style={styles.statValue}>{avgRating.toFixed(1)}</Text>
+          <Text style={styles.statLabel}>Avg Rating ({ratingsCount})</Text>
+        </View>
+        <View style={styles.statItem}>
+          <Text style={styles.statValue}>{aiFlags}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <Text style={styles.statLabel}>AI Flags</Text>
+            <TouchableOpacity onPress={onInfoPress} style={{ marginLeft: 4 }}>
+              <Ionicons name="information-circle-outline" size={16} color="#999" />
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+
       <Animated.View style={{ transform: [{ translateY: slideAnim }] }}>
-        <TouchableOpacity style={styles.rateBtn} onPress={onRate} activeOpacity={0.92}>
+        <TouchableOpacity style={styles.rateBtn} onPress={onRate} activeOpacity={0.9}>
           <Text style={styles.rateText}>Rate Now</Text>
         </TouchableOpacity>
       </Animated.View>
@@ -83,19 +121,22 @@ export default function RateEntryScreen({ route, navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#111',
     paddingHorizontal: 20,
-    justifyContent: 'center', // Center content vertically
+    justifyContent: 'space-between',
   },
+  bgContainer: { ...StyleSheet.absoluteFillObject },
+  bgImage: { ...StyleSheet.absoluteFillObject, opacity: 0.3 },
+  bgOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.6)' },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
+    paddingTop: 10,
   },
   userName: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#111',
+    color: '#fff',
   },
   contestName: {
     fontSize: 14,
@@ -106,7 +147,7 @@ const styles = StyleSheet.create({
     aspectRatio: 3 / 4, // Taller aspect ratio
     borderRadius: 24,
     overflow: 'hidden',
-    backgroundColor: '#f0f0f0',
+    backgroundColor: '#333',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
@@ -114,8 +155,28 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   media: { width: '100%', height: '100%' },
-  meta: { marginVertical: 20 },
-  caption: { fontSize: 15, color: '#555', textAlign: 'center' },
-  rateBtn: { backgroundColor: '#7A5AF8', paddingVertical: 18, borderRadius: 18, alignItems: 'center' },
-  rateText: { color: '#fff', fontWeight: 'bold', fontSize: 18 },
+  meta: { marginVertical: 16 },
+  caption: { fontSize: 15, color: '#eee', textAlign: 'center' },
+  statsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    paddingVertical: 16,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: 16,
+  },
+  statItem: {
+    alignItems: 'center',
+  },
+  statValue: {
+    color: '#fff',
+    fontSize: 20,
+    fontWeight: 'bold',
+  },
+  statLabel: {
+    color: '#999',
+    fontSize: 12,
+    marginTop: 4,
+  },
+  rateBtn: { backgroundColor: '#A855F7', paddingVertical: 16, borderRadius: 16, alignItems: 'center', marginBottom: 10 },
+  rateText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
 });

@@ -163,7 +163,7 @@ export default function RateScreen({ route, navigation }) {
           });
     setSubmitting(false);
     if (!res?.success) Alert.alert('Error', 'Could not submit rating.');
-    else navigation.goBack();
+    else navigation.navigate('RatingSuccess', { emoji: sentiment.emoji });
   };
 
   return (
