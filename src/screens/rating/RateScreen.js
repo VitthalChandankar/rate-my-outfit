@@ -13,12 +13,14 @@ import {
   Pressable,
   PanResponder,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image as ExpoImage } from 'expo-image';
 import * as Haptics from 'expo-haptics';
 
 import useAuthStore from '../../store/authStore';
 import useContestStore from '../../store/contestStore';
 import useOutfitStore from '../../store/outfitStore';
+import { Ionicons } from '@expo/vector-icons';
 import { withCloudinaryTransforms, IMG_DETAIL } from '../../utils/cloudinaryUrl';
 
 export default function RateScreen({ route, navigation }) {
@@ -48,7 +50,7 @@ export default function RateScreen({ route, navigation }) {
 
   const { user } = useAuthStore();
   const rateEntry = useContestStore((s) => s.rateEntry);
-  const submitRatingLegacy = useOutfitStore((s) => s.submitRating);
+  const submitRating = useOutfitStore((s) => s.submitRating);
 
   const displayUrl = useMemo(
     () => (imageUrl ? withCloudinaryTransforms(imageUrl, IMG_DETAIL) : null),
@@ -130,21 +132,22 @@ export default function RateScreen({ route, navigation }) {
 
   const onFlagAI = async () => {
     if (!user?.uid) return Alert.alert('Sign in', 'Please sign in to flag.');
-    if (mode === 'entry' && user?.uid === userId) return Alert.alert('Not allowed', 'You can’t flag your own entry.');
+    if (user?.uid === userId) return Alert.alert('Not allowed', 'You can’t flag your own post.');
+
     try {
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     } catch {}
     const res =
       mode === 'entry'
-        ? await rateEntry({ entryId: id, contestId, rating: 0, aiFlag: true })
-        : await submitRatingLegacy({ outfitId: id, stars: 0, comment: '[AI flag]' });
+        ? await rateEntry({ entryId: id, contestId, rating: value, aiFlag: true }) // Submit current rating with the flag
+        : await submitRating({ outfitId: id, stars: 0, comment: '[AI flag]' });
     if (!res?.success) Alert.alert('Error', 'Could not submit flag.');
     else Alert.alert('Thanks', 'Your flag has been recorded.');
   };
 
   const onSubmit = async () => {
     if (!user?.uid) return Alert.alert('Sign in', 'Please sign in to rate.');
-    if (mode === 'entry' && user?.uid === userId) return Alert.alert('Not allowed', 'You can’t rate your own entry.');
+    if (user?.uid === userId) return Alert.alert('Not allowed', 'You can’t rate your own post.');
     setSubmitting(true);
     try {
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
@@ -153,7 +156,7 @@ export default function RateScreen({ route, navigation }) {
     const res =
       mode === 'entry'
         ? await rateEntry({ entryId: id, contestId, rating: v, aiFlag: false })
-        : await submitRatingLegacy({
+        : await submitRating({
             outfitId: id,
             stars: Math.max(1, Math.min(5, Math.round(v / 2))),
             comment: '',
@@ -164,35 +167,26 @@ export default function RateScreen({ route, navigation }) {
   };
 
   return (
-    <View style={styles.screen}>
-      {/* Header */}
-      <View style={styles.header}>
-        {userPhoto ? (
-          <ExpoImage source={{ uri: userPhoto }} style={styles.avatar} contentFit="cover" />
-        ) : (
-          <View style={[styles.avatar, styles.avatarFallback]}>
-            <Text style={styles.initial}>{(userName || 'U').slice(0, 1).toUpperCase()}</Text>
-          </View>
-        )}
-        <Text style={styles.displayName}>{userName}</Text>
-        <Text style={styles.username}>{usernameHandle}</Text>
+    <SafeAreaView style={styles.screen} edges={['top', 'bottom']}>
+      {/* Immersive Media Background */}
+      <View style={StyleSheet.absoluteFill}>
+        <ExpoImage
+          source={{ uri: displayUrl }}
+          style={styles.bgImage}
+          contentFit="cover"
+          blurRadius={30}
+        />
+        <View style={styles.bgOverlay} />
       </View>
 
-      <View style={styles.divider} />
-
-      {/* Media Card */}
-      <View style={styles.card}>
+      {/* Main Content */}
+      <View style={styles.contentContainer}>
         <View style={styles.mediaWrap}>
           {displayUrl ? (
             <ExpoImage source={{ uri: displayUrl }} style={styles.media} contentFit="cover" transition={160} />
           ) : (
             <View style={[styles.media, { backgroundColor: '#EEE' }]} />
           )}
-
-          {/* Looks AI pill */}
-          <Pressable onPress={onFlagAI} style={({ pressed }) => [styles.aiPill, pressed && { opacity: 0.9 }]}>
-            <Text style={styles.aiPillText}>Looks AI?</Text>
-          </Pressable>
         </View>
 
         {/* Average Rating */}
@@ -200,7 +194,7 @@ export default function RateScreen({ route, navigation }) {
           Average Rating <Text style={styles.avgStrong}>{averageRating.toFixed(1)}</Text>
         </Text>
 
-        {/* Slider (integer only, no ticks below) */}
+        {/* Slider */}
         <View style={styles.sliderBlock}>
           <View
             ref={trackRef}
@@ -221,11 +215,17 @@ export default function RateScreen({ route, navigation }) {
         </View>
       </View>
 
-      {/* Submit */}
-      <Pressable onPress={onSubmit} style={({ pressed }) => [styles.submitBtn, pressed && { opacity: 0.95 }]} disabled={submitting}>
-        <Text style={styles.submitText}>{submitting ? 'Submitting…' : 'Submit'}</Text>
-      </Pressable>
-    </View>
+      {/* Action Buttons */}
+      <View style={styles.footer}>
+        <Pressable onPress={onFlagAI} style={({ pressed }) => [styles.aiButton, pressed && { opacity: 0.8 }]}>
+          <Ionicons name="sparkles-outline" size={20} color="#fff" />
+          <Text style={styles.aiButtonText}>Looks AI ?</Text>
+        </Pressable>
+        <Pressable onPress={onSubmit} style={({ pressed }) => [styles.submitBtn, pressed && { opacity: 0.9 }]} disabled={submitting}>
+          <Text style={styles.submitText}>{submitting ? 'Submitting…' : 'Submit Rating'}</Text>
+        </Pressable>
+      </View>
+    </SafeAreaView>
   );
 }
 
@@ -240,52 +240,38 @@ function getSentiment(n) {
 
 /* Styles */
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: '#FFFFFF' },
-
-  header: { alignItems: 'center', paddingTop: 18, paddingBottom: 12 },
-  avatar: { width: 84, height: 84, borderRadius: 42, backgroundColor: '#EEE' },
-  avatarFallback: { alignItems: 'center', justifyContent: 'center' },
-  initial: { color: '#7A5AF8', fontWeight: '900', fontSize: 26 },
-  displayName: { marginTop: 12, fontSize: 22, fontWeight: '900', color: '#141518' },
-  username: { marginTop: 4, color: '#7A7F8A', fontWeight: '600' },
-
-  divider: { height: 1, backgroundColor: '#F0F1F4', marginVertical: 12 },
-
-  card: {
-    marginHorizontal: 16,
-    borderRadius: 16,
-    backgroundColor: '#FFFFFF',
-    padding: 14,
-    shadowColor: '#000',
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 1,
+  screen: { flex: 1, backgroundColor: '#111' },
+  bgImage: { ...StyleSheet.absoluteFillObject, opacity: 0.3 },
+  bgOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.6)' },
+  contentContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    paddingHorizontal: 24,
   },
-
-  mediaWrap: { width: '100%', aspectRatio: 4 / 3, borderRadius: 14, overflow: 'hidden', backgroundColor: '#F2F3F5' },
+  mediaWrap: {
+    width: '100%',
+    aspectRatio: 3 / 4,
+    borderRadius: 24,
+    overflow: 'hidden',
+    backgroundColor: '#333',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+  },
   media: { width: '100%', height: '100%' },
-
-  aiPill: {
-    position: 'absolute',
-    right: 10,
-    top: 10,
-    backgroundColor: '#111',
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 16,
+  avgLine: {
+    marginTop: 24,
+    fontSize: 16,
+    color: '#ccc',
+    textAlign: 'center',
   },
-  aiPillText: { color: '#fff', fontWeight: '800' },
+  avgStrong: { fontWeight: 'bold', color: '#fff' },
 
-  avgLine: { marginTop: 14, fontSize: 16, color: '#454B53' },
-  avgStrong: { fontWeight: '900', color: '#141518' },
-
-  sliderBlock: { marginTop: 14, alignItems: 'center' },
+  sliderBlock: { marginTop: 20, alignItems: 'center' },
 
   track: {
     height: 12,
     borderRadius: 10,
-    backgroundColor: '#E8E8EE',
+    backgroundColor: 'rgba(255,255,255,0.2)',
     position: 'relative',
   },
   fill: {
@@ -293,7 +279,7 @@ const styles = StyleSheet.create({
     left: 0,
     top: 0,
     bottom: 0,
-    backgroundColor: '#7A5AF8',
+    backgroundColor: '#A855F7', // Purple
     borderTopLeftRadius: 10,
     borderBottomLeftRadius: 10,
     borderTopRightRadius: 10,
@@ -301,11 +287,13 @@ const styles = StyleSheet.create({
   },
   thumb: {
     position: 'absolute',
-    top: -10,
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: '#7A5AF8',
+    top: -12,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#fff',
+    borderWidth: 4,
+    borderColor: '#A855F7',
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#7A5AF8',
@@ -314,19 +302,35 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     elevation: 2,
   },
-  thumbText: { color: '#fff', fontWeight: '800', fontSize: 12 },
+  thumbText: { color: '#A855F7', fontWeight: 'bold', fontSize: 14 },
 
-  sentimentText: { marginTop: 8, fontWeight: '800', color: '#5A6270' },
+  sentimentText: { marginTop: 12, fontWeight: 'bold', color: '#fff', fontSize: 16 },
 
+  footer: {
+    flexDirection: 'row',
+    paddingHorizontal: 24,
+    paddingBottom: 16,
+    gap: 16,
+  },
+  aiButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    paddingVertical: 14,
+    borderRadius: 14,
+  },
+  aiButtonText: { color: '#fff', fontWeight: 'bold' },
   submitBtn: {
-    marginTop: 18,
-    marginHorizontal: 16,
-    backgroundColor: '#7A5AF8',
+    flex: 2,
+    backgroundColor: '#fff',
     paddingVertical: 14,
     borderRadius: 14,
     alignItems: 'center',
   },
-  submitText: { color: '#fff', fontWeight: '900', letterSpacing: 0.2 },
+  submitText: { color: '#A855F7', fontWeight: 'bold', fontSize: 16, letterSpacing: 0.2 },
 });
 
 const fallbackStyles = StyleSheet.create({
