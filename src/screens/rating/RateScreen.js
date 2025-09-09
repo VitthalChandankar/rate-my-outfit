@@ -139,9 +139,12 @@ export default function RateScreen({ route, navigation }) {
     } catch {}
     const res =
       mode === 'entry'
-        ? await rateEntry({ entryId: id, contestId, rating: value, aiFlag: true }) // Submit current rating with the flag
-        : await submitRating({ outfitId: id, stars: 0, comment: '[AI flag]' });
-    if (!res?.success) Alert.alert('Error', 'Could not submit flag.');
+        ? await rateEntry({ entryId: id, contestId, rating: value, aiFlag: true })
+        : { success: false, error: 'Cannot flag a normal post.' }; // This path should not be taken
+
+    if (!res?.success) {
+      Alert.alert('Error', res.error || 'Could not submit flag.');
+    }
     else Alert.alert('Thanks', 'Your flag has been recorded.');
   };
 
@@ -156,11 +159,8 @@ export default function RateScreen({ route, navigation }) {
     const res =
       mode === 'entry'
         ? await rateEntry({ entryId: id, contestId, rating: v, aiFlag: false })
-        : await submitRating({
-            outfitId: id,
-            stars: Math.max(1, Math.min(5, Math.round(v / 2))),
-            comment: '',
-          });
+        : { success: false, error: 'Cannot rate a normal post.' }; // This path should not be taken
+
     setSubmitting(false);
     if (!res?.success) Alert.alert('Error', 'Could not submit rating.');
     else navigation.navigate('RatingSuccess', { emoji: sentiment.emoji });
@@ -168,17 +168,6 @@ export default function RateScreen({ route, navigation }) {
 
   return (
     <SafeAreaView style={styles.screen} edges={['top', 'bottom']}>
-      {/* Immersive Media Background */}
-      <View style={StyleSheet.absoluteFill}>
-        <ExpoImage
-          source={{ uri: displayUrl }}
-          style={styles.bgImage}
-          contentFit="cover"
-          blurRadius={30}
-        />
-        <View style={styles.bgOverlay} />
-      </View>
-
       {/* Main Content */}
       <View style={styles.contentContainer}>
         <View style={styles.mediaWrap}>
@@ -218,8 +207,8 @@ export default function RateScreen({ route, navigation }) {
       {/* Action Buttons */}
       <View style={styles.footer}>
         <Pressable onPress={onFlagAI} style={({ pressed }) => [styles.aiButton, pressed && { opacity: 0.8 }]}>
-          <Ionicons name="sparkles-outline" size={20} color="#fff" />
-          <Text style={styles.aiButtonText}>Looks AI ?</Text>
+          <Ionicons name="sparkles-outline" size={20} color="#111" />
+          <Text style={styles.aiButtonText}>AI Check</Text>
         </Pressable>
         <Pressable onPress={onSubmit} style={({ pressed }) => [styles.submitBtn, pressed && { opacity: 0.9 }]} disabled={submitting}>
           <Text style={styles.submitText}>{submitting ? 'Submitting…' : 'Submit Rating'}</Text>
@@ -240,9 +229,7 @@ function getSentiment(n) {
 
 /* Styles */
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: '#111' },
-  bgImage: { ...StyleSheet.absoluteFillObject, opacity: 0.3 },
-  bgOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.6)' },
+  screen: { flex: 1, backgroundColor: '#fff' },
   contentContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -253,25 +240,28 @@ const styles = StyleSheet.create({
     aspectRatio: 3 / 4,
     borderRadius: 24,
     overflow: 'hidden',
-    backgroundColor: '#333',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: '#f0f0f0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 8,
   },
   media: { width: '100%', height: '100%' },
   avgLine: {
     marginTop: 24,
     fontSize: 16,
-    color: '#ccc',
+    color: '#555',
     textAlign: 'center',
   },
-  avgStrong: { fontWeight: 'bold', color: '#fff' },
+  avgStrong: { fontWeight: 'bold', color: '#111' },
 
   sliderBlock: { marginTop: 20, alignItems: 'center' },
 
   track: {
     height: 12,
     borderRadius: 10,
-    backgroundColor: 'rgba(255,255,255,0.2)',
+    backgroundColor: '#f0f0f0',
     position: 'relative',
   },
   fill: {
@@ -304,7 +294,7 @@ const styles = StyleSheet.create({
   },
   thumbText: { color: '#A855F7', fontWeight: 'bold', fontSize: 14 },
 
-  sentimentText: { marginTop: 12, fontWeight: 'bold', color: '#fff', fontSize: 16 },
+  sentimentText: { marginTop: 12, fontWeight: 'bold', color: '#111', fontSize: 16 },
 
   footer: {
     flexDirection: 'row',
@@ -318,19 +308,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: '#f0f0f0',
     paddingVertical: 14,
     borderRadius: 14,
   },
-  aiButtonText: { color: '#fff', fontWeight: 'bold' },
+  aiButtonText: { color: '#111', fontWeight: 'bold' },
   submitBtn: {
     flex: 2,
-    backgroundColor: '#fff',
+    backgroundColor: '#A855F7',
     paddingVertical: 14,
     borderRadius: 14,
     alignItems: 'center',
   },
-  submitText: { color: '#A855F7', fontWeight: 'bold', fontSize: 16, letterSpacing: 0.2 },
+  submitText: { color: '#fff', fontWeight: 'bold', fontSize: 16, letterSpacing: 0.2 },
 });
 
 const fallbackStyles = StyleSheet.create({

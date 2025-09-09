@@ -146,6 +146,7 @@ async function createOutfitDocument({ userId, imageUrl, caption = '', tags = [],
       ratingsCount: 0,
       likesCount: 0,
       commentsCount: 0,
+      aiFlagsCount: 0,
     };
 
     const docRef = await addDoc(collection(firestore, 'outfits'), payload);
@@ -224,41 +225,53 @@ async function fetchOutfitDetails(outfitId) {
   }
 }
 
-async function submitRating({ outfitId, userId, stars, comment = '' }) {
+async function submitRating({ outfitId, userId, rating, comment = '', aiFlag = false }) {
   const ratingDocRef = doc(firestore, 'ratings', `${outfitId}_${userId}`);
   const outfitDocRef = doc(firestore, 'outfits', outfitId);
   try {
     await runTransaction(firestore, async (tx) => {
       const outfitSnap = await tx.get(outfitDocRef);
       if (!outfitSnap.exists()) throw new Error('Outfit not found');
+
       const outfitData = outfitSnap.data();
       const oldAvg = outfitData.averageRating || 0;
       const oldCount = outfitData.ratingsCount || 0;
+      const oldAI = outfitData.aiFlagsCount || 0;
 
       const existingRatingSnap = await tx.get(ratingDocRef);
-      const previousRating = existingRatingSnap.exists() ? existingRatingSnap.data().rating : null;
+      const hadPrev = existingRatingSnap.exists();
+      const prevRating = hadPrev ? (existingRatingSnap.data().rating || 0) : null;
+      const prevAIFlag = hadPrev ? !!existingRatingSnap.data().aiFlag : false;
 
       let newCount = oldCount;
-      let newAvg = oldAvg;
-      if (previousRating !== null) {
-        const sum = oldAvg * oldCount - previousRating + stars;
-        newAvg = newCount > 0 ? sum / newCount : stars;
+      let sum = oldAvg * oldCount;
+      if (hadPrev) {
+        sum = sum - prevRating + rating;
       } else {
-        const sum = oldAvg * oldCount + stars;
+        sum = sum + rating;
         newCount = oldCount + 1;
-        newAvg = sum / newCount;
+      }
+      const newAvg = newCount > 0 ? sum / newCount : 0;
+
+      // AI flags
+      let aiFlagsCount = oldAI;
+      if (prevAIFlag !== aiFlag) {
+        aiFlagsCount = aiFlag ? oldAI + 1 : Math.max(0, oldAI - 1);
       }
 
+      // Write rating (upsert)
       tx.set(ratingDocRef, {
         outfitId,
         userId,
-        rating: stars,
+        rating: rating,
         comment: comment || '',
+        aiFlag: !!aiFlag,
         createdAt: serverTimestamp(),
       });
       tx.update(outfitDocRef, {
         averageRating: newAvg,
         ratingsCount: newCount,
+        aiFlagsCount,
       });
     });
     return { success: true };

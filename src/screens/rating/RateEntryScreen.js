@@ -68,16 +68,6 @@ export default function RateEntryScreen({ route, navigation }) {
         </View>
       </View>
 
-      <View style={styles.bgContainer}>
-        <ExpoImage
-          source={{ uri: displayUrl }}
-          style={styles.bgImage}
-          contentFit="cover"
-          blurRadius={30}
-        />
-        <View style={styles.bgOverlay} />
-      </View>
-
       <Animated.View style={[styles.mediaWrap, animatedImageStyle]}>
         <ExpoImage
           source={{ uri: displayUrl }}
@@ -95,12 +85,12 @@ export default function RateEntryScreen({ route, navigation }) {
 
       <View style={styles.statsRow}>
         <View style={styles.statItem}>
-          <Text style={styles.statValue}>{avgRating.toFixed(1)}</Text>
-          <Text style={styles.statLabel}>Avg Rating ({ratingsCount})</Text>
+          <Text style={styles.statValue}>{avgRating > 0 ? avgRating.toFixed(1) : '–'}</Text>
+          <Text style={styles.statLabel}>Avg Rating ({ratingsCount} votes)</Text>
         </View>
         <View style={styles.statItem}>
           <Text style={styles.statValue}>{aiFlags}</Text>
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
             <Text style={styles.statLabel}>AI Flags</Text>
             <TouchableOpacity onPress={onInfoPress} style={{ marginLeft: 4 }}>
               <Ionicons name="information-circle-outline" size={16} color="#999" />
@@ -121,13 +111,10 @@ export default function RateEntryScreen({ route, navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#111',
+    backgroundColor: '#fff',
     paddingHorizontal: 20,
     justifyContent: 'space-between',
   },
-  bgContainer: { ...StyleSheet.absoluteFillObject },
-  bgImage: { ...StyleSheet.absoluteFillObject, opacity: 0.3 },
-  bgOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.6)' },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -136,18 +123,18 @@ const styles = StyleSheet.create({
   userName: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#fff',
+    color: '#111',
   },
   contestName: {
     fontSize: 14,
-    color: '#666',
+    color: '#555',
   },
   mediaWrap: {
     width: '100%',
     aspectRatio: 3 / 4, // Taller aspect ratio
     borderRadius: 24,
     overflow: 'hidden',
-    backgroundColor: '#333',
+    backgroundColor: '#f0f0f0',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
@@ -156,27 +143,27 @@ const styles = StyleSheet.create({
   },
   media: { width: '100%', height: '100%' },
   meta: { marginVertical: 16 },
-  caption: { fontSize: 15, color: '#eee', textAlign: 'center' },
+  caption: { fontSize: 15, color: '#555', textAlign: 'center' },
   statsRow: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    paddingVertical: 16,
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    paddingVertical: 12,
+    backgroundColor: '#f7f7f7',
     borderRadius: 16,
   },
   statItem: {
     alignItems: 'center',
   },
   statValue: {
-    color: '#fff',
-    fontSize: 20,
+    color: '#111',
+    fontSize: 18,
     fontWeight: 'bold',
   },
   statLabel: {
-    color: '#999',
-    fontSize: 12,
+    color: '#666',
+    fontSize: 11,
     marginTop: 4,
   },
-  rateBtn: { backgroundColor: '#A855F7', paddingVertical: 16, borderRadius: 16, alignItems: 'center', marginBottom: 10 },
-  rateText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
+  rateBtn: { backgroundColor: '#A855F7', paddingVertical: 14, borderRadius: 16, alignItems: 'center', marginBottom: 10 },
+  rateText: { color: '#fff', fontWeight: 'bold', fontSize: 15 },
 });
