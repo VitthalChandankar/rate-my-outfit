@@ -63,7 +63,6 @@ async function createUser(uid, email, name) {
     preferences: { privacyLevel: 'public', notificationsEnabled: true },
   };
   await setDoc(doc(firestore, 'users', uid), userDoc);
-  await setDoc(doc(firestore, 'counters', uid), { followersCount: 0, followingCount: 0, postsCount: 0 }, { merge: true });
   return userDoc;
 }
 
@@ -270,62 +269,18 @@ async function submitRating({ outfitId, userId, stars, comment = '' }) {
 }
 
 async function addComment({ outfitId, userId, text, userMeta, parentId = null }) {
-  const outfitRef = doc(firestore, 'outfits', outfitId);
-  const commentRef = doc(collection(firestore, 'comments'));
-  const parentCommentRef = parentId ? doc(firestore, 'comments', parentId) : null;
-
+  // Cloud Function 'onCommentCreate' will handle counter increments and notifications.
   try {
-    let postOwnerId = null;
-    await runTransaction(firestore, async (tx) => {
-      // Perform all reads first
-      const [outfitSnap, parentSnap] = await Promise.all([
-        tx.get(outfitRef),
-        parentCommentRef ? tx.get(parentCommentRef) : Promise.resolve(null)
-      ]);
-
-      if (!outfitSnap.exists()) throw new Error('Outfit not found');
-      const outfitData = outfitSnap.data();
-      postOwnerId = outfitData.userId; // Get owner ID
-
-      // Increment commentsCount on the outfit
-      const newCount = (outfitData.commentsCount || 0) + 1;
-      tx.update(outfitRef, { commentsCount: newCount });
-
-      // If it's a reply, increment replyCount on the parent comment
-      if (parentSnap && parentSnap.exists()) {
-        const newReplyCount = (parentSnap.data().replyCount || 0) + 1;
-        tx.update(parentCommentRef, { replyCount: newReplyCount });
-      }
-
-      // Create the new comment document
-      tx.set(commentRef, {
-        outfitId,
-        userId,
-        user: userMeta,
-        text,
-        parentId,
-        replyCount: 0,
-        createdAt: serverTimestamp(),
-      });
-
-      // Create notification if not commenting on own post
-      if (postOwnerId && userId !== postOwnerId) {
-        const notificationRef = doc(collection(firestore, 'notifications'));
-        tx.set(notificationRef, {
-          recipientId: postOwnerId,
-          senderId: userId,
-          senderName: userMeta?.name || 'Someone',
-          senderAvatar: userMeta?.profilePicture || null,
-          type: 'comment',
-          outfitId: outfitId,
-          outfitImage: outfitData.imageUrl,
-          commentText: text,
-          createdAt: serverTimestamp(),
-          read: false,
-        });
-      }
+    const docRef = await addDoc(collection(firestore, 'comments'), {
+      outfitId,
+      userId,
+      user: userMeta,
+      text,
+      parentId,
+      replyCount: 0,
+      createdAt: serverTimestamp(),
     });
-    const newCommentSnap = await getDoc(commentRef);
+    const newCommentSnap = await getDoc(docRef);
     return { success: true, id: newCommentSnap.id, data: newCommentSnap.data() };
   } catch (error) {
     console.error('addComment error:', error);
@@ -334,31 +289,10 @@ async function addComment({ outfitId, userId, text, userMeta, parentId = null })
 }
 
 async function deleteComment({ commentId, outfitId, parentId }) {
-  const outfitRef = doc(firestore, 'outfits', outfitId);
+  // Cloud Function 'onCommentDelete' will handle counter decrements.
   const commentRef = doc(firestore, 'comments', commentId);
-  const parentCommentRef = parentId ? doc(firestore, 'comments', parentId) : null;
-
   try {
-    await runTransaction(firestore, async (tx) => {
-      // Decrement commentsCount on the outfit
-      const outfitSnap = await tx.get(outfitRef);
-      if (outfitSnap.exists()) {
-        const newCount = Math.max(0, (outfitSnap.data().commentsCount || 0) - 1);
-        tx.update(outfitRef, { commentsCount: newCount });
-      }
-
-      // If it was a reply, decrement replyCount on the parent
-      if (parentCommentRef) {
-        const parentSnap = await tx.get(parentCommentRef);
-        if (parentSnap.exists()) {
-          const newReplyCount = Math.max(0, (parentSnap.data().replyCount || 0) - 1);
-          tx.update(parentCommentRef, { replyCount: newReplyCount });
-        }
-      }
-
-      // Delete the comment itself
-      tx.delete(commentRef);
-    });
+    await deleteDoc(commentRef);
     return { success: true };
   } catch (error) {
     console.error('deleteComment error:', error);
@@ -382,51 +316,20 @@ async function fetchCommentsForOutfit(outfitId) {
 }
 
 async function toggleLikePost({ outfitId, userId, postOwnerId }) {
+  // Cloud Functions 'onLikeCreate' and 'onLikeDelete' will handle counters and notifications.
   const likeRef = doc(firestore, 'likes', `${outfitId}_${userId}`);
-  const outfitRef = doc(firestore, 'outfits', outfitId);
   try {
-    let isLiked = false;
-    await runTransaction(firestore, async (tx) => {
-      const [likeSnap, outfitSnap, senderProfileSnap] = await Promise.all([
-        tx.get(likeRef),
-        tx.get(outfitRef),
-        // Get sender's profile for notification, only if it's a like action
-        tx.get(doc(firestore, 'users', userId)),
-      ]);
-
-      if (!outfitSnap.exists()) throw new Error('Outfit not found');
-      const outfitData = outfitSnap.data();
-      const currentLikes = outfitData.likesCount || 0;
-
-      if (likeSnap.exists()) {
-        // It's already liked, so we are unliking it
-        tx.delete(likeRef);
-        tx.update(outfitRef, { likesCount: Math.max(0, currentLikes - 1) });
-        isLiked = false;
-      } else {
-        // It's not liked, so we are liking it.
-        tx.set(likeRef, { outfitId, userId, createdAt: serverTimestamp() });
-        tx.update(outfitRef, { likesCount: currentLikes + 1 });
-        isLiked = true;
-
-        // Create notification if not liking own post
-        if (postOwnerId && userId !== postOwnerId) {
-          const senderProfile = senderProfileSnap.data();
-          const notificationRef = doc(collection(firestore, 'notifications'));
-          tx.set(notificationRef, {
-            recipientId: postOwnerId,
-            senderId: userId,
-            senderName: senderProfile?.name || 'Someone',
-            senderAvatar: senderProfile?.profilePicture || null,
-            type: 'like',
-            outfitId: outfitId,
-            outfitImage: outfitData.imageUrl,
-            createdAt: serverTimestamp(),
-            read: false,
-          });
-        }
-      }
-    });
+    const likeSnap = await getDoc(likeRef);
+    let isLiked;
+    if (likeSnap.exists()) {
+      // It's already liked, so we are unliking it
+      await deleteDoc(likeRef);
+      isLiked = false;
+    } else {
+      // It's not liked, so we are liking it.
+      await setDoc(likeRef, { outfitId, userId, createdAt: serverTimestamp() });
+      isLiked = true;
+    }
     return { success: true, isLiked };
   } catch (error) {
     console.error('toggleLikePost error:', error);
@@ -749,19 +652,23 @@ async function isFollowing({ followerId, followingId }) {
 async function followUser({ followerId, followingId }) {
   if (!followerId || !followingId || followerId === followingId) return { success: false, error: 'Invalid follow' };
   const relRef = doc(firestore, 'follows', `${followerId}_${followingId}`);
-  const followerCounter = doc(firestore, 'counters', followingId);
-  const followingCounter = doc(firestore, 'counters', followerId);
+  const followerUserRef = doc(firestore, 'users', followerId);
+  const followingUserRef = doc(firestore, 'users', followingId);
   try {
     await runTransaction(firestore, async (tx) => {
-      const rel = await tx.get(relRef);
+      const [rel, followerSnap, followingSnap] = await Promise.all([
+        tx.get(relRef),
+        tx.get(followerUserRef),
+        tx.get(followingUserRef),
+      ]);
+
       if (rel.exists()) return;
+      if (!followerSnap.exists() || !followingSnap.exists()) throw new Error('User not found');
+
       tx.set(relRef, { followerId, followingId, createdAt: serverTimestamp() });
-      const fc = await tx.get(followerCounter);
-      const mg = fc.exists() ? fc.data() : {};
-      tx.set(followerCounter, { ...mg, followersCount: (mg.followersCount || 0) + 1 }, { merge: true });
-      const fg = await tx.get(followingCounter);
-      const mg2 = fg.exists() ? fg.data() : {};
-      tx.set(followingCounter, { ...mg2, followingCount: (mg2.followingCount || 0) + 1 }, { merge: true });
+
+      tx.update(followerUserRef, { 'stats.followingCount': (followerSnap.data().stats?.followingCount || 0) + 1 });
+      tx.update(followingUserRef, { 'stats.followersCount': (followingSnap.data().stats?.followersCount || 0) + 1 });
     });
     return { success: true };
   } catch (error) {
@@ -772,19 +679,22 @@ async function followUser({ followerId, followingId }) {
 async function unfollowUser({ followerId, followingId }) {
   if (!followerId || !followingId || followerId === followingId) return { success: false, error: 'Invalid unfollow' };
   const relRef = doc(firestore, 'follows', `${followerId}_${followingId}`);
-  const followerCounter = doc(firestore, 'counters', followingId);
-  const followingCounter = doc(firestore, 'counters', followerId);
+  const followerUserRef = doc(firestore, 'users', followerId);
+  const followingUserRef = doc(firestore, 'users', followingId);
   try {
     await runTransaction(firestore, async (tx) => {
-      const rel = await tx.get(relRef);
+      const [rel, followerSnap, followingSnap] = await Promise.all([
+        tx.get(relRef),
+        tx.get(followerUserRef),
+        tx.get(followingUserRef),
+      ]);
+
       if (!rel.exists()) return;
+
       tx.delete(relRef);
-      const fc = await tx.get(followerCounter);
-      const mg = fc.exists() ? fc.data() : {};
-      tx.set(followerCounter, { ...mg, followersCount: Math.max(0, (mg.followersCount || 0) - 1) }, { merge: true });
-      const fg = await tx.get(followingCounter);
-      const mg2 = fg.exists() ? fg.data() : {};
-      tx.set(followingCounter, { ...mg2, followingCount: Math.max(0, (mg2.followingCount || 0) - 1) }, { merge: true });
+
+      if (followerSnap.exists()) tx.update(followerUserRef, { 'stats.followingCount': Math.max(0, (followerSnap.data().stats?.followingCount || 0) - 1) });
+      if (followingSnap.exists()) tx.update(followingUserRef, { 'stats.followersCount': Math.max(0, (followingSnap.data().stats?.followersCount || 0) - 1) });
     });
     return { success: true };
   } catch (error) {

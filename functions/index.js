@@ -1,7 +1,7 @@
 /* eslint-disable object-curly-spacing */
 /* eslint-disable max-len */
 const admin = require("firebase-admin");
-const {onDocumentCreated} = require("firebase-functions/v2/firestore");
+const {onDocumentCreated, onDocumentDeleted} = require("firebase-functions/v2/firestore");
 
 admin.initializeApp();
 
@@ -61,6 +61,9 @@ exports.sendPushNotification = onDocumentCreated("notifications/{notificationId}
     } else if (type === "comment") {
       title = "New Comment! 💬";
       body = `${senderName}: ${commentText}`;
+    } else if (type === "follow") {
+      title = "New Follower! 👋";
+      body = `${senderName} started following you.`;
     } else {
       console.log(`Unknown notification type: ${type}`);
       return null;
@@ -73,7 +76,10 @@ exports.sendPushNotification = onDocumentCreated("notifications/{notificationId}
       title: title,
       body: body,
       data: {
-        outfitId: notificationData.outfitId, // Pass extra data for navigation
+        // For 'follow', navigate to the sender's profile. For others, to the outfit.
+        // For 'comment' or 'like', navigate to the outfit details.
+        outfitId: notificationData.outfitId,
+        senderId: notificationData.senderId, // Add senderId for navigation
       },
     }));
 
@@ -121,3 +127,252 @@ exports.sendPushNotification = onDocumentCreated("notifications/{notificationId}
     }
     return null;
   });
+
+/**
+ * Handles creating a comment.
+ * - Increments the comment count on the associated outfit.
+ * - If it's a reply, increments the reply count on the parent comment.
+ * - Creates a notification for the post owner.
+ */
+exports.onCommentCreate = onDocumentCreated("comments/{commentId}", async (event) => {
+  const snap = event.data;
+  if (!snap) return;
+  const commentData = snap.data();
+  const { outfitId, userId, parentId, text } = commentData;
+
+  if (!outfitId || !userId) {
+    console.error("Comment is missing outfitId or userId", snap.id);
+    return;
+  }
+
+  const db = admin.firestore();
+  const outfitRef = db.doc(`outfits/${outfitId}`);
+
+  try {
+    // 1. Increment outfit's commentsCount
+    await outfitRef.update({ commentsCount: admin.firestore.FieldValue.increment(1) });
+
+    // 2. If it's a reply, increment parent comment's replyCount
+    if (parentId) {
+      const parentCommentRef = db.doc(`comments/${parentId}`);
+      await parentCommentRef.update({ replyCount: admin.firestore.FieldValue.increment(1) });
+    }
+
+    // 3. Create notification for post owner (if not self-comment)
+    const outfitSnap = await outfitRef.get();
+    const outfitData = outfitSnap.data();
+    if (outfitData && outfitData.userId !== userId) {
+      const senderProfile = (await db.doc(`users/${userId}`).get()).data();
+      const notificationRef = db.collection("notifications").doc();
+      await notificationRef.set({
+        recipientId: outfitData.userId,
+        senderId: userId,
+        senderName: senderProfile?.name || "Someone",
+        senderAvatar: senderProfile?.profilePicture || null,
+        type: "comment",
+        outfitId: outfitId,
+        outfitImage: outfitData.imageUrl,
+        commentText: text,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        read: false,
+      });
+    }
+  } catch (error) {
+    console.error(`Error in onCommentCreate for comment ${snap.id}:`, error);
+  }
+});
+
+/**
+ * Handles deleting a comment.
+ * - Decrements the comment count on the associated outfit.
+ * - If it was a reply, decrements the reply count on the parent comment.
+ */
+exports.onCommentDelete = onDocumentDeleted("comments/{commentId}", async (event) => {
+  const snap = event.data;
+  if (!snap) return;
+  const commentData = snap.data();
+  const { outfitId, parentId } = commentData;
+
+  if (!outfitId) return;
+
+  const db = admin.firestore();
+  const outfitRef = db.doc(`outfits/${outfitId}`);
+
+  try {
+    await outfitRef.update({ commentsCount: admin.firestore.FieldValue.increment(-1) });
+    if (parentId) {
+      const parentCommentRef = db.doc(`comments/${parentId}`);
+      await parentCommentRef.update({ replyCount: admin.firestore.FieldValue.increment(-1) });
+    }
+  } catch (error) {
+    console.error(`Error in onCommentDelete for comment ${snap.id}:`, error);
+  }
+});
+
+/**
+ * Handles creating a like.
+ * - Increments the like count on the associated outfit.
+ * - Creates a notification for the post owner.
+ */
+exports.onLikeCreate = onDocumentCreated("likes/{likeId}", async (event) => {
+  const snap = event.data;
+  if (!snap) return;
+  const likeData = snap.data();
+  const { outfitId, userId } = likeData;
+
+  if (!outfitId || !userId) {
+    console.error("Like is missing outfitId or userId", snap.id);
+    return;
+  }
+
+  const db = admin.firestore();
+  const outfitRef = db.doc(`outfits/${outfitId}`);
+
+  try {
+    // 1. Increment outfit's likesCount
+    await outfitRef.update({ likesCount: admin.firestore.FieldValue.increment(1) });
+
+    // 2. Create notification for post owner (if not self-like)
+    const outfitSnap = await outfitRef.get();
+    const outfitData = outfitSnap.data();
+    if (outfitData && outfitData.userId !== userId) {
+      const senderProfile = (await db.doc(`users/${userId}`).get()).data();
+      const notificationRef = db.collection("notifications").doc();
+      await notificationRef.set({
+        recipientId: outfitData.userId,
+        senderId: userId,
+        senderName: senderProfile?.name || "Someone",
+        senderAvatar: senderProfile?.profilePicture || null,
+        type: "like",
+        outfitId: outfitId,
+        outfitImage: outfitData.imageUrl,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        read: false,
+      });
+    }
+  } catch (error) {
+    console.error(`Error in onLikeCreate for like ${snap.id}:`, error);
+  }
+});
+
+/**
+ * Handles deleting a like.
+ * - Decrements the like count on the associated outfit.
+ */
+exports.onLikeDelete = onDocumentDeleted("likes/{likeId}", async (event) => {
+  const snap = event.data;
+  if (!snap) return;
+  const likeData = snap.data();
+  const { outfitId } = likeData;
+
+  if (!outfitId) return;
+
+  const db = admin.firestore();
+  const outfitRef = db.doc(`outfits/${outfitId}`);
+  try {
+    await outfitRef.update({ likesCount: admin.firestore.FieldValue.increment(-1) });
+  } catch (error) {
+    console.error(`Error in onLikeDelete for like ${snap.id}:`, error);
+  }
+});
+
+/**
+ * Updates user stats when a follow relationship is created and sends a notification.
+ */
+exports.onFollowCreate = onDocumentCreated("follows/{followId}", async (event) => {
+  const snap = event.data;
+  if (!snap) {
+    console.log("No data on follow create, exiting.");
+    return;
+  }
+  const followData = snap.data();
+  const {followerId, followingId} = followData;
+
+  if (!followerId || !followingId) {
+    console.error("Missing followerId or followingId in follow document.");
+    return;
+  }
+
+  const db = admin.firestore();
+  const followerRef = db.doc(`users/${followerId}`);
+  const followingRef = db.doc(`users/${followingId}`);
+
+  try {
+    // Update counts in a transaction
+    await db.runTransaction(async (tx) => {
+      const [followerSnap, followingSnap] = await Promise.all([
+        tx.get(followerRef),
+        tx.get(followingRef),
+      ]);
+
+      if (followerSnap.exists) {
+        const newFollowingCount = (followerSnap.data().stats?.followingCount || 0) + 1;
+        tx.update(followerRef, {"stats.followingCount": newFollowingCount});
+      }
+      if (followingSnap.exists) {
+        const newFollowersCount = (followingSnap.data().stats?.followersCount || 0) + 1;
+        tx.update(followingRef, {"stats.followersCount": newFollowersCount});
+      }
+    });
+    console.log(`Successfully updated counts for follow: ${followerId} -> ${followingId}`);
+
+    // Create a notification for the new follower
+    const followerProfile = (await followerRef.get()).data();
+    const notificationRef = db.collection("notifications").doc();
+    await notificationRef.set({
+      recipientId: followingId,
+      senderId: followerId,
+      senderName: followerProfile?.name || "Someone",
+      senderAvatar: followerProfile?.profilePicture || null,
+      type: "follow",
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      read: false,
+    });
+    console.log(`Created follow notification for ${followingId}`);
+  } catch (error) {
+    console.error("Error in onFollowCreate transaction:", error);
+  }
+});
+
+/**
+ * Updates user stats when a follow relationship is deleted.
+ */
+exports.onFollowDelete = onDocumentDeleted("follows/{followId}", async (event) => {
+  const snap = event.data;
+  if (!snap) {
+    console.log("No data on follow delete, exiting.");
+    return;
+  }
+  const followData = snap.data();
+  const {followerId, followingId} = followData;
+
+  if (!followerId || !followingId) {
+    console.error("Missing followerId or followingId in deleted follow document.");
+    return;
+  }
+
+  const db = admin.firestore();
+  const followerRef = db.doc(`users/${followerId}`);
+  const followingRef = db.doc(`users/${followingId}`);
+
+  try {
+    await db.runTransaction(async (tx) => {
+      const [followerSnap, followingSnap] = await Promise.all([
+        tx.get(followerRef),
+        tx.get(followingRef),
+      ]);
+
+      if (followerSnap.exists) {
+        const newFollowingCount = Math.max(0, (followerSnap.data().stats?.followingCount || 0) - 1);
+        tx.update(followerRef, {"stats.followingCount": newFollowingCount});
+      }
+      if (followingSnap.exists) {
+        const newFollowersCount = Math.max(0, (followingSnap.data().stats?.followersCount || 0) - 1);
+        tx.update(followingRef, {"stats.followersCount": newFollowersCount});
+      }
+    });
+    console.log(`Successfully updated counts for unfollow: ${followerId} -> ${followingId}`);
+  } catch (error) {
+    console.error("Error in onFollowDelete transaction:", error);
+  }
+});

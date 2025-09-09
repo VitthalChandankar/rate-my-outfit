@@ -3,6 +3,9 @@
     "name": "myapp",
     "slug": "myapp",
     "version": "1.0.0",
+    "plugins": [
+      "@react-native-firebase/app"
+    ],
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",

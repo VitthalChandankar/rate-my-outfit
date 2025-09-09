@@ -26,6 +26,8 @@ export default function App() {
       console.log('Notification tapped with data:', data);
       if (data?.outfitId && navigationRef.isReady()) {
         navigationRef.navigate('OutfitDetails', { outfitId: data.outfitId });
+      } else if (data?.senderId && navigationRef.isReady()) {
+        navigationRef.navigate('UserProfile', { userId: data.senderId });
       }
     });
 

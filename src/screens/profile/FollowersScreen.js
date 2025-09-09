@@ -19,9 +19,11 @@ export default function FollowersScreen({ route, navigation }) {
     isFollowing,
     follow,
     unfollow,
+    relCache,
   } = useUserStore();
 
   const [rows, setRows] = useState([]);
+  const relIdOf = (followerId, followingId) => `${followerId}_${followingId}`;
 
   // Load initial rows
   useEffect(() => {
@@ -40,40 +42,27 @@ export default function FollowersScreen({ route, navigation }) {
     return res.success ? res.profile : null;
   }, [profilesById, loadUserProfile]);
 
-  const onToggle = useCallback(async (targetId, currentlyFollowing, index) => {
-    if (!authedId) return;
-    if (authedId === targetId) return; // ignore self
-    let ok = false;
+  const onToggle = useCallback((targetId) => {
+    if (!authedId || authedId === targetId) return;
+    const currentlyFollowing = relCache[relIdOf(authedId, targetId)];
     if (currentlyFollowing) {
-      const r = await unfollow(authedId, targetId);
-      ok = !!r.success;
+      unfollow(authedId, targetId);
     } else {
-      const r = await follow(authedId, targetId);
-      ok = !!r.success;
+      follow(authedId, targetId);
     }
-    if (ok) {
-      // Refresh button state by checking relation again
-      const rel = await isFollowing(authedId, targetId);
-      setRows((prev) => {
-        const copy = [...prev];
-        const it = copy[index];
-        if (it) it._following = !!rel.following;
-        return copy;
-      });
-    }
-  }, [authedId, follow, unfollow, isFollowing]);
+  }, [authedId, follow, unfollow, relCache]);
 
   // Pre-warm relation flags
   useEffect(() => {
-    (async () => {
-      if (!authedId) return;
-      const updates = await Promise.all((rows || []).map(async (r) => {
-        const rel = await isFollowing(authedId, r.followerId);
-        return { ...r, _following: !!rel.following };
-      }));
-      setRows(updates);
-    })();
-  }, [authedId, rows.length]); // run when length changes
+    if (!authedId || !rows.length) return;
+    // Check cache for any missing relationship statuses and fetch them
+    rows.forEach(r => {
+      const targetId = r.followerId;
+      if (authedId !== targetId && relCache[relIdOf(authedId, targetId)] === undefined) {
+        isFollowing(authedId, targetId);
+      }
+    });
+  }, [authedId, rows, relCache, isFollowing]);
 
   return (
     <FlatList
@@ -89,7 +78,7 @@ export default function FollowersScreen({ route, navigation }) {
           picture: item.followerPicture || cached?.profilePicture || null,
         };
         const isSelf = authedId && targetId === authedId;
-        const following = !!item._following;
+        const following = !!relCache[relIdOf(authedId, targetId)];
 
         return (
           <View style={styles.row}>
@@ -102,7 +91,7 @@ export default function FollowersScreen({ route, navigation }) {
             </Pressable>
             {!isSelf && (
               <Pressable
-                onPress={() => onToggle(targetId, following, index)}
+                onPress={() => onToggle(targetId)}
                 style={({ pressed }) => [styles.followBtn, following && styles.followingBtn, pressed && { opacity: 0.9 }]}
               >
                 <Text style={[styles.followText, following && styles.followingText]}>

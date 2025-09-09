@@ -17,15 +17,19 @@ export default function UserProfileScreen({ route, navigation }) {
   const { user } = useAuthStore();
   const authedId = user?.uid || user?.user?.uid || null;
 
-  const { loadUserProfile, profilesById, isFollowing, follow, unfollow } = useUserStore();
+  const { loadUserProfile, profilesById, isFollowing, follow, unfollow, relCache } = useUserStore();
   const profile = profilesById[userId];
+
+  // Define the relationship key helper locally
+  const relIdOf = (followerId, followingId) => `${followerId}_${followingId}`;
+  // Get the following status reactively from the store's cache
+  const rel = relCache[relIdOf(authedId, userId)];
 
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [lastDoc, setLastDoc] = useState(null);
   const [hasMore, setHasMore] = useState(true);
-  const [rel, setRel] = useState(false);
 
   useEffect(() => {
     if (userId) loadUserProfile(userId);
@@ -49,14 +53,11 @@ export default function UserProfileScreen({ route, navigation }) {
   }, [userId, loading, refreshing, lastDoc, posts]);
 
   useEffect(() => {
-    let mounted = true;
-    (async () => {
-      if (!authedId || authedId === userId) return;
-      const res = await isFollowing(authedId, userId);
-      if (mounted && res.success) setRel(res.following);
-    })();
-    return () => { mounted = false; };
-  }, [authedId, userId, isFollowing]);
+    // This effect populates the cache if the relationship status isn't already known.
+    if (authedId && userId && authedId !== userId && rel === undefined) {
+      isFollowing(authedId, userId);
+    }
+  }, [authedId, userId, isFollowing, rel]);
 
   useEffect(() => {
     loadPosts(true); // Initial load
@@ -87,19 +88,15 @@ export default function UserProfileScreen({ route, navigation }) {
   const onToggleFollow = async () => {
     if (!authedId) return Alert.alert('Sign in', 'Please sign in to follow');
     if (authedId === userId) return;
+
+    // The store handles the optimistic update of `relCache`.
+    // The component will re-render automatically with the new `rel` value.
     if (rel) {
-      const r = await unfollow(authedId, userId);
-      if (r.success) {
-        setRel(false);
-        // refresh header counters after client-side decrement
-        await loadUserProfile(userId);
-      }
+      const res = await unfollow(authedId, userId);
+      if (res.success) loadUserProfile(userId); // Re-fetch profile to update counts
     } else {
-      const r = await follow(authedId, userId);
-      if (r.success) {
-        setRel(true);
-        await loadUserProfile(userId);
-      }
+      const res = await follow(authedId, userId);
+      if (res.success) loadUserProfile(userId); // Re-fetch profile to update counts
     }
     Haptics.selectionAsync();
   };

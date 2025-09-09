@@ -1,0 +1,131 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // --- Helper Functions ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      // Add your admin UIDs here
+      return isSignedIn() && (request.auth.uid in ["S3YNVH6Tn8RCauiQrj2oy6e37FI3"]);
+    }
+
+    // --- Collections ---
+
+    // users: Public read, only owner can write.
+    match /users/{userId} {
+      allow read: if true;
+      allow create, update, delete: if isSignedIn() && request.auth.uid == userId;
+    }
+
+    // usernames: Public read for availability checks, owner can write.
+    match /usernames/{uname} {
+      allow read: if true;
+      allow write: if isSignedIn() && request.resource.data.uid == request.auth.uid;
+    }
+
+    // outfits: Public read. Owner can create/delete.
+    // Update is allowed by owner, or by any user if ONLY counters are changing.
+    match /outfits/{outfitId} {
+      allow read: if true;
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow delete: if isSignedIn() && request.auth.uid == resource.data.userId;
+      allow update: if isSignedIn() && request.auth.uid == resource.data.userId;
+    }
+
+    // comments: Public read. Owner can create.
+    // Delete is allowed by comment author, post owner, or admin.
+    match /comments/{commentId} {
+      allow read: if true;
+
+      allow create: if isSignedIn()
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.outfitId is string
+        && request.resource.data.text is string
+        && (!('parentId' in request.resource.data) || request.resource.data.parentId is string || request.resource.data.parentId == null);
+
+      allow update: if isSignedIn() && request.auth.uid == resource.data.userId;
+      allow delete: if isSignedIn() && (
+        request.auth.uid == resource.data.userId ||
+        isAdmin() ||
+        get(/databases/$(database)/documents/outfits/$(resource.data.outfitId)).data.userId == request.auth.uid
+      );
+    }
+
+    // likes: Signed-in users can read. Owner can create/delete their own like.
+    match /likes/{likeId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn()
+        && request.auth.uid == request.resource.data.userId
+        && likeId == request.resource.data.outfitId + '_' + request.auth.uid;
+      allow delete: if isSignedIn() && request.auth.uid == resource.data.userId;
+      allow update: if false;
+    }
+
+    // follows: Signed-in users can read. Owner can create/delete their own follow relationship.
+    match /follows/{followId} {
+      function parts() { return followId.split('_'); }
+      function followerId() { return parts().size() == 2 ? parts()[0] : ''; }
+      function followingId() { return parts().size() == 2 ? parts()[1] : ''; }
+
+      allow read: if isSignedIn();
+      allow create: if isSignedIn()
+        && request.auth.uid == followerId()
+        && followerId() != followingId()
+        && request.resource.data.followerId == followerId()
+        && request.resource.data.followingId == followingId();
+      allow delete: if isSignedIn() && request.auth.uid == followerId();
+      allow update: if false;
+    }
+
+    // notifications: Read-only for the recipient. Created by Cloud Functions.
+    match /notifications/{notificationId} {
+      allow read: if isSignedIn() && request.auth.uid == resource.data.recipientId;
+      allow write: if false; // Only backend can write
+    }
+
+    // contests: Public read, only admin can write.
+    match /contests/{contestId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    // entries: Public read. Owner can create. Stats can be updated.
+    match /entries/{entryId} {
+      allow read: if true;
+      allow create: if isSignedIn()
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.contestId is string
+        && request.resource.data.imageUrl is string;
+
+      function onlyStatsChanged() {
+        return request.resource.data.diff(resource.data).changedKeys().hasOnly(
+          ['averageRating','ratingsCount','aiFlagsCount']
+        );
+      }
+
+      allow update: if isSignedIn() && (
+        onlyStatsChanged() ||
+        (request.auth.uid == resource.data.userId && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['caption', 'tags', 'status'])) ||
+        isAdmin()
+      );
+      allow delete: if isAdmin();
+    }
+
+    // ratings: Public read. Owner can create/update their own rating.
+    match /ratings/{ratingId} {
+      allow read: if true;
+      allow create, update: if isSignedIn()
+        && request.resource.data.userId == request.auth.uid
+        && (request.resource.data.entryId is string || request.resource.data.outfitId is string)
+        && (ratingId == (request.resource.data.entryId + "_" + request.resource.data.userId) || ratingId == (request.resource.data.outfitId + "_" + request.resource.data.userId))
+        && request.resource.data.rating is number
+        && request.resource.data.rating >= 0 && request.resource.data.rating <= 10
+        && request.resource.data.aiFlag is bool;
+      allow delete: if isAdmin();
+    }
+  }
+}

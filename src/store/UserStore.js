@@ -10,15 +10,14 @@ import {
   runTransaction,
   serverTimestamp,
   getDoc,
-  setDoc,
+  setDoc, // Keep setDoc
+  deleteDoc, // Import deleteDoc
 } from 'firebase/firestore';
 import { firestore } from '../services/firebase';
 import {
   getUserProfile,
   updateUserProfile,
   setUserAvatar,
-  followUser,          // kept for fallback
-  unfollowUser,        // kept for fallback
   isFollowing as svcIsFollowing,
   listFollowers,
   fetchMyLikedOutfitIds,
@@ -153,103 +152,60 @@ const useUserStore = create((set, get) => ({
     return res;
   },
 
-  // FOLLOW: client-side counters with your exact transaction block
+  // FOLLOW: with corrected transaction and optimistic local state update
   follow: async (followerId, followingId) => {
+    if (!followerId || !followingId || followerId === followingId) {
+      return { success: false, error: 'Invalid follow operation' };
+    }
+
+    // Optimistic UI update for the button state only.
+    // The numeric counters will update via the real-time listener, preventing flickering.
+    set((state) => ({ relCache: { ...state.relCache, [relIdOf(followerId, followingId)]: true } }));
+
     try {
-      if (!followerId || !followingId || followerId === followingId) {
-        return { success: false, error: 'invalid ids' };
-      }
       const db = getFirestore();
       const relRef = doc(db, 'follows', relIdOf(followerId, followingId));
-      const followerCtrRef = doc(db, 'counters', followerId);
-      const followingCtrRef = doc(db, 'counters', followingId);
+      const mp = get().myProfile;
 
-      await runTransaction(db, async (tx) => {
-        const [relSnap, fSnap, gSnap] = await Promise.all([
-          tx.get(relRef),
-          tx.get(followerCtrRef),
-          tx.get(followingCtrRef),
-        ]);
-        if (relSnap.exists()) return;
-
-        if (!fSnap.exists()) tx.set(followerCtrRef, { followersCount: 0, followingCount: 0, postsCount: 0 }, { merge: true });
-        if (!gSnap.exists()) tx.set(followingCtrRef, { followersCount: 0, followingCount: 0, postsCount: 0 }, { merge: true });
-
-        const mp = get().myProfile;
-        tx.set(relRef, {
-          id: relIdOf(followerId, followingId),
-          followerId,
-          followingId,
-          createdAt: serverTimestamp(),
-          followerName: mp?.name || mp?.displayName || '',
-          followerPicture: mp?.profilePicture || null,
-        });
-
-        const fFollowing = (fSnap.exists() ? (fSnap.data().followingCount || 0) : 0) + 1;
-        const gFollowers = (gSnap.exists() ? (gSnap.data().followersCount || 0) : 0) + 1;
-        tx.set(followerCtrRef, { followingCount: fFollowing }, { merge: true });
-        tx.set(followingCtrRef, { followersCount: gFollowers }, { merge: true });
+      // Simple set operation. The Cloud Function will handle counters.
+      await setDoc(relRef, {
+        followerId,
+        followingId,
+        createdAt: serverTimestamp(),
+        followerName: mp?.name || mp?.displayName || '',
+        followerPicture: mp?.profilePicture || null,
       });
 
-      set({ relCache: { ...get().relCache, [relIdOf(followerId, followingId)]: true } });
-      await Promise.allSettled([
-        get().loadUserProfile(followerId),
-        get().loadUserProfile(followingId),
-      ]);
       return { success: true };
     } catch (e) {
-      console.error('follow (client counters) error:', e);
-      // fallback to service helper if needed
-      try {
-        const res = await followUser({ followerId, followingId });
-        if (res.success) set({ relCache: { ...get().relCache, [relIdOf(followerId, followingId)]: true } });
-        return res;
-      } catch (e2) {
-        return { success: false, error: e2?.message || 'follow failed' };
-      }
+      console.error('Follow error:', e);
+      // Revert optimistic UI update on failure
+      set((state) => ({ relCache: { ...state.relCache, [relIdOf(followerId, followingId)]: false } }));
+      return { success: false, error: e?.message || 'Follow failed' };
     }
   },
 
-  // UNFOLLOW: symmetric decrement transaction
   unfollow: async (followerId, followingId) => {
+    if (!followerId || !followingId || followerId === followingId) {
+      return { success: false, error: 'Invalid unfollow operation' };
+    }
+
+    // Optimistic UI update for the button state only.
+    set((state) => ({ relCache: { ...state.relCache, [relIdOf(followerId, followingId)]: false } }));
+
     try {
       const db = getFirestore();
       const relRef = doc(db, 'follows', relIdOf(followerId, followingId));
-      const followerCtrRef = doc(db, 'counters', followerId);
-      const followingCtrRef = doc(db, 'counters', followingId);
 
-      await runTransaction(db, async (tx) => {
-        const [relSnap, fSnap, gSnap] = await Promise.all([
-          tx.get(relRef),
-          tx.get(followerCtrRef),
-          tx.get(followingCtrRef),
-        ]);
-        if (!relSnap.exists()) return;
+      // Simple delete operation. The Cloud Function will handle counters.
+      await deleteDoc(relRef);
 
-        tx.delete(relRef);
-
-        const fFollowing = Math.max(0, (fSnap.exists() ? fSnap.data().followingCount || 0 : 0) - 1);
-        const gFollowers = Math.max(0, (gSnap.exists() ? gSnap.data().followersCount || 0 : 0) - 1);
-
-        tx.set(followerCtrRef, { followingCount: fFollowing }, { merge: true });
-        tx.set(followingCtrRef, { followersCount: gFollowers }, { merge: true });
-      });
-
-      set({ relCache: { ...get().relCache, [relIdOf(followerId, followingId)]: false } });
-      await Promise.allSettled([
-        get().loadUserProfile(followerId),
-        get().loadUserProfile(followingId),
-      ]);
       return { success: true };
     } catch (e) {
-      console.error('unfollow (client counters) error:', e);
-      try {
-        const res = await unfollowUser({ followerId, followingId });
-        if (res.success) set({ relCache: { ...get().relCache, [relIdOf(followerId, followingId)]: false } });
-        return res;
-      } catch (e2) {
-        return { success: false, error: e2?.message || 'unfollow failed' };
-      }
+      console.error('Unfollow error:', e);
+      // Revert optimistic UI update
+      set((state) => ({ relCache: { ...state.relCache, [relIdOf(followerId, followingId)]: true } }));
+      return { success: false, error: e?.message || 'Unfollow failed' };
     }
   },
 
