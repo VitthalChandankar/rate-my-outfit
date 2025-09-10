@@ -225,62 +225,6 @@ async function fetchOutfitDetails(outfitId) {
   }
 }
 
-async function submitRating({ outfitId, userId, rating, comment = '', aiFlag = false }) {
-  const ratingDocRef = doc(firestore, 'ratings', `${outfitId}_${userId}`);
-  const outfitDocRef = doc(firestore, 'outfits', outfitId);
-  try {
-    await runTransaction(firestore, async (tx) => {
-      const outfitSnap = await tx.get(outfitDocRef);
-      if (!outfitSnap.exists()) throw new Error('Outfit not found');
-
-      const outfitData = outfitSnap.data();
-      const oldAvg = outfitData.averageRating || 0;
-      const oldCount = outfitData.ratingsCount || 0;
-      const oldAI = outfitData.aiFlagsCount || 0;
-
-      const existingRatingSnap = await tx.get(ratingDocRef);
-      const hadPrev = existingRatingSnap.exists();
-      const prevRating = hadPrev ? (existingRatingSnap.data().rating || 0) : null;
-      const prevAIFlag = hadPrev ? !!existingRatingSnap.data().aiFlag : false;
-
-      let newCount = oldCount;
-      let sum = oldAvg * oldCount;
-      if (hadPrev) {
-        sum = sum - prevRating + rating;
-      } else {
-        sum = sum + rating;
-        newCount = oldCount + 1;
-      }
-      const newAvg = newCount > 0 ? sum / newCount : 0;
-
-      // AI flags
-      let aiFlagsCount = oldAI;
-      if (prevAIFlag !== aiFlag) {
-        aiFlagsCount = aiFlag ? oldAI + 1 : Math.max(0, oldAI - 1);
-      }
-
-      // Write rating (upsert)
-      tx.set(ratingDocRef, {
-        outfitId,
-        userId,
-        rating: rating,
-        comment: comment || '',
-        aiFlag: !!aiFlag,
-        createdAt: serverTimestamp(),
-      });
-      tx.update(outfitDocRef, {
-        averageRating: newAvg,
-        ratingsCount: newCount,
-        aiFlagsCount,
-      });
-    });
-    return { success: true };
-  } catch (error) {
-    console.error('submitRating error', error);
-    return { success: false, error };
-  }
-}
-
 async function addComment({ outfitId, userId, text, userMeta, parentId = null }) {
   // Cloud Function 'onCommentCreate' will handle counter increments and notifications.
   try {
@@ -770,8 +714,8 @@ async function listFollowing({ userId, limitCount = 30, startAfterDoc = null }) 
 
 export {
   addComment, auth, createUser, createOutfitDocument,
-  deleteComment, fetchCommentsForOutfit, fetchFeed, fetchOutfitDetails, fetchUserOutfits, firestore, loginWithEmail,
-  logout, onAuthChange, sendResetEmail, signupWithEmail, submitRating, uploadImage,
+  deleteComment, fetchCommentsForOutfit, fetchFeed, fetchOutfitDetails, fetchUserOutfits, firestore, loginWithEmail, // Removed submitRating
+  logout, onAuthChange, sendResetEmail, signupWithEmail, uploadImage,
   toggleLikePost, fetchMyLikedOutfitIds, fetchLikersForOutfit, fbListContests, fbFetchContestEntries, fbCreateEntry, fbRateEntry, fbFetchContestLeaderboard, updateUserPushToken,
   getUserProfile, updateUserProfile, setUserAvatar, ensureUsernameUnique,
   followUser, unfollowUser, isFollowing, listFollowers, listFollowing

@@ -9,7 +9,6 @@ import {
   fetchFeed as fbFetchFeed,
   fetchOutfitDetails as fbFetchOutfitDetails,
   fetchCommentsForOutfit,
-  submitRating as fbSubmitRating,
   toggleLikePost,
   fetchLikersForOutfit,
   fetchUserOutfits,
@@ -281,11 +280,6 @@ const useOutfitStore = create((set, get) => ({
     }
   },
 
-  submitRating: async ({ outfitId, rating, comment = '', aiFlag = false }) => {
-    const { user } = useAuthStore.getState();
-    if (!user) return { success: false, error: 'Not authenticated' };
-    return await fbSubmitRating({ outfitId, userId: user.uid, rating, comment, aiFlag });
-  },
 
   fetchOutfitDetails: async (outfitId) => {
     return await fbFetchOutfitDetails(outfitId);
