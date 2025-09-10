@@ -2,7 +2,7 @@
 // Contest details with host banner, rich meta, animated tabs, and integrated Enter/Rate/Leaderboard.
 // Opens the new rating flow (RateEntry -> RateScreen).
 
-import React, { useEffect, useRef, useState, useMemo } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,

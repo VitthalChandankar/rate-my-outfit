@@ -416,6 +416,33 @@ exports.onEntryRated = onDocumentUpdated("entries/{entryId}", async (event) => {
 });
 
 /**
+ * When an outfit is created, increment the user's post count.
+ */
+exports.onOutfitCreate = onDocumentCreated("outfits/{outfitId}", async (event) => {
+  const snap = event.data;
+  if (!snap) {
+    console.log("No data on outfit create, exiting.");
+    return;
+  }
+  const outfitData = snap.data();
+  const { userId } = outfitData;
+
+  if (!userId) {
+    console.log(`Outfit ${event.params.outfitId} has no userId, cannot increment count.`);
+    return;
+  }
+
+  const userRef = admin.firestore().doc(`users/${userId}`);
+  try {
+    await userRef.update({ "stats.postsCount": admin.firestore.FieldValue.increment(1) });
+    console.log(`Incremented postsCount for user ${userId}.`);
+  } catch (error) {
+    console.error(`Failed to increment postsCount for user ${userId}:`, error);
+  }
+  return null;
+});
+
+/**
  * When an outfit is deleted, clean up its sub-collections (likes, comments)
  * and decrement the user's post count.
  */
@@ -427,7 +454,7 @@ exports.onOutfitDelete = onDocumentDeleted("outfits/{outfitId}", async (event) =
   }
   const outfitData = snap.data();
   const {outfitId} = event.params;
-  const {userId} = outfitData;
+  const {userId, type, entryId} = outfitData;
 
   if (!userId) {
     console.log(`Outfit ${outfitId} has no userId, cannot decrement count.`);
@@ -450,6 +477,13 @@ exports.onOutfitDelete = onDocumentDeleted("outfits/{outfitId}", async (event) =
   const likesQuery = db.collection("likes").where("outfitId", "==", outfitId);
   const likesSnap = await likesQuery.get();
   likesSnap.forEach((doc) => batch.delete(doc.ref));
+
+  // 4. If it's a contest entry, delete the entry document as well
+  if (type === 'contest' && entryId) {
+    const entryRef = db.doc(`entries/${entryId}`);
+    batch.delete(entryRef);
+    console.log(`Scheduled deletion for contest entry ${entryId}`);
+  }
 
   await batch.commit();
 });

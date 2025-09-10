@@ -2,7 +2,7 @@
 // Premium UI: glassy segmented control (Active/Upcoming/Ended), refined hero typography,
 // animated cards, and polished empty/loading states.
 
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -178,13 +178,24 @@ function ContestCard({ item, onPress }) {
 }
 
 export default function ContestsListScreen({ navigation }) {
-  const contests = useContestStore((s) => s.contests);
+  const allContests = useContestStore((s) => s.contests);
   const loading = useContestStore((s) => s.contestsLoading);
   const refreshing = useContestStore((s) => s.contestsRefreshing);
   const hasMore = useContestStore((s) => s.hasMoreContests);
   const listContests = useContestStore((s) => s.listContests);
 
   const [filter, setFilter] = useState('active'); // active | upcoming | ended
+
+  // Filter the contests on the client side for instant UI updates
+  const contests = useMemo(() => {
+    const now = Date.now();
+    return allContests.filter((c) => {
+      const startMs = toMs(c.startAt);
+      const endMs = toMs(c.endAt);
+      const status = statusFromRange(startMs, endMs, now);
+      return status === filter;
+    });
+  }, [allContests, filter]);
 
   useEffect(() => {
     listContests({ limit: 20, reset: true, status: filter });

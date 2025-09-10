@@ -236,6 +236,26 @@ const useContestStore = create((set, get) => ({
     return res;
   },
 
+  // NEW: Remove a single entry from a contest's list
+  removeEntry: (contestId, entryId) => {
+    set((state) => {
+      const contestBag = state.entries[contestId];
+      if (!contestBag?.items) return {}; // No change if contest or items don't exist
+
+      const updatedItems = contestBag.items.filter(item => item.id !== entryId);
+
+      return {
+        entries: {
+          ...state.entries,
+          [contestId]: {
+            ...contestBag,
+            items: updatedItems,
+          },
+        },
+      };
+    });
+  },
+
   // Fetch leaderboard and enrich with usernames/avatars
   fetchLeaderboard: async ({ contestId, limit = 50, minVotes = 10 }) => {
     if (!contestId) return { success: false, error: 'contestId required' };

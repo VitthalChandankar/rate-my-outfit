@@ -132,24 +132,36 @@ const useOutfitStore = create((set, get) => ({
     }));
   },
 
-  // NEW: Delete an outfit
-  deleteOutfit: async (outfitId) => {
+  // Delete an outfit
+  deleteOutfit: async (post) => {
     const { user } = useAuthStore.getState();
     const authedUid = user?.uid || user?.user?.uid;
     if (!authedUid) return { success: false, error: 'Not authenticated' };
+
+    const outfitId = post.id;
+    if (!outfitId) return { success: false, error: 'Invalid post object' };
 
     // Optimistic update
     const originalFeed = get().feed;
     const originalMyOutfits = get().myOutfits;
 
     set((state) => ({
-      feed: state.feed.filter(post => post.id !== outfitId),
-      myOutfits: state.myOutfits.filter(post => post.id !== outfitId),
+      feed: state.feed.filter(p => p.id !== outfitId),
+      myOutfits: state.myOutfits.filter(p => p.id !== outfitId),
     }));
 
     const res = await fbDeleteOutfit(outfitId, authedUid);
 
-    if (!res.success) {
+    if (res.success) {
+      // If it was a contest post, also remove it from the contest store
+      if (post.type === 'contest' && post.contestId) {
+        // The `entries` collection uses its own ID, which is stored as `entryId` on the `outfit` doc.
+        const { removeEntry } = useContestStore.getState();
+        // The `id` of a contest post in the feed is the `entryId`.
+        const entryIdToRemove = post.entryId || post.id;
+        removeEntry(post.contestId, entryIdToRemove);
+      }
+    } else {
       set({ feed: originalFeed, myOutfits: originalMyOutfits });
     }
     return res;

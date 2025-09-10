@@ -88,7 +88,7 @@ export default function ProfileScreen({ navigation }) {
           text: "Delete",
           style: "destructive",
           onPress: async () => {
-            await deleteOutfit(post.id);
+            await deleteOutfit(post);
           },
         },
       ]
@@ -136,7 +136,8 @@ export default function ProfileScreen({ navigation }) {
     Animated.timing(fadeIn, { toValue: 1, duration: 300, easing: Easing.out(Easing.quad), useNativeDriver: true }).start();
   }, [fadeIn]);
 
-  const postsCount = (myProfile?.stats?.postsCount ?? 0) || (data?.length ?? 0);
+  // Use the server-side count, but ensure it's not displayed as negative.
+  const postsCount = Math.max(0, myProfile?.stats?.postsCount ?? 0);
 
   const SegBar = () => {
     const idx = { posts: 0, achievements: 1, contests: 2 }[tab] ?? 0; // Keep achievements/contests tabs for future

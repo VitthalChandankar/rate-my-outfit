@@ -48,10 +48,10 @@ export default function OutfitDetailsScreen({ route, navigation }) {
     }
   }, [outfitId, fetchOutfitDetails]); // Re-fetch if outfitId changes
 
-  const isOwner = useMemo(() => authedUid && outfit?.userId === authedUid, [authedUid, outfit]);
+  const isOwner = authedUid && outfit?.userId === authedUid;
 
   const handleDelete = useCallback(() => {
-    if (!isOwner || !outfitId) return;
+    if (!isOwner || !outfit) return;
     Alert.alert(
       "Delete Post",
       "Are you sure you want to delete this post? This action cannot be undone.",
@@ -62,7 +62,7 @@ export default function OutfitDetailsScreen({ route, navigation }) {
           style: "destructive",
           onPress: async () => {
             setDeleting(true);
-            const res = await deleteOutfit(outfitId);
+            const res = await deleteOutfit(outfit);
             if (res.success) {
               navigation.goBack();
             } else {
@@ -73,7 +73,7 @@ export default function OutfitDetailsScreen({ route, navigation }) {
         },
       ]
     );
-  }, [isOwner, outfitId, deleteOutfit, navigation]);
+  }, [isOwner, outfit, deleteOutfit, navigation]);
 
   useLayoutEffect(() => {
     if (isOwner) {
@@ -85,12 +85,9 @@ export default function OutfitDetailsScreen({ route, navigation }) {
         ),
       });
     }
-  }, [navigation, isOwner, handleDelete, deleting, outfit]);
+  }, [navigation, isOwner, handleDelete, deleting]);
 
-  const displayUrl = useMemo(
-    () => (outfit?.imageUrl ? withCloudinaryTransforms(outfit.imageUrl, IMG_DETAIL) : null),
-    [outfit?.imageUrl]
-  );
+  const displayUrl = outfit?.imageUrl ? withCloudinaryTransforms(outfit.imageUrl, IMG_DETAIL) : null;
 
   const isLiked = myLikedIds.has(outfitId);
 

@@ -148,7 +148,7 @@ export default function UserProfileScreen({ route, navigation }) {
                 <Text style={styles.statLabel}>Following</Text>
               </Pressable>
               <View style={styles.statBlock}>
-                <Text style={styles.statValue}>{profile?.stats?.postsCount || posts.length}</Text>
+                <Text style={styles.statValue}>{Math.max(0, profile?.stats?.postsCount ?? 0)}</Text>
                 <Text style={styles.statLabel}>Posts</Text>
               </View>
             </View>
