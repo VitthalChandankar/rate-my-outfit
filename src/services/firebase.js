@@ -27,6 +27,7 @@ import {
   serverTimestamp,
   setDoc,
   startAfter,
+  writeBatch,
 } from 'firebase/firestore';
 import { uploadImageToCloudinary } from './cloudinaryService';
 
@@ -712,11 +713,58 @@ async function listFollowing({ userId, limitCount = 30, startAfterDoc = null }) 
   }
 }
 
+async function fetchNotifications({ userId, limitCount = 20, startAfterDoc = null }) {
+  try {
+    let q = query(
+      collection(firestore, 'notifications'),
+      where('recipientId', '==', userId),
+      orderBy('createdAt', 'desc'),
+      limit(limitCount)
+    );
+    if (startAfterDoc) {
+      q = query(
+        collection(firestore, 'notifications'),
+        where('recipientId', '==', userId),
+        orderBy('createdAt', 'desc'),
+        startAfter(startAfterDoc),
+        limit(limitCount)
+      );
+    }
+    const snap = await getDocs(q);
+    const items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const last = snap.docs[snap.docs.length - 1] || null;
+    return { success: true, items, last };
+  } catch (error) {
+    console.error('fetchNotifications failed:', error);
+    return { success: false, error };
+  }
+}
+
+async function markNotificationsAsRead(userId) {
+  try {
+    const q = query(
+      collection(firestore, 'notifications'),
+      where('recipientId', '==', userId),
+      where('read', '==', false)
+    );
+    const snap = await getDocs(q);
+    const batch = writeBatch(firestore);
+    snap.docs.forEach(docSnap => {
+      batch.update(docSnap.ref, { read: true });
+    });
+    await batch.commit();
+    return { success: true };
+  } catch (error) {
+    console.error('markNotificationsAsRead failed:', error);
+    return { success: false, error };
+  }
+}
+
 export {
   addComment, auth, createUser, createOutfitDocument,
   deleteComment, fetchCommentsForOutfit, fetchFeed, fetchOutfitDetails, fetchUserOutfits, firestore, loginWithEmail, // Removed submitRating
   logout, onAuthChange, sendResetEmail, signupWithEmail, uploadImage,
   toggleLikePost, fetchMyLikedOutfitIds, fetchLikersForOutfit, fbListContests, fbFetchContestEntries, fbCreateEntry, fbRateEntry, fbFetchContestLeaderboard, updateUserPushToken,
-  getUserProfile, updateUserProfile, setUserAvatar, ensureUsernameUnique,
+  getUserProfile, updateUserProfile, setUserAvatar, ensureUsernameUnique, fetchNotifications, markNotificationsAsRead,
   followUser, unfollowUser, isFollowing, listFollowers, listFollowing
 };

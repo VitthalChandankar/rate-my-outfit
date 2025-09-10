@@ -41,6 +41,7 @@ import UserProfileScreen from '../screens/profile/UserProfileScreen';
 import FollowersScreen from '../screens/profile/FollowersScreen';
 import FollowingScreen from '../screens/profile/FollowingScreen';
 import LikedByScreen from '../screens/details/LikedByScreen';
+import NotificationsScreen from '../screens/notifications/NotificationsScreen';
 import CommentsScreen from '../screens/details/CommentsScreen';
 
 const Stack = createNativeStackNavigator();
@@ -50,7 +51,6 @@ function MainTabs() {
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
-        headerShown: false,
         tabBarShowLabel: false,
         tabBarIcon: ({ color, size }) => {
           let iconName = 'ellipse';
@@ -64,10 +64,10 @@ function MainTabs() {
         tabBarInactiveTintColor: 'gray',
       })}
     >
-      <Tab.Screen name="Home" component={HomeScreen} />
-      <Tab.Screen name="Contests" component={ContestsListScreen} />
-      <Tab.Screen name="Upload" component={UploadScreen} />
-      <Tab.Screen name="Profile" component={ProfileScreen} />
+      <Tab.Screen name="Home" component={HomeScreen} options={{ headerShown: false }} />
+      <Tab.Screen name="Contests" component={ContestsListScreen} options={{ title: 'Contests', headerShown: true }} />
+      <Tab.Screen name="Upload" component={UploadScreen} options={{ title: 'Upload', headerShown: true }} />
+      <Tab.Screen name="Profile" component={ProfileScreen} options={{ headerShown: false }} />
     </Tab.Navigator>
   );
 }
@@ -138,6 +138,18 @@ function MainAppStack() {
       <Stack.Screen name="UserProfile" component={UserProfileScreen} />
       <Stack.Screen name="Followers" component={FollowersScreen} />
       <Stack.Screen name="Following" component={FollowingScreen} />
+
+      {/* Notifications Screen */}
+      <Stack.Screen
+        name="Notifications"
+        component={NotificationsScreen}
+        options={{
+          headerShown: true,
+          headerStyle: { backgroundColor: '#fff' },
+          headerTintColor: '#111',
+          headerTitleStyle: { fontWeight: 'bold' },
+        }}
+      />
 
       {/* New screen for likes */}
       <Stack.Screen

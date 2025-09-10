@@ -2,9 +2,9 @@
 // Edge-to-edge feed, uses OutfitCard with contest CTA -> RateEntryScreen.
 
 import React, { useCallback, useEffect, useMemo, useState, useRef } from 'react';
-import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, Text, View, TouchableOpacity } from 'react-native';
 import { useIsFocused, useNavigation } from '@react-navigation/native';
-
+import { Ionicons } from '@expo/vector-icons';
 import useAuthStore from '../../store/authStore';
 import useOutfitStore from '../../store/outfitStore';
 import useUserStore from '../../store/UserStore';
@@ -47,6 +47,19 @@ export default function HomeScreen() {
       fetchFeed({ limit: 12, reset: true }).finally(() => setInitialLoaded(true));
     }
   }, [isFocused, fetchFeed]);
+
+  // Set up header with notifications button
+  useEffect(() => {
+    navigation.setOptions({
+      headerShown: true,
+      title: 'Rate My Outfit',
+      headerRight: () => (
+        <TouchableOpacity onPress={() => navigation.navigate('Notifications')} style={{ marginRight: 10 }}>
+          <Ionicons name="notifications-outline" size={24} color="#111" />
+        </TouchableOpacity>
+      ),
+    });
+  }, [navigation]);
 
   // Add listener for tab press to scroll to top
   useEffect(() => {
