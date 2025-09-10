@@ -65,11 +65,16 @@ export default function ProfileScreen({ navigation }) {
 
   useEffect(() => {
     if (isFocused) {
-      fetchMyOutfits({ reset: true });
-      listContests({ status: 'all', reset: true });
+      // Always fetch posts when the screen is focused
+      fetchMyOutfits({ reset: true }); 
       if (uid) loadMyProfile(uid);
     }
-  }, [isFocused, fetchMyOutfits, listContests, uid, loadMyProfile]);
+  }, [isFocused, fetchMyOutfits, uid, loadMyProfile]);
+
+  // Fetch contest data only when the contest tab is active
+  useEffect(() => {
+    if (isFocused && tab === 'contests') listContests({ status: 'all', reset: true });
+  }, [isFocused, tab, listContests]);
 
   const data = useMemo(() => {
     const withKeys = (myOutfits || []).map(ensureKey);

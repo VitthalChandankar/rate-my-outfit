@@ -2,7 +2,7 @@
 // World-class contest details screen: immersive banner, clean typography, and a focused user flow.
 // Opens the new rating flow (RateEntry -> RateScreen).
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, memo } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -53,7 +53,7 @@ function rangeLabel(startMs, endMs) {
 }
 
 // A simple, self-contained leaderboard row component
-function LeaderboardRow({ item, rank, navigation }) {
+const LeaderboardRow = memo(({ item, rank, navigation }) => {
   if (!item?.user) return null;
 
   const isWinner = rank === 1;
@@ -75,7 +75,7 @@ function LeaderboardRow({ item, rank, navigation }) {
       <Text style={styles.lbScore}>{(item.averageRating || 0).toFixed(2)}</Text>
     </Pressable>
   );
-}
+});
 
 
 export default function ContestDetailsScreen({ route, navigation }) {

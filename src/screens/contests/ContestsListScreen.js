@@ -2,7 +2,7 @@
 // Premium UI: glassy segmented control (Active/Upcoming/Ended), refined hero typography,
 // animated cards, and polished empty/loading states.
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState, memo } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -113,7 +113,7 @@ function CardSkeleton() {
 }
 
 // ----- Contest Card -----
-function ContestCard({ item, onPress }) {
+const ContestCard = memo(({ item, onPress }) => {
   const now = Date.now();
   const startMs = toMs(item.startAt);
   const endMs = toMs(item.endAt);
@@ -179,7 +179,7 @@ function ContestCard({ item, onPress }) {
       </Surface>
     </Animated.View>
   );
-}
+});
 
 export default function ContestsListScreen({ navigation }) {
   const isAdmin = useAuthStore((s) => s.isAdmin);
@@ -195,16 +195,10 @@ export default function ContestsListScreen({ navigation }) {
   // Filter the contests on the client side for instant UI updates
   const contests = useMemo(() => {
     const now = Date.now();
-    const lowercasedQuery = searchQuery.trim().toLowerCase();
-
-    return allContests.filter((c) => {
-      const startMs = toMs(c.startAt);
-      const endMs = toMs(c.endAt);
-      const status = statusFromRange(startMs, endMs, now);
-      const statusMatch = status === filter;
-      const queryMatch = lowercasedQuery ? c.title?.toLowerCase().includes(lowercasedQuery) : true;
-      return statusMatch && queryMatch;
-    });
+    const lowercasedQuery = searchQuery.trim().toLowerCase();    
+    // The list is already filtered by status from the server. We only need to apply the search query.
+    if (!lowercasedQuery) return allContests;
+    return allContests.filter(c => c.title?.toLowerCase().includes(lowercasedQuery));
   }, [allContests, filter, searchQuery]);
 
   useEffect(() => {

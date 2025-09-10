@@ -374,25 +374,26 @@ async function fetchLikersForOutfit({ outfitId, limitCount = 30, startAfterDoc =
 
 async function fbListContests({ limitCount = 20, startAfterDoc = null, status = 'active', country = 'all' } = {}) {
   try {
-    let qBase = query(collection(firestore, 'contests'), orderBy('startAt', 'desc'));
-    let qy = query(collection(firestore, 'contests'), orderBy('startAt', 'desc'), limit(limitCount));
-    if (startAfterDoc) qy = query(collection(firestore, 'contests'), orderBy('startAt', 'desc'), startAfter(startAfterDoc), limit(limitCount));
+    const now = new Date();
+    let qy = query(collection(firestore, 'contests'));
+
+    // Apply status filtering on the server
+    if (status === 'active') {
+      qy = query(qy, where('startAt', '<=', now), where('endAt', '>', now));
+    } else if (status === 'upcoming') {
+      qy = query(qy, where('startAt', '>', now));
+    } else if (status === 'ended') {
+      qy = query(qy, where('endAt', '<=', now));
+    }
+
+    // Apply ordering and pagination
+    qy = query(qy, orderBy('startAt', 'desc'), limit(limitCount));
+    if (startAfterDoc) {
+      qy = query(qy, startAfter(startAfterDoc));
+    }
+
     const snap = await getDocs(qy);
-    let items = [];
-    snap.forEach((d) => items.push({ id: d.id, ...d.data() }));
-  
-  // Client filter: status/country (for now)
-    const now = Date.now();
-    items = items.filter((c) => {
-      const s = c.startAt?.seconds ? c.startAt.seconds * 1000 : (c.startAt || now);
-      const e = c.endAt?.seconds ? c.endAt.seconds * 1000 : (c.endAt || now);
-      const active = now >= s && now <= e;
-      const ended = now > e;
-      const upcoming = now < s;
-      const okStatus = status === 'active' ? active : status === 'ended' ? ended : status === 'upcoming' ? upcoming : true;
-      const okCountry = (country === 'all') || (!c.country) || c.country === country;
-      return okStatus && okCountry;
-    });
+    const items = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
     const last = snap.docs[snap.docs.length - 1] || null;
     return { success: true, items, last };
   } catch (error) {

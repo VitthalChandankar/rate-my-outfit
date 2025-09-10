@@ -67,7 +67,7 @@ function MainTabs() {
     >
       <Tab.Screen name="Home" component={HomeScreen} options={{ headerShown: false }} />
       <Tab.Screen name="Contests" component={ContestsListScreen} options={{ headerShown: false }} />
-      <Tab.Screen name="Upload" component={UploadScreen} options={{ title: 'Upload', headerShown: true }} />
+      <Tab.Screen name="Upload" component={UploadScreen} options={{ title: 'Upload', headerShown: false }} />
       <Tab.Screen name="Profile" component={ProfileScreen} options={{ headerShown: false }} />
     </Tab.Navigator>
   );
