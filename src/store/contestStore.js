@@ -203,19 +203,27 @@ const useContestStore = create((set, get) => ({
 
     // Update local entry stats best-effort
     if (res.success && contestId) {
-      const bag = get().entries[contestId];
-      if (bag?.items?.length) {
-        const items = bag.items.map((it) =>
-          it.id === entryId
-            ? {
-                ...it,
-                averageRating: res.newAvg,
-                ratingsCount: res.newCount,
-                aiFlagsCount: res.aiFlagsCount,
-              }
-            : it
-        );
-        set({ entries: { ...get().entries, [contestId]: { ...bag, items } } });
+      const { updateOutfitInFeed } = useOutfitStore.getState();
+      const currentContestBag = get().entries[contestId];
+
+      if (currentContestBag?.items?.length) {
+        let outfitIdToUpdate = null;
+        const newItems = currentContestBag.items.map((it) => {
+          if (it.id === entryId) {
+            outfitIdToUpdate = it.outfitId; // Get the outfitId to update the feed post
+            const updatedItem = {
+              ...it,
+              averageRating: res.newAvg,
+              ratingsCount: res.newCount,
+              aiFlagsCount: res.aiFlagsCount,
+            };
+            // Also update the corresponding outfit in the main feed store for UI consistency
+            if (outfitIdToUpdate) updateOutfitInFeed(outfitIdToUpdate, updatedItem);
+            return updatedItem;
+          }
+          return it;
+        });
+        set({ entries: { ...get().entries, [contestId]: { ...currentContestBag, items: newItems } } });
       }
     }
     return res;

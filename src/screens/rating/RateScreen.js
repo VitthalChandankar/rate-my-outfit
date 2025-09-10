@@ -64,6 +64,7 @@ export default function RateScreen({ route, navigation }) {
 
   const [value, setValue] = useState(7);
   const [submitting, setSubmitting] = useState(false);
+  const [isFlagged, setIsFlagged] = useState(false); // New state for AI flag
 
   const trackRef = useRef(null);
   const trackX = useRef(0);
@@ -134,18 +135,25 @@ export default function RateScreen({ route, navigation }) {
     if (!user?.uid) return Alert.alert('Sign in', 'Please sign in to flag.');
     if (user?.uid === userId) return Alert.alert('Not allowed', 'You can’t flag your own post.');
 
+    const nextFlagState = !isFlagged;
+    setIsFlagged(nextFlagState); // Optimistically update the button's visual state
+
     try {
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     } catch {}
+
+    // Immediately submit the AI flag change, using the current slider value as the rating
     const res =
       mode === 'entry'
-        ? await rateEntry({ entryId: id, contestId, rating: value, aiFlag: true })
-        : { success: false, error: 'Cannot flag a normal post.' }; // This path should not be taken
+        ? await rateEntry({ entryId: id, contestId, rating: value, aiFlag: nextFlagState })
+        : { success: false, error: 'Cannot flag a normal post.' };
 
     if (!res?.success) {
+      setIsFlagged(!nextFlagState); // Revert button state on failure
       Alert.alert('Error', res.error?.message || 'Could not submit flag.');
+    } else {
+      Alert.alert('Thanks!', nextFlagState ? 'Your AI flag has been recorded.' : 'Your AI flag has been removed.');
     }
-    else Alert.alert('Thanks', 'Your flag has been recorded.');
   };
 
   const onSubmit = async () => {
@@ -156,9 +164,10 @@ export default function RateScreen({ route, navigation }) {
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     } catch {}
     const v = value; // integer 1–10
+    // Submit the numeric rating, preserving the current AI flag state
     const res =
       mode === 'entry'
-        ? await rateEntry({ entryId: id, contestId, rating: v, aiFlag: false })
+        ? await rateEntry({ entryId: id, contestId, rating: v, aiFlag: isFlagged }) // isFlagged is the current state
         : { success: false, error: 'Cannot rate a normal post.' }; // This path should not be taken
 
     setSubmitting(false);
@@ -206,9 +215,15 @@ export default function RateScreen({ route, navigation }) {
 
       {/* Action Buttons */}
       <View style={styles.footer}>
-        <Pressable onPress={onFlagAI} style={({ pressed }) => [styles.aiButton, pressed && { opacity: 0.8 }]}>
-          <Ionicons name="sparkles-outline" size={20} color="#111" />
-          <Text style={styles.aiButtonText}>AI Check</Text>
+        <Pressable
+          onPress={onFlagAI}
+          style={({ pressed }) => [
+            styles.aiButton,
+            isFlagged && styles.aiButtonFlagged, // Apply flagged style
+            pressed && { opacity: 0.8 }
+          ]}>
+          <Ionicons name={isFlagged ? "sparkles" : "sparkles-outline"} size={20} color={isFlagged ? '#fff' : '#111'} />
+          <Text style={[styles.aiButtonText, isFlagged && styles.aiButtonTextFlagged]}>{isFlagged ? 'Flagged' : 'AI Check'}</Text>
         </Pressable>
         <Pressable onPress={onSubmit} style={({ pressed }) => [styles.submitBtn, pressed && { opacity: 0.9 }]} disabled={submitting}>
           <Text style={styles.submitText}>{submitting ? 'Submitting…' : 'Submit Rating'}</Text>
@@ -312,7 +327,13 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderRadius: 14,
   },
+  aiButtonFlagged: {
+    backgroundColor: '#3B82F6', // A blue color to indicate "selected"
+  },
   aiButtonText: { color: '#111', fontWeight: 'bold' },
+  aiButtonTextFlagged: {
+    color: '#fff',
+  },
   submitBtn: {
     flex: 2,
     backgroundColor: '#A855F7',

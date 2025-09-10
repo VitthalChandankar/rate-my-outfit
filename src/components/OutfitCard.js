@@ -147,9 +147,7 @@ function OutfitCard({ item, onPress, onRate, onUserPress, onLike, isLiked, onPre
             <Ionicons name="arrow-redo-outline" size={24} color="#111" />
           </TouchableOpacity>
         </View>
-        <View style={styles.footerRight}>
-          {isContest && <Text style={styles.avgRating}>Avg {averageRating.toFixed(1)}</Text>}
-        </View>
+        <View style={styles.footerRight} />
       </View>
 
       {/* Likes, Comments, and Caption Section */}

@@ -7,18 +7,28 @@ import { Image as ExpoImage } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { withCloudinaryTransforms, IMG_DETAIL } from '../../utils/cloudinaryUrl';
 import { Ionicons } from '@expo/vector-icons';
+import useContestStore from '../../store/contestStore';
 import Avatar from '../../components/Avatar';
 
 export default function RateEntryScreen({ route, navigation }) {
   const { item = {}, mode = 'entry' } = route.params || {};
-  const displayUrl = useMemo(
-    () => (item?.imageUrl ? withCloudinaryTransforms(item.imageUrl, IMG_DETAIL) : null),
-    [item?.imageUrl]
+
+  // Get live entry data from the store
+  const entryFromStore = useContestStore(state =>
+    state.entries[item.contestId]?.items.find(e => e.id === item.id)
   );
 
-  const ratingsCount = item?.ratingsCount || 0;
-  const avgRating = item?.averageRating || 0;
-  const aiFlags = item?.aiFlagsCount || 0;
+  // Use the live data from the store if available, otherwise fall back to the initial item from params
+  const liveItem = entryFromStore || item;
+
+  const displayUrl = useMemo(
+    () => (liveItem?.imageUrl ? withCloudinaryTransforms(liveItem.imageUrl, IMG_DETAIL) : null),
+    [liveItem?.imageUrl]
+  );
+
+  const ratingsCount = liveItem?.ratingsCount || 0;
+  const avgRating = liveItem?.averageRating || 0;
+  const aiFlags = liveItem?.aiFlagsCount || 0;
 
   // Animations
   const scaleAnim = useRef(new Animated.Value(0.9)).current;
@@ -37,16 +47,16 @@ export default function RateEntryScreen({ route, navigation }) {
 
   const onRate = () => {
     const target = {
-      id: item?.id ?? '',
-      userId: item?.userId ?? '',
-      userName: item?.userName || item?.user?.name || 'Creator',
-      userPhoto: item?.userPhoto || item?.user?.profilePicture || null,
-      imageUrl: item?.imageUrl || null,
-      caption: item?.caption || '',
-      createdAt: item?.createdAt || null,
-      contestId: item?.contestId || null,
-      averageRating: Number(item?.averageRating ?? 0) || 0,
-      ratingsCount: Number(item?.ratingsCount ?? 0) || 0,
+      id: liveItem?.id ?? '',
+      userId: liveItem?.userId ?? '',
+      userName: liveItem?.userName || liveItem?.user?.name || 'Creator',
+      userPhoto: liveItem?.userPhoto || liveItem?.user?.profilePicture || null,
+      imageUrl: liveItem?.imageUrl || null,
+      caption: liveItem?.caption || '',
+      createdAt: liveItem?.createdAt || null,
+      contestId: liveItem?.contestId || null,
+      averageRating: Number(liveItem?.averageRating ?? 0) || 0,
+      ratingsCount: Number(liveItem?.ratingsCount ?? 0) || 0,
     };
     navigation.navigate('RateScreen', { mode, target });
   };
@@ -61,9 +71,9 @@ export default function RateEntryScreen({ route, navigation }) {
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <View style={styles.header}>
-        <Avatar uri={item?.userPhoto} size={40} />
+        <Avatar uri={liveItem?.userPhoto} size={40} />
         <View style={{ marginLeft: 12 }}>
-          <Text style={styles.userName}>{item?.userName || 'Creator'}</Text>
+          <Text style={styles.userName}>{liveItem?.userName || 'Creator'}</Text>
           <Text style={styles.contestName}>Contest Entry</Text>
         </View>
       </View>
@@ -79,7 +89,7 @@ export default function RateEntryScreen({ route, navigation }) {
 
       <View style={styles.meta}>
         <Text style={styles.caption} numberOfLines={2}>
-          {item?.caption || '—'}
+          {liveItem?.caption || '—'}
         </Text>
       </View>
 
