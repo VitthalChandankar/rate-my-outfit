@@ -8,7 +8,9 @@ import {
   fbCreateEntry,
   fbRateEntry,
   fbFetchContestLeaderboard,
-  firestore, // exported from your services/firebase
+  firestore,
+  fbCreateContest,
+  uploadImage,
 } from "../services/firebase";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
 import useAuthStore from './authStore';
@@ -140,6 +142,38 @@ const useContestStore = create((set, get) => ({
         entries: { ...get().entries, [contestId]: { ...bag, loading: false, refreshing: false } },
       });
     }
+    return res;
+  },
+
+  // Create a new contest (Admin only)
+  createContest: async ({ title, theme, prize, imageUri, startAt, endAt, host, country }) => {
+    // 1. Upload image to get URL
+    const uploadRes = await uploadImage(imageUri);
+    if (!uploadRes.success) {
+      return { success: false, error: 'Image upload failed.' };
+    }
+
+    // 2. Create contest document in Firestore
+    const res = await fbCreateContest({
+      title,
+      theme,
+      prize,
+      imageUrl: uploadRes.url,
+      startAt,
+      endAt,
+      host,
+      country,
+    });
+
+    if (res.success) {
+      // 3. Optimistically add to local state
+      const newContest = { id: res.id, ...res.data };
+      set((state) => ({
+        contests: [newContest, ...state.contests],
+        contestsById: { ...state.contestsById, [res.id]: newContest },
+      }));
+    }
+
     return res;
   },
 

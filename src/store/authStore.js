@@ -13,10 +13,14 @@ import useNotificationsStore from './notificationsStore';
 import * as Notifications from 'expo-notifications';
 import { registerForPushNotificationsAsync } from '../services/pushNotifications';
 
+// Define Admin UIDs here, matching firestore.rules
+const ADMIN_UIDS = ['S3YNVH6Tn8RCauiQrj2oy6e37FI3'];
+
 const useAuthStore = create((set, get) => ({
   user: null,
   loading: true,
   pushToken: null, // Add a place to store the current device's token
+  isAdmin: false, // New state to track admin status
 
   // Listen to Firebase Auth state changes and hydrate normalized Firestore profile
   initializeAuth: () => {
@@ -30,8 +34,10 @@ const useAuthStore = create((set, get) => ({
         const previousUser = get().user;
 
         if (firebaseUser) {
+          // Check if the logged-in user is an admin
+          const isAdmin = ADMIN_UIDS.includes(firebaseUser.uid);
           // Always update the user object in the store to reflect the latest state from Firebase.
-          set({ user: firebaseUser, loading: false });
+          set({ user: firebaseUser, loading: false, isAdmin });
 
           // If this is a new login/signup, load their profile and register for push notifications.
           if (firebaseUser.uid !== previousUser?.uid) {
@@ -58,7 +64,7 @@ const useAuthStore = create((set, get) => ({
           }
           clearMyProfile();
           clearNotifications(); // Stop subscription and clear state
-          set({ user: null, loading: false, pushToken: null }); // Clear user and token
+          set({ user: null, loading: false, pushToken: null, isAdmin: false }); // Clear user, token, and admin status
         }
       } catch (e) {
         console.error('Auth state change error:', e);

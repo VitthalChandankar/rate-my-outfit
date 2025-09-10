@@ -9,14 +9,18 @@ import {
   RefreshControl,
   StyleSheet,
   Text,
+  TextInput,
   View,
   TouchableOpacity,
   Animated,
   Easing,
   Dimensions,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { Surface } from 'react-native-paper';
 import useContestStore from '../../store/contestStore';
+import useAuthStore from '../../store/authStore';
 
 const { width } = Dimensions.get('window');
 const PADDING_H = 16;
@@ -178,24 +182,30 @@ function ContestCard({ item, onPress }) {
 }
 
 export default function ContestsListScreen({ navigation }) {
+  const isAdmin = useAuthStore((s) => s.isAdmin);
   const allContests = useContestStore((s) => s.contests);
   const loading = useContestStore((s) => s.contestsLoading);
   const refreshing = useContestStore((s) => s.contestsRefreshing);
   const hasMore = useContestStore((s) => s.hasMoreContests);
   const listContests = useContestStore((s) => s.listContests);
 
-  const [filter, setFilter] = useState('active'); // active | upcoming | ended
+  const [filter, setFilter] = useState('active');
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Filter the contests on the client side for instant UI updates
   const contests = useMemo(() => {
     const now = Date.now();
+    const lowercasedQuery = searchQuery.trim().toLowerCase();
+
     return allContests.filter((c) => {
       const startMs = toMs(c.startAt);
       const endMs = toMs(c.endAt);
       const status = statusFromRange(startMs, endMs, now);
-      return status === filter;
+      const statusMatch = status === filter;
+      const queryMatch = lowercasedQuery ? c.title?.toLowerCase().includes(lowercasedQuery) : true;
+      return statusMatch && queryMatch;
     });
-  }, [allContests, filter]);
+  }, [allContests, filter, searchQuery]);
 
   useEffect(() => {
     listContests({ limit: 20, reset: true, status: filter });
@@ -214,25 +224,40 @@ export default function ContestsListScreen({ navigation }) {
     <ContestCard item={item} onPress={() => navigation.navigate('ContestDetails', { contestId: item.id })} />
   );
 
-  const Header = () => (
-    <View style={styles.hero}>
-      <Text style={styles.heroTitle}>Contests</Text>
-      <Text style={styles.heroSub}>Compete, rate, and climb the leaderboard.</Text>
-      <SegmentedControl value={filter} onChange={setFilter} />
-    </View>
-  );
-
   return (
-    <View style={styles.screen}>
+    <SafeAreaView style={styles.screen} edges={['top']}>
+      {/* Header content is now outside the FlatList to prevent re-renders from closing the keyboard */}
+      <View style={styles.hero}>
+        <View style={styles.heroHeader}>
+          <Text style={styles.heroTitle}>Contests</Text>
+          {isAdmin && (
+            <TouchableOpacity onPress={() => navigation.navigate('CreateContest')} style={styles.hostButton}>
+              <Ionicons name="add-circle" size={28} color="#7A5AF8" />
+            </TouchableOpacity>
+          )}
+        </View>
+        <Text style={styles.heroSub}>Compete, rate, and climb the leaderboard.</Text>
+        <SegmentedControl value={filter} onChange={setFilter} />
+        <View style={styles.searchContainer}>
+          <Ionicons name="search" size={20} color="#9CA3AF" style={styles.searchIcon} />
+          <TextInput
+            placeholder="Search contests by title..."
+            placeholderTextColor="#9CA3AF"
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            style={styles.searchInput}
+            clearButtonMode="while-editing"
+          />
+        </View>
+      </View>
       <FlatList
         data={contests}
         keyExtractor={(it) => it.id}
         renderItem={renderItem}
-        ListHeaderComponent={<Header />}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         onEndReachedThreshold={0.25}
         onEndReached={onEnd}
-        contentContainerStyle={{ paddingHorizontal: PADDING_H, paddingBottom: 28 }}
+        contentContainerStyle={{ paddingBottom: 28 }}
         ListEmptyComponent={
           !loading ? (
             <View style={styles.emptyWrap}>
@@ -252,7 +277,7 @@ export default function ContestsListScreen({ navigation }) {
           ) : null
         }
       />
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -261,6 +286,15 @@ const styles = StyleSheet.create({
 
   // Hero header
   hero: { paddingHorizontal: PADDING_H, paddingTop: 14, paddingBottom: 8 },
+  heroHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 2,
+  },
+  hostButton: {
+    padding: 4,
+  },
   heroTitle: { fontSize: 28, fontWeight: '900', color: '#0F172A', letterSpacing: -0.3 },
   heroSub: { marginTop: 6, color: '#5B5B68', fontSize: 14 },
 
@@ -336,4 +370,26 @@ const styles = StyleSheet.create({
   skelPillRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 12 },
   skelPill: { height: 22, width: 70, backgroundColor: '#EEE', borderRadius: 11 },
   skelCta: { height: 44, backgroundColor: '#EEE', borderRadius: 12 },
+
+  // Search Bar
+  searchContainer: {
+    marginTop: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    height: 48,
+  },
+  searchIcon: {
+    marginRight: 8,
+  },
+  searchInput: {
+    flex: 1,
+    height: '100%',
+    fontSize: 16,
+    color: '#111827',
+  },
 });

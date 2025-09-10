@@ -29,6 +29,7 @@ import OutfitDetailsScreen from '../screens/details/OutfitDetailsScreen';
 // Contests
 import ContestsListScreen from '../screens/contests/ContestsListScreen';
 import ContestDetailsScreen from '../screens/contests/ContestDetailsScreen';
+import CreateContestScreen from '../screens/contests/CreateContestScreen';
 
 // Rating flow
 import RateEntryScreen from '../screens/rating/RateEntryScreen';
@@ -65,7 +66,7 @@ function MainTabs() {
       })}
     >
       <Tab.Screen name="Home" component={HomeScreen} options={{ headerShown: false }} />
-      <Tab.Screen name="Contests" component={ContestsListScreen} options={{ title: 'Contests', headerShown: true }} />
+      <Tab.Screen name="Contests" component={ContestsListScreen} options={{ headerShown: false }} />
       <Tab.Screen name="Upload" component={UploadScreen} options={{ title: 'Upload', headerShown: true }} />
       <Tab.Screen name="Profile" component={ProfileScreen} options={{ headerShown: false }} />
     </Tab.Navigator>
@@ -134,6 +135,14 @@ function MainAppStack() {
           headerBackTitleVisible: false,
         }} />
       <Stack.Screen name="ContestDetails" component={ContestDetailsScreen} />
+      <Stack.Screen
+        name="CreateContest"
+        component={CreateContestScreen}
+        options={{
+          headerShown: true,
+          title: 'Host a New Contest',
+        }}
+      />
 
       {/* Rating flow */}
       <Stack.Screen name="RateEntry" component={RateEntryScreen} />

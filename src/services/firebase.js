@@ -400,6 +400,29 @@ async function fbListContests({ limitCount = 20, startAfterDoc = null, status = 
   }
 }
 
+async function fbCreateContest({ title, theme, prize, imageUrl, startAt, endAt, host, country }) {
+  try {
+    const payload = {
+      title,
+      theme,
+      prize,
+      image: imageUrl, // Use 'image' to match ContestDetailsScreen
+      host,
+      country,
+      startAt, // Should be a Firestore Timestamp
+      endAt,   // Should be a Firestore Timestamp
+      createdAt: serverTimestamp(),
+      status: 'approved', // Admin-created contests are auto-approved
+    };
+    const docRef = await addDoc(collection(firestore, 'contests'), payload);
+    const newContestSnap = await getDoc(docRef);
+    return { success: true, id: docRef.id, data: newContestSnap.data() };
+  } catch (error) {
+    console.error('fbCreateContest error:', error);
+    return { success: false, error };
+  }
+}
+
 async function fbFetchContestEntries({ contestId, limitCount = 24, startAfterDoc = null } = {}) {
   try {
     let qy = query(
@@ -824,7 +847,7 @@ async function markNotificationsAsRead(userId) {
 
 export {
   addComment, auth, createUser, createOutfitDocument,
-  deleteComment, deleteOutfit, fetchCommentsForOutfit, fetchFeed, fetchOutfitDetails, fetchUserOutfits, firestore, loginWithEmail, // Removed submitRating
+  deleteComment, deleteOutfit, fetchCommentsForOutfit, fetchFeed, fetchOutfitDetails, fetchUserOutfits, firestore, loginWithEmail, fbCreateContest,
   logout, onAuthChange, sendResetEmail, signupWithEmail, uploadImage,
   toggleLikePost, fetchMyLikedOutfitIds, fetchLikersForOutfit, fbListContests, fbFetchContestEntries, fbCreateEntry, fbRateEntry, fbFetchContestLeaderboard, updateUserPushToken,
   getUserProfile, updateUserProfile, setUserAvatar, ensureUsernameUnique, fetchNotifications, markNotificationsAsRead, subscribeToUnreadNotifications,
