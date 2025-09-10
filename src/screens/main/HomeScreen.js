@@ -125,7 +125,7 @@ export default function HomeScreen() {
   const handleRate = useCallback((post) => {
     // Navigate to RateEntryScreen with normalized payload
     const target = {
-      id: post.id,
+      id: post.entryId || post.id, // Prioritize the entryId if it exists
       userId: post.userId || post.user?.uid || '',
       userName: post.user?.name || 'Creator',
       userPhoto: post.user?.profilePicture || null,

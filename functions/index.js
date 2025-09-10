@@ -1,7 +1,7 @@
 /* eslint-disable object-curly-spacing */
 /* eslint-disable max-len */
 const admin = require("firebase-admin");
-const {onDocumentCreated, onDocumentDeleted} = require("firebase-functions/v2/firestore");
+const {onDocumentCreated, onDocumentDeleted, onDocumentUpdated} = require("firebase-functions/v2/firestore");
 
 admin.initializeApp();
 
@@ -375,4 +375,42 @@ exports.onFollowDelete = onDocumentDeleted("follows/{followId}", async (event) =
   } catch (error) {
     console.error("Error in onFollowDelete transaction:", error);
   }
+});
+
+/**
+ * When an entry is rated, sync its rating stats to the corresponding outfit document for the main feed.
+ */
+exports.onEntryRated = onDocumentUpdated("entries/{entryId}", async (event) => {
+  const before = event.data.before.data();
+  const after = event.data.after.data();
+
+  // Check if rating stats have actually changed to avoid unnecessary writes
+  if (
+    before.averageRating === after.averageRating &&
+    before.ratingsCount === after.ratingsCount &&
+    before.aiFlagsCount === after.aiFlagsCount
+  ) {
+    console.log(`No rating change for entry ${event.params.entryId}, skipping sync.`);
+    return null;
+  }
+
+  const { outfitId } = after;
+  if (!outfitId) {
+    console.log(`Entry ${event.params.entryId} has no linked outfitId, skipping sync.`);
+    return null;
+  }
+
+  const outfitRef = admin.firestore().doc(`outfits/${outfitId}`);
+
+  try {
+    await outfitRef.update({
+      averageRating: after.averageRating,
+      ratingsCount: after.ratingsCount,
+      aiFlagsCount: after.aiFlagsCount,
+    });
+    console.log(`Successfully synced ratings from entry ${event.params.entryId} to outfit ${outfitId}.`);
+  } catch (error) {
+    console.error(`Failed to sync ratings for outfit ${outfitId}:`, error);
+  }
+  return null;
 });

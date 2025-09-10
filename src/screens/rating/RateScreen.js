@@ -143,7 +143,7 @@ export default function RateScreen({ route, navigation }) {
         : { success: false, error: 'Cannot flag a normal post.' }; // This path should not be taken
 
     if (!res?.success) {
-      Alert.alert('Error', res.error || 'Could not submit flag.');
+      Alert.alert('Error', res.error?.message || 'Could not submit flag.');
     }
     else Alert.alert('Thanks', 'Your flag has been recorded.');
   };
@@ -162,7 +162,7 @@ export default function RateScreen({ route, navigation }) {
         : { success: false, error: 'Cannot rate a normal post.' }; // This path should not be taken
 
     setSubmitting(false);
-    if (!res?.success) Alert.alert('Error', 'Could not submit rating.');
+    if (!res?.success) Alert.alert('Error', res.error?.message || 'Could not submit rating.');
     else navigation.navigate('RatingSuccess', { emoji: sentiment.emoji });
   };
 

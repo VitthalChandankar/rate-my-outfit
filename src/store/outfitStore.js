@@ -120,6 +120,18 @@ const useOutfitStore = create((set, get) => ({
     }
   },
 
+  // NEW: Action to update a single post in the feed (e.g., to add an entryId)
+  updateOutfitInFeed: (outfitId, updates) => {
+    set((state) => ({
+      feed: state.feed.map(post =>
+        post.id === outfitId ? { ...post, ...updates } : post
+      ),
+      myOutfits: state.myOutfits.map(post =>
+        post.id === outfitId ? { ...post, ...updates } : post
+      ),
+    }));
+  },
+
   // Like/unlike a post
   toggleLike: async (outfitId, userId, postOwnerId) => {
     if (!outfitId || !userId) return;

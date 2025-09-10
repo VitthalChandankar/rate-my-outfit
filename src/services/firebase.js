@@ -140,6 +140,7 @@ async function createOutfitDocument({ userId, imageUrl, caption = '', tags = [],
       user: userMeta || null, // { uid, name, username, profilePicture }
       type: type === 'contest' ? 'contest' : 'normal',
       contestId: type === 'contest' ? (contestId || null) : null,
+      entryId: null, // Add a field to link back to the contest entry
       imageUrl,
       caption,
       tags,
@@ -401,12 +402,13 @@ async function fbFetchContestEntries({ contestId, limitCount = 24, startAfterDoc
   }
 }
 
-async function fbCreateEntry({ contestId, userId, imageUrl, caption = '', tags = [], userMeta = null }) {
+async function fbCreateEntry({ contestId, userId, imageUrl, caption = '', tags = [], userMeta = null, outfitId = null }) {
   try {
     const docRef = await addDoc(collection(firestore, 'entries'), {
       contestId,
       userId,
       user: userMeta || null,
+      outfitId, // Store the ID of the corresponding outfit post
       imageUrl,
       caption,
       tags,
@@ -429,9 +431,8 @@ async function fbRateEntry({ entryId, contestId, userId, rating, aiFlag = false 
     const ratingId = `${entryId}_${userId}`;
     const ratingRef = doc(firestore, 'ratings', ratingId);
     const entryRef = doc(firestore, 'entries', entryId);
-    let result = { newAvg: null, newCount: null, aiFlagsCount: null };
 
-    await runTransaction(firestore, async (tx) => {
+    const result = await runTransaction(firestore, async (tx) => {
       const entrySnap = await tx.get(entryRef);
       if (!entrySnap.exists()) throw new Error('Entry not found');
       const data = entrySnap.data();
@@ -478,10 +479,11 @@ async function fbRateEntry({ entryId, contestId, userId, rating, aiFlag = false 
         ratingsCount: newCount,
         aiFlagsCount,
       });
-      result = { newAvg, newCount, aiFlagsCount };
+      return { newAvg, newCount, aiFlagsCount };
     });
     return { success: true, ...result };
   } catch (error) {
+    console.error("fbRateEntry failed:", error);
     return { success: false, error };
   }
 }

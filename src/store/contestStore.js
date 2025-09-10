@@ -9,8 +9,8 @@ import {
   fbRateEntry,
   fbFetchContestLeaderboard,
   firestore, // exported from your services/firebase
-} from '../services/firebase';
-import { doc, getDoc } from 'firebase/firestore';
+} from "../services/firebase";
+import { doc, getDoc, updateDoc } from "firebase/firestore";
 import useAuthStore from './authStore';
 import useUserStore from './UserStore';
 import useOutfitStore from './outfitStore'; // ADDED: to update main feed state
@@ -152,27 +152,43 @@ const useContestStore = create((set, get) => ({
         }
       : null;
 
-    const res = await fbCreateEntry({ contestId, userId: user.uid, imageUrl, caption, tags, userMeta });
-    if (res.success) {
-      // ALSO create a copy in the 'outfits' collection for the main feed by calling the dedicated store function
-      try {
-        const { addRemoteOutfitToFeed } = useOutfitStore.getState();
-        await addRemoteOutfitToFeed({
-          userId: user.uid,
-          imageUrl,
-          caption,
-          tags,
-          userMeta,
-          type: 'contest',
-          contestId,
-        });
-      } catch (e) {
-        console.warn('Failed to duplicate contest entry to main feed:', e);
-      }
+    // 1. First, create the outfit document to get an ID for the feed
+    const { addRemoteOutfitToFeed, updateOutfitInFeed } = useOutfitStore.getState();
+    const outfitRes = await addRemoteOutfitToFeed({
+      userId: user.uid,
+      imageUrl,
+      caption,
+      tags,
+      userMeta,
+      type: 'contest',
+      contestId,
+    });
 
-      // Optimistically prepend to entries list
+    if (!outfitRes.success) {
+      console.error("Failed to create outfit document for contest entry");
+      return { success: false, error: "Failed to create feed post for entry." };
+    }
+    const outfitId = outfitRes.id;
+
+    // 2. Now, create the contest entry and store the outfitId in it
+    const res = await fbCreateEntry({
+      contestId,
+      userId: user.uid,
+      imageUrl,
+      caption,
+      tags,
+      userMeta,
+      outfitId,
+    });
+
+    if (res.success) {
+      // 3. Link the entryId back to the outfit document for correct lookups from the feed
+      await updateDoc(doc(firestore, "outfits", outfitId), { entryId: res.id });
+
+      // 4. Update the local state for the outfit in the feed to include the new entryId
+      updateOutfitInFeed(outfitId, { entryId: res.id });
+
       const bag = get().entries[contestId] || { items: [], last: null, hasMore: true, loading: false, refreshing: false };
-      // Ensure the optimistic item has the same shape as an enriched one
       const item = { id: res.id, ...res.data, imageUrl, caption, tags, userId: user.uid, user: userMeta };
       set({ entries: { ...get().entries, [contestId]: { ...bag, items: [item, ...bag.items] } } });
     }

@@ -6,23 +6,28 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 const { width, height } = Dimensions.get('window');
 
 const EmojiParticle = ({ emoji, progress }) => {
+  // Animate from center outwards
   const scale = progress.interpolate({
-    inputRange: [0, 0.1, 0.9, 1],
-    outputRange: [0, 1, 1, 0],
+    inputRange: [0, 0.2, 0.8, 1],
+    outputRange: [0.5, 1.2, 1.2, 0],
   });
 
+  // Move in a random direction away from the center
+  const randomAngle = useRef(Math.random() * 2 * Math.PI).current;
+  const distance = width / 2;
+  const translateX = progress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, Math.cos(randomAngle) * distance],
+  });
   const translateY = progress.interpolate({
     inputRange: [0, 1],
-    outputRange: [0, -height / 2],
+    outputRange: [0, Math.sin(randomAngle) * distance],
   });
 
   const opacity = progress.interpolate({
-    inputRange: [0, 0.1, 0.8, 1],
-    outputRange: [0, 1, 1, 0],
+    inputRange: [0, 0.1, 0.7, 1],
+    outputRange: [1, 1, 1, 0],
   });
-
-  const randomX = useRef(Math.random() * width - width / 2).current;
-  const randomRotation = useRef(Math.random() * 360 - 180).current;
 
   return (
     <Animated.Text
@@ -30,10 +35,9 @@ const EmojiParticle = ({ emoji, progress }) => {
         styles.emoji,
         {
           transform: [
-            { translateX: randomX },
+            { translateX },
             { translateY },
             { scale },
-            { rotate: `${randomRotation}deg` },
           ],
           opacity,
         },
@@ -46,7 +50,7 @@ const EmojiParticle = ({ emoji, progress }) => {
 
 export default function RatingSuccessScreen({ route, navigation }) {
   const { emoji } = route.params;
-  const particles = Array.from({ length: 30 }); // Create 30 particles
+  const particles = Array.from({ length: 50 }); // More particles for a bigger burst
   const animation = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {

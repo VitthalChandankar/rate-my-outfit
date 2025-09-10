@@ -18,6 +18,16 @@ function AvatarCircle({ uri, name }) {
   );
 }
 
+function formatCount(num) {
+  if (num >= 1000000) {
+    return (num / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
+  }
+  if (num >= 1000) {
+    return (num / 1000).toFixed(1).replace(/\.0$/, '') + 'k';
+  }
+  return num.toString();
+}
+
 function OutfitCard({ item, onPress, onRate, onUserPress, onLike, isLiked, onPressLikes, onPressComments, onPressContest }) {
   const raw = item || null;
   if (!raw) return null;
@@ -30,6 +40,7 @@ function OutfitCard({ item, onPress, onRate, onUserPress, onLike, isLiked, onPre
   const averageRating = Number(raw.averageRating ?? 0) || 0;
   const commentsCount = Number(raw.commentsCount ?? 0) || 0;
   const likesCount = Number(raw.likesCount ?? 0) || 0;
+  const ratingsCount = Number(raw.ratingsCount ?? 0) || 0;
 
   const user = raw.user || {};
   const userId = raw.userId || user.uid || '';
@@ -102,6 +113,15 @@ function OutfitCard({ item, onPress, onRate, onUserPress, onLike, isLiked, onPre
         ) : (
           <View style={[styles.image, styles.imagePlaceholder]} />
         )}
+
+        {isContest && ratingsCount > 0 && (
+          <View style={styles.ratingOverlay}>
+            <Text style={styles.ratingText}>{averageRating.toFixed(1)}</Text>
+            <Ionicons name="star" size={12} color="#111" style={{ marginHorizontal: 2 }} />
+            <View style={styles.separator} />
+            <Text style={styles.ratingCountText}>{formatCount(ratingsCount)}</Text>
+          </View>
+        )}
       </TouchableOpacity>
 
       {/* Ribbon/CTA row (clickable) */}
@@ -158,6 +178,38 @@ const styles = StyleSheet.create({
 
   image: { width: '100%', height: 420, backgroundColor: '#F4F4F4' },
   imagePlaceholder: { backgroundColor: '#EEE' },
+  ratingOverlay: {
+    position: 'absolute',
+    bottom: 10,
+    right: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    flexDirection: 'row',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  ratingText: {
+    fontWeight: 'bold',
+    fontSize: 12,
+    color: '#111',
+  },
+  separator: {
+    width: 1,
+    height: 10,
+    backgroundColor: '#ccc',
+    marginHorizontal: 5,
+  },
+  ratingCountText: {
+    fontSize: 12,
+    color: '#555',
+    fontWeight: '600',
+  },
 
   // Ribbon bar
   ctaBar: {
