@@ -3,8 +3,9 @@ import { create } from 'zustand';
 import {
   fetchNotifications as fbFetchNotifications,
   markNotificationsAsRead as fbMarkAsRead,
+  subscribeToUnreadNotifications as fbSubscribeToUnread,
 } from '../services/firebase';
-import useAuthStore from './authStore';
+
 
 const useNotificationsStore = create((set, get) => ({
   notifications: [],
@@ -13,11 +14,12 @@ const useNotificationsStore = create((set, get) => ({
   refreshing: false,
   hasMore: true,
   unreadCount: 0, // To show a badge on the icon
+  _unsubNotifications: null,
 
   // Fetch notifications with pagination
-  fetchNotifications: async ({ reset = false } = {}) => {
-    const { user } = useAuthStore.getState();
-    if (!user?.uid) return { success: false, error: 'Not authenticated' };
+  fetchNotifications: async ({ userId, reset = false } = {}) => {
+    if (!userId) return { success: false, error: 'Not authenticated' };
+
 
     const alreadyLoading = get().loading || get().refreshing;
     if (alreadyLoading && !reset) return { success: false, error: 'Busy' };
@@ -25,7 +27,7 @@ const useNotificationsStore = create((set, get) => ({
     if (reset) set({ refreshing: true }); else set({ loading: true });
 
     const startAfterDoc = reset ? null : get().lastDoc;
-    const res = await fbFetchNotifications({ userId: user.uid, startAfterDoc });
+    const res = await fbFetchNotifications({ userId, startAfterDoc });
 
     if (res.success) {
       const newItems = res.items || [];
@@ -40,9 +42,8 @@ const useNotificationsStore = create((set, get) => ({
   },
 
   // Mark all as read
-  markAllAsRead: async () => {
-    const { user } = useAuthStore.getState();
-    if (!user?.uid) return;
+  markAllAsRead: async (userId) => {
+    if (!userId) return;
 
     // Optimistically update UI
     const currentNotifications = get().notifications;
@@ -50,10 +51,34 @@ const useNotificationsStore = create((set, get) => ({
     set({ notifications: updatedNotifications, unreadCount: 0 });
 
     // Call backend
-    await fbMarkAsRead(user.uid);
+    await fbMarkAsRead(userId);
   },
 
-  // TODO: Add a subscription to get unread count in real-time
+  // Subscribe to real-time unread count
+  subscribeToUnreadCount: (userId) => {
+    if (!userId) return;
+    const unsub = fbSubscribeToUnread(userId, (count) => {
+      set({ unreadCount: count });
+    });
+    set({ _unsubNotifications: unsub });
+  },
+
+  // Clear store on logout
+  clearNotifications: () => {
+    const unsub = get()._unsubNotifications;
+    if (typeof unsub === 'function') {
+      try { unsub(); } catch {}
+    }
+    set({
+      notifications: [],
+      lastDoc: null,
+      loading: false,
+      refreshing: false,
+      hasMore: true,
+      unreadCount: 0,
+      _unsubNotifications: null,
+    });
+  },
 }));
 
 export default useNotificationsStore;

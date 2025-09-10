@@ -8,6 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import useAuthStore from '../../store/authStore';
 import useOutfitStore from '../../store/outfitStore';
 import useUserStore from '../../store/UserStore';
+import useNotificationsStore from '../../store/notificationsStore';
 import OutfitCard from '../../components/OutfitCard';
 
 function ensureKey(item) {
@@ -40,6 +41,8 @@ export default function HomeScreen() {
   const refreshing = useOutfitStore((s) => s.refreshing);
   const lastDoc = useOutfitStore((s) => s.lastDoc);
 
+  const unreadCount = useNotificationsStore((s) => s.unreadCount);
+
   const [initialLoaded, setInitialLoaded] = useState(false);
 
   useEffect(() => {
@@ -55,11 +58,18 @@ export default function HomeScreen() {
       title: 'Rate My Outfit',
       headerRight: () => (
         <TouchableOpacity onPress={() => navigation.navigate('Notifications')} style={{ marginRight: 10 }}>
-          <Ionicons name="notifications-outline" size={24} color="#111" />
+          <View>
+            <Ionicons name="notifications-outline" size={24} color="#111" />
+            {unreadCount > 0 && (
+              <View style={styles.badgeContainer}>
+                <Text style={styles.badgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
+              </View>
+            )}
+          </View>
         </TouchableOpacity>
       ),
     });
-  }, [navigation]);
+  }, [navigation, unreadCount]);
 
   // Add listener for tab press to scroll to top
   useEffect(() => {
@@ -69,8 +79,8 @@ export default function HomeScreen() {
         listRef.current?.scrollToOffset({ animated: true, offset: 0 });
       }
     });
-    return unsubscribe;
-  }, [isFocused, fetchFeed]);
+    return unsubscribe; // No change here, but good to see it's correct
+  }, [isFocused, navigation]);
 
   const data = useMemo(() => {
     const withKeys = (feed || []).map(ensureKey);
@@ -194,4 +204,21 @@ const styles = StyleSheet.create({
   container: { backgroundColor: '#fff', paddingBottom: 12 },
   empty: { textAlign: 'center', marginTop: 40, color: '#666' },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff' },
+  badgeContainer: {
+    position: 'absolute',
+    right: -6,
+    top: -3,
+    backgroundColor: '#FF3B30',
+    borderRadius: 9,
+    minWidth: 18,
+    height: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 5,
+  },
+  badgeText: {
+    color: '#fff',
+    fontSize: 11,
+    fontWeight: 'bold',
+  },
 });

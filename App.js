@@ -8,6 +8,7 @@ import * as Notifications from 'expo-notifications';
 import theme from './src/theme/theme';
 import AppNavigator from './src/navigation/AppNavigator';
 import useAuthStore from './src/store/authStore';
+import useNotificationsStore from './src/store/notificationsStore';
 
 export default function App() {
   const { initializeAuth, user } = useAuthStore();
@@ -19,6 +20,16 @@ export default function App() {
 
    // Effect for handling notification taps
    useEffect(() => {
+    // This listener is fired whenever a notification is received while the app is foregrounded
+    const notificationReceivedSubscription = Notifications.addNotificationReceivedListener(notification => {
+      // When a notification comes in, re-subscribe to get the latest count.
+      // This ensures the badge updates even if there's a slight delay in the primary real-time listener.
+      const { user } = useAuthStore.getState();
+      if (user?.uid) {
+        useNotificationsStore.getState().subscribeToUnreadCount(user.uid);
+      }
+    });
+
     // This listener is fired whenever a user taps on or interacts with a notification
     // (works when app is foregrounded, backgrounded, or killed)
     const responseSubscription = Notifications.addNotificationResponseReceivedListener(response => {
@@ -32,6 +43,7 @@ export default function App() {
     });
 
     return () => {
+      notificationReceivedSubscription.remove();
       responseSubscription.remove();
     };
   }, [navigationRef]);

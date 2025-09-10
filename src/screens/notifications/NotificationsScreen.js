@@ -5,6 +5,7 @@ import { useNavigation } from '@react-navigation/native';
 import { Image as ExpoImage } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import useNotificationsStore from '../../store/notificationsStore';
+import useAuthStore from '../../store/authStore';
 import formatDate from '../../utils/formatDate';
 
 function NotificationRow({ item, onNotificationPress }) {
@@ -46,6 +47,7 @@ function NotificationRow({ item, onNotificationPress }) {
 
 export default function NotificationsScreen() {
   const navigation = useNavigation();
+  const { user } = useAuthStore();
   const {
     notifications,
     loading,
@@ -56,23 +58,23 @@ export default function NotificationsScreen() {
   } = useNotificationsStore();
 
   useEffect(() => {
-    fetchNotifications({ reset: true });
+    if (user?.uid) fetchNotifications({ userId: user.uid, reset: true });
     // When the screen is focused, mark all notifications as read
     const unsubscribe = navigation.addListener('focus', () => {
-      markAllAsRead();
+      if (user?.uid) markAllAsRead(user.uid);
     });
     return unsubscribe;
-  }, [fetchNotifications, navigation, markAllAsRead]);
+  }, [fetchNotifications, navigation, markAllAsRead, user?.uid]);
 
   const onRefresh = useCallback(() => {
-    fetchNotifications({ reset: true });
-  }, [fetchNotifications]);
+    if (user?.uid) fetchNotifications({ userId: user.uid, reset: true });
+  }, [fetchNotifications, user?.uid]);
 
   const loadMore = useCallback(() => {
     if (!loading && hasMore) {
-      fetchNotifications({ reset: false });
+      if (user?.uid) fetchNotifications({ userId: user.uid, reset: false });
     }
-  }, [loading, hasMore, fetchNotifications]);
+  }, [loading, hasMore, fetchNotifications, user?.uid]);
 
   const handleNotificationPress = (notification) => {
     if (notification.type === 'follow') {

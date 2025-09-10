@@ -9,6 +9,7 @@ import {
 
 // IMPORTANT: import the user store to hydrate normalized profile
 import useUserStore from './UserStore';
+import useNotificationsStore from './notificationsStore';
 import * as Notifications from 'expo-notifications';
 import { registerForPushNotificationsAsync } from '../services/pushNotifications';
 
@@ -25,6 +26,7 @@ const useAuthStore = create((set, get) => ({
     return onAuthChange(async (firebaseUser) => {
       try {
         const { loadMyProfile, subscribeMyProfile, hydrateMyLikes, clearMyProfile, updateMyPushToken } = useUserStore.getState();
+        const { subscribeToUnreadCount, clearNotifications } = useNotificationsStore.getState();
         const previousUser = get().user;
 
         if (firebaseUser) {
@@ -36,6 +38,7 @@ const useAuthStore = create((set, get) => ({
             const uid = firebaseUser.uid;
             await Promise.all([loadMyProfile(uid), hydrateMyLikes(uid)]);
             subscribeMyProfile(uid);
+            subscribeToUnreadCount(uid); // Start subscription
 
             // After loading profile, register for push notifications
             registerForPushNotificationsAsync().then(token => {
@@ -54,6 +57,7 @@ const useAuthStore = create((set, get) => ({
             updateMyPushToken(tokenToRemove, true); // on logout, remove token
           }
           clearMyProfile();
+          clearNotifications(); // Stop subscription and clear state
           set({ user: null, loading: false, pushToken: null }); // Clear user and token
         }
       } catch (e) {

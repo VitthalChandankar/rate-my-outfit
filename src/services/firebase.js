@@ -6,8 +6,8 @@ import {
   createUserWithEmailAndPassword,
   initializeAuth,
   getReactNativePersistence,
-  sendEmailVerification,
   onAuthStateChanged,
+  sendEmailVerification,
   sendPasswordResetEmail,
   signInWithEmailAndPassword,
   signOut,
@@ -18,6 +18,7 @@ import {
   collection,
   doc,
   getDoc,
+  onSnapshot,
   getDocs,
   getFirestore,
   limit,
@@ -740,6 +741,25 @@ async function fetchNotifications({ userId, limitCount = 20, startAfterDoc = nul
   }
 }
 
+async function subscribeToUnreadNotifications(userId, onUpdate) {
+  if (!userId) return () => {}; // Return a no-op unsubscribe function
+
+  const q = query(
+    collection(firestore, 'notifications'),
+    where('recipientId', '==', userId),
+    where('read', '==', false)
+  );
+
+  const unsubscribe = onSnapshot(q, (snapshot) => {
+    onUpdate(snapshot.size);
+  }, (error) => {
+    console.error("Error subscribing to unread notifications:", error);
+    onUpdate(0);
+  });
+
+  return unsubscribe;
+}
+
 async function markNotificationsAsRead(userId) {
   try {
     const q = query(
@@ -765,6 +785,6 @@ export {
   deleteComment, fetchCommentsForOutfit, fetchFeed, fetchOutfitDetails, fetchUserOutfits, firestore, loginWithEmail, // Removed submitRating
   logout, onAuthChange, sendResetEmail, signupWithEmail, uploadImage,
   toggleLikePost, fetchMyLikedOutfitIds, fetchLikersForOutfit, fbListContests, fbFetchContestEntries, fbCreateEntry, fbRateEntry, fbFetchContestLeaderboard, updateUserPushToken,
-  getUserProfile, updateUserProfile, setUserAvatar, ensureUsernameUnique, fetchNotifications, markNotificationsAsRead,
+  getUserProfile, updateUserProfile, setUserAvatar, ensureUsernameUnique, fetchNotifications, markNotificationsAsRead, subscribeToUnreadNotifications,
   followUser, unfollowUser, isFollowing, listFollowers, listFollowing
 };
