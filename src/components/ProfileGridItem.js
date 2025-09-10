@@ -6,7 +6,7 @@ import { Image as ExpoImage } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { withCloudinaryTransforms, IMG_SQUARE_THUMB } from '../utils/cloudinaryUrl';
 
-const ProfileGridItem = ({ item, onPress }) => {
+const ProfileGridItem = ({ item, onPress, onLongPress }) => {
   if (!item?.imageUrl) {
     return <View style={styles.container} />;
   }
@@ -15,7 +15,11 @@ const ProfileGridItem = ({ item, onPress }) => {
   const transformedUrl = withCloudinaryTransforms(item.imageUrl, IMG_SQUARE_THUMB);
 
   return (
-    <TouchableOpacity style={styles.container} onPress={() => onPress(item)} activeOpacity={0.8}>
+    <TouchableOpacity
+      style={styles.container}
+      onPress={() => onPress(item)}
+      onLongPress={() => onLongPress && onLongPress(item)}
+      activeOpacity={0.8}>
       <ExpoImage
         source={{ uri: transformedUrl }}
         style={styles.image}

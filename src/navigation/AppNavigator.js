@@ -125,7 +125,14 @@ function MainAppStack() {
       <Stack.Screen name="MainTabs" component={MainTabs} />
 
       {/* Details accessible from any tab */}
-      <Stack.Screen name="OutfitDetails" component={OutfitDetailsScreen} />
+      <Stack.Screen
+        name="OutfitDetails"
+        component={OutfitDetailsScreen}
+        options={{
+          headerShown: true,
+          title: 'Post',
+          headerBackTitleVisible: false,
+        }} />
       <Stack.Screen name="ContestDetails" component={ContestDetailsScreen} />
 
       {/* Rating flow */}

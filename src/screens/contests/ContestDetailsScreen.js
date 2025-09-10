@@ -6,6 +6,7 @@ import React, { useEffect, useRef, useState, useMemo } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Pressable,
   FlatList,
   StyleSheet,
   Text,
@@ -17,11 +18,12 @@ import {
 } from 'react-native';
 import { Surface } from 'react-native-paper';
 import { Image as ExpoImage } from 'expo-image';
+import { Ionicons } from '@expo/vector-icons';
 
 import useContestStore from '../../store/contestStore';
 import useAuthStore from '../../store/authStore';
 import OutfitCard from '../../components/OutfitCard';
-import { LeaderboardList } from './LeaderboardScreen';
+import Avatar from '../../components/Avatar';
 
 const { width } = Dimensions.get('window');
 const PADDING_H = 16;
@@ -111,6 +113,32 @@ function EntryRateCard({ item, onRate, onFlagAI }) {
   );
 }
 
+// A simple, self-contained leaderboard row component
+function LeaderboardRow({ item, rank, navigation }) {
+  if (!item?.user) return null;
+
+  const isWinner = rank === 1;
+  const handlePress = () => {
+    if (item.userId) {
+      navigation.navigate('UserProfile', { userId: item.userId });
+    }
+  };
+
+  return (
+    <Pressable onPress={handlePress} style={({ pressed }) => [styles.lbRow, pressed && { backgroundColor: '#f9f9f9' }]}>
+      <Text style={[styles.lbRank, isWinner && styles.lbRankWinner]}>{rank}</Text>
+      <Avatar uri={item.user.profilePicture} size={44} />
+      <View style={styles.lbUser}>
+        <Text style={styles.lbName} numberOfLines={1}>{item.user.name || 'User'}</Text>
+        {!!item.user.username && <Text style={styles.lbUsername}>@{item.user.username}</Text>}
+      </View>
+      {isWinner && <Ionicons name="trophy" size={20} color="#FFC107" style={styles.lbTrophy} />}
+      <Text style={styles.lbScore}>{(item.averageRating || 0).toFixed(2)}</Text>
+    </Pressable>
+  );
+}
+
+
 export default function ContestDetailsScreen({ route, navigation }) {
   const { contestId } = route.params;
   const { user } = useAuthStore();
@@ -119,27 +147,39 @@ export default function ContestDetailsScreen({ route, navigation }) {
   const entriesBag = useContestStore((s) => s.entries[contestId]);
   const rateEntry = useContestStore((s) => s.rateEntry);
   const fetchLeaderboard = useContestStore((s) => s.fetchLeaderboard);
-  const contest = useContestStore((s) => s.contests.find((c) => c.id === contestId));
-
-  const [tab, setTab] = useState('enter');
-
-  useEffect(() => {
-    fetchEntries({ contestId, reset: true });
-    fetchLeaderboard({ contestId, limit: 50, minVotes: 5 });
-  }, [contestId, fetchEntries, fetchLeaderboard]);
-
-  const entries = entriesBag?.items || [];
-  const loading = entriesBag?.loading && (entries?.length ?? 0) === 0;
+  const { contest, leaderboard, leaderboardLoading } = useContestStore((s) => ({
+    contest: s.contests.find((c) => c.id === contestId) || s.contestsById[contestId],
+    leaderboard: s.leaderboards[contestId],
+    leaderboardLoading: !s.leaderboards[contestId], // Simple loading check
+  }));
 
   // Contest meta
   const contestData = contest || {};
-  const startMs = toMs(contestData.startAt) || toMs(entries[0]?.contestStartAt) || toMs(entries[0]?.startAt);
-  const endMs = toMs(contestData.endAt) || toMs(entries[0]?.contestEndAt) || toMs(entries[0]?.endAt);
+  const startMs = toMs(contestData.startAt);
+  const endMs = toMs(contestData.endAt);
   const status = statusFromRange(startMs, endMs);
   const range = rangeLabel(startMs, endMs);
   const host = contestData.host || 'Host';
   const bannerImage = contestData.bannerImage || null;
   const bannerCaption = contestData.bannerCaption || '';
+
+  // Set initial tab based on status
+  const [tab, setTab] = useState(status === 'ended' ? 'leaderboard' : 'enter');
+
+  useEffect(() => {
+    // Always fetch leaderboard for both ended and active contests (for the tab)
+    // Fetch top 10 as requested
+    fetchLeaderboard({ contestId, limit: 10, minVotes: 1 });
+
+    // Only fetch entries if the contest is not ended
+    if (status !== 'ended') {
+      fetchEntries({ contestId, reset: true });
+    }
+  }, [contestId, fetchEntries, fetchLeaderboard, status]);
+
+  const entries = entriesBag?.items || [];
+  const entriesLoading = entriesBag?.loading && (entries?.length ?? 0) === 0;
+
 
   // hero animation
   const fade = useRef(new Animated.Value(0)).current;
@@ -214,18 +254,31 @@ export default function ContestDetailsScreen({ route, navigation }) {
           <View style={[styles.pill, { backgroundColor: '#F0FFF4' }]}><Text style={[styles.pillText, { color: '#10B981' }]}>Prize: {contestData.prize || '₹10,000 + Feature'}</Text></View>
           <View style={[styles.pill, { backgroundColor: '#FFF7ED' }]}><Text style={[styles.pillText, { color: '#F97316' }]}>Entry: {contestData.entryFee && contestData.entryFee > 0 ? `₹${contestData.entryFee}` : 'Free'}</Text></View>
         </View>
-        <View style={styles.actionsRow}>
-          <TouchableOpacity onPress={onEnter} style={styles.primaryBtn} activeOpacity={0.9}>
-            <Text style={styles.primaryBtnText}>Upload Outfit</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => setTab('rate')} style={styles.secondaryBtn} activeOpacity={0.9}>
-            <Text style={styles.secondaryBtnText}>Go to Rate</Text>
-          </TouchableOpacity>
-        </View>
+        
+        {/* Conditionally render actions for active/upcoming contests */}
+        {status !== 'ended' && (
+          <View style={styles.actionsRow}>
+            <TouchableOpacity onPress={onEnter} style={styles.primaryBtn} activeOpacity={0.9}>
+              <Text style={styles.primaryBtnText}>Upload Outfit</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => setTab('rate')} style={styles.secondaryBtn} activeOpacity={0.9}>
+              <Text style={styles.secondaryBtnText}>Go to Rate</Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </View>
 
-      <SegTabs value={tab} onChange={setTab} />
-      {tab === 'enter' && <Text style={[styles.sectionLabel, { paddingHorizontal: PADDING_H }]}>Reference & Recent entries</Text>}
+      {/* Conditionally render tabs for active/upcoming contests */}
+      {status !== 'ended' ? (
+        <>
+          <SegTabs value={tab} onChange={setTab} />
+          {tab === 'enter' && <Text style={[styles.sectionLabel, { paddingHorizontal: PADDING_H }]}>Reference & Recent entries</Text>}
+        </>
+      ) : (
+        <Text style={[styles.sectionLabel, { paddingHorizontal: PADDING_H, textAlign: 'center', fontSize: 18, marginVertical: 8 }]}>
+          Final Leaderboard
+        </Text>
+      )}
     </View>
   );
 
@@ -237,6 +290,27 @@ export default function ContestDetailsScreen({ route, navigation }) {
       onRate={(post) => openEntryFlow(post)}
     />
   );
+
+  // If contest has ended, show only the leaderboard
+  if (status === 'ended') {
+    return (
+      <FlatList
+        data={leaderboard || []}
+        keyExtractor={(item) => item.id}
+        ListHeaderComponent={Header}
+        renderItem={({ item, index }) => <LeaderboardRow item={item} rank={index + 1} navigation={navigation} />}
+        contentContainerStyle={{ paddingBottom: 24 }}
+        ItemSeparatorComponent={() => <View style={styles.lbSeparator} />}
+        ListEmptyComponent={
+          leaderboardLoading ? (
+            <ActivityIndicator style={{ marginVertical: 40 }} />
+          ) : (
+            <Text style={styles.emptyText}>Leaderboard not available.</Text>
+          )
+        }
+      />
+    );
+  }
 
   return (
     <View style={{ flex: 1, backgroundColor: '#fff' }}>
@@ -254,7 +328,7 @@ export default function ContestDetailsScreen({ route, navigation }) {
           ListFooterComponent={entriesBag?.loading ? (
             <ActivityIndicator style={{ marginVertical: 16 }} />
           ) : null}
-          ListEmptyComponent={!loading ? (
+          ListEmptyComponent={!entriesLoading ? (
             <Text style={{ textAlign: 'center', marginTop: 24, color: '#666' }}>No entries yet.</Text>
           ) : null}
         />
@@ -274,7 +348,7 @@ export default function ContestDetailsScreen({ route, navigation }) {
           ListFooterComponent={entriesBag?.loading ? (
             <ActivityIndicator style={{ marginVertical: 16 }} />
           ) : null}
-          ListEmptyComponent={!loading ? (
+          ListEmptyComponent={!entriesLoading ? (
             <Text style={{ textAlign: 'center', marginTop: 24, color: '#666' }}>No entries yet.</Text>
           ) : null}
         />
@@ -282,11 +356,19 @@ export default function ContestDetailsScreen({ route, navigation }) {
 
       {tab === 'leaderboard' && (
         <FlatList
-          data={[]}
-          keyExtractor={() => 'header-only'}
+          data={leaderboard || []}
+          keyExtractor={(item) => item.id}
           ListHeaderComponent={Header}
-          renderItem={null}
-          ListEmptyComponent={<LeaderboardList contestId={contestId} />}
+          renderItem={({ item, index }) => <LeaderboardRow item={item} rank={index + 1} navigation={navigation} />}
+          contentContainerStyle={{ paddingBottom: 24 }}
+          ItemSeparatorComponent={() => <View style={styles.lbSeparator} />}
+          ListEmptyComponent={
+            leaderboardLoading ? (
+              <ActivityIndicator style={{ marginVertical: 40 }} />
+            ) : (
+              <Text style={styles.emptyText}>Leaderboard not available.</Text>
+            )
+          }
         />
       )}
     </View>
@@ -363,4 +445,58 @@ const styles = StyleSheet.create({
   entryCaption: { fontWeight: '800' },
   entryMeta: { color: '#777', marginTop: 4 },
   ratePill: { paddingHorizontal: 10, paddingVertical: 8, borderRadius: 14, marginRight: 8, marginTop: 8 },
+
+  // NEW Leaderboard styles
+  lbRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: PADDING_H,
+  },
+  lbRank: {
+    fontWeight: '900',
+    fontSize: 16,
+    color: '#6B7280',
+    width: 30,
+    textAlign: 'center',
+    marginRight: 12,
+  },
+  lbRankWinner: {
+    color: '#D97706', // Amber color for winner
+  },
+  lbUser: {
+    flex: 1,
+    marginLeft: 12,
+    justifyContent: 'center',
+  },
+  lbName: {
+    fontWeight: 'bold',
+    color: '#1F2937',
+  },
+  lbUsername: {
+    color: '#6B7280',
+    fontSize: 12,
+    marginTop: 2,
+  },
+  lbTrophy: {
+    marginLeft: 'auto',
+  },
+  lbScore: {
+    fontWeight: '900',
+    fontSize: 16,
+    color: '#111827',
+    marginLeft: 16,
+    minWidth: 50,
+    textAlign: 'right',
+  },
+  lbSeparator: {
+    height: 1,
+    backgroundColor: '#F3F4F6',
+    marginHorizontal: PADDING_H,
+  },
+  emptyText: {
+    textAlign: 'center',
+    marginTop: 24,
+    color: '#666'
+  },
 });

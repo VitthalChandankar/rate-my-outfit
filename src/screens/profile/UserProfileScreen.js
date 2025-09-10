@@ -8,6 +8,7 @@ import * as Haptics from 'expo-haptics';
 
 import useAuthStore from '../../store/authStore';
 import useUserStore from '../../store/UserStore';
+import useContestStore from '../../store/contestStore';
 import { fetchUserOutfits } from '../../services/firebase';
 import Avatar from '../../components/Avatar';
 import ProfileGridItem from '../../components/ProfileGridItem';
@@ -18,6 +19,7 @@ export default function UserProfileScreen({ route, navigation }) {
   const authedId = user?.uid || user?.user?.uid || null;
 
   const { loadUserProfile, profilesById, isFollowing, follow, unfollow, relCache } = useUserStore();
+  const { contestsById, listContests } = useContestStore();
   const profile = profilesById[userId];
 
   // Define the relationship key helper locally
@@ -32,8 +34,11 @@ export default function UserProfileScreen({ route, navigation }) {
   const [hasMore, setHasMore] = useState(true);
 
   useEffect(() => {
-    if (userId) loadUserProfile(userId);
-  }, [userId, loadUserProfile]);
+    if (userId) {
+      loadUserProfile(userId);
+      listContests({ status: 'all', reset: true });
+    }
+  }, [userId, loadUserProfile, listContests]);
 
   const loadPosts = useCallback(async (isReset = false) => {
     if (loading || refreshing) return;
@@ -66,24 +71,33 @@ export default function UserProfileScreen({ route, navigation }) {
   const handlePostPress = useCallback((post) => {
     if (!post?.id) return;
     const isContest = post.type === 'contest' || !!post.contestId;
+
     if (isContest) {
-      const target = {
-        id: post.id,
-        userId: post.userId || post.user?.uid || '',
-        userName: post.user?.name || 'Creator',
-        userPhoto: post.user?.profilePicture || null,
-        imageUrl: post.imageUrl || null,
-        caption: post.caption || '',
-        createdAt: post.createdAt || null,
-        contestId: post.contestId || null,
-        averageRating: Number(post.averageRating ?? 0) || 0,
-        ratingsCount: Number(post.ratingsCount ?? 0) || 0,
-      };
-      navigation.navigate('RateEntry', { item: target, mode: 'entry' });
+      const contest = contestsById[post.contestId];
+      const now = new Date();
+      const contestIsActive = contest && contest.endAt && (contest.endAt.toDate ? contest.endAt.toDate() : new Date(contest.endAt)) > now;
+
+      if (contestIsActive) {
+        const target = {
+          id: post.id,
+          userId: post.userId || post.user?.uid || '',
+          userName: post.user?.name || 'Creator',
+          userPhoto: post.user?.profilePicture || null,
+          imageUrl: post.imageUrl || null,
+          caption: post.caption || '',
+          createdAt: post.createdAt || null,
+          contestId: post.contestId || null,
+          averageRating: Number(post.averageRating ?? 0) || 0,
+          ratingsCount: Number(post.ratingsCount ?? 0) || 0,
+        };
+        navigation.navigate('RateEntry', { item: target, mode: 'entry' });
+      } else {
+        navigation.navigate('ContestDetails', { contestId: post.contestId });
+      }
     } else {
       navigation.navigate('OutfitDetails', { outfitId: post.id });
     }
-  }, [navigation]);
+  }, [navigation, contestsById]);
 
   const onToggleFollow = async () => {
     if (!authedId) return Alert.alert('Sign in', 'Please sign in to follow');

@@ -57,6 +57,7 @@ async function enrichItemsWithUserData(items) {
 const useContestStore = create((set, get) => ({
   // contests
   contests: [],
+  contestsById: {}, // NEW: for quick lookups
   contestsLast: null,
   contestsLoading: false,
   contestsRefreshing: false,
@@ -80,13 +81,20 @@ const useContestStore = create((set, get) => ({
     const res = await fbListContests({ limitCount: limit, startAfterDoc, status, country });
 
     if (res.success) {
-      set({
+      
+      const newContestsById = (res.items || []).reduce((acc, contest) => {
+        acc[contest.id] = contest;
+        return acc;
+      }, {});
+
+      set((state) => ({
         contests: reset ? res.items : [...state.contests, ...res.items],
+        contestsById: { ...state.contestsById, ...newContestsById },
         contestsLast: res.last || state.contestsLast,
         contestsLoading: false,
         contestsRefreshing: false,
         hasMoreContests: !!res.last,
-      });
+      }));
     } else {
       set({ contestsLoading: false, contestsRefreshing: false });
     }
@@ -132,7 +140,6 @@ const useContestStore = create((set, get) => ({
         entries: { ...get().entries, [contestId]: { ...bag, loading: false, refreshing: false } },
       });
     }
-
     return res;
   },
 

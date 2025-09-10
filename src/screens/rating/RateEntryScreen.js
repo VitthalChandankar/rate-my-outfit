@@ -14,12 +14,17 @@ export default function RateEntryScreen({ route, navigation }) {
   const { item = {}, mode = 'entry' } = route.params || {};
 
   // Get live entry data from the store
-  const entryFromStore = useContestStore(state =>
-    state.entries[item.contestId]?.items.find(e => e.id === item.id)
-  );
+  const { entryFromStore, contestsById } = useContestStore(state => ({
+    entryFromStore: state.entries[item.contestId]?.items.find(e => e.id === item.id),
+    contestsById: state.contestsById,
+  }));
 
   // Use the live data from the store if available, otherwise fall back to the initial item from params
   const liveItem = entryFromStore || item;
+
+  const contest = contestsById[liveItem.contestId];
+  const now = new Date();
+  const contestIsActive = contest && contest.endAt && (contest.endAt.toDate ? contest.endAt.toDate() : new Date(contest.endAt)) > now;
 
   const displayUrl = useMemo(
     () => (liveItem?.imageUrl ? withCloudinaryTransforms(liveItem.imageUrl, IMG_DETAIL) : null),
@@ -46,6 +51,11 @@ export default function RateEntryScreen({ route, navigation }) {
   const animatedImageStyle = { transform: [{ scale: scaleAnim }], opacity: opacityAnim };
 
   const onRate = () => {
+    if (!contestIsActive) {
+      Alert.alert("Contest Ended", "This contest has ended and can no longer be rated.");
+      return;
+    }
+
     const target = {
       id: liveItem?.id ?? '',
       userId: liveItem?.userId ?? '',
@@ -110,8 +120,8 @@ export default function RateEntryScreen({ route, navigation }) {
       </View>
 
       <Animated.View style={{ transform: [{ translateY: slideAnim }] }}>
-        <TouchableOpacity style={styles.rateBtn} onPress={onRate} activeOpacity={0.9}>
-          <Text style={styles.rateText}>Rate Now</Text>
+        <TouchableOpacity style={[styles.rateBtn, !contestIsActive && styles.rateBtnDisabled]} onPress={onRate} activeOpacity={0.9} disabled={!contestIsActive}>
+          <Text style={styles.rateText}>{contestIsActive ? 'Rate Now' : 'Contest Ended'}</Text>
         </TouchableOpacity>
       </Animated.View>
     </SafeAreaView>
@@ -175,5 +185,8 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   rateBtn: { backgroundColor: '#A855F7', paddingVertical: 14, borderRadius: 16, alignItems: 'center', marginBottom: 10 },
+  rateBtnDisabled: {
+    backgroundColor: '#BDBDBD',
+  },
   rateText: { color: '#fff', fontWeight: 'bold', fontSize: 15 },
 });

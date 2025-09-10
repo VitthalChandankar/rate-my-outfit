@@ -5,7 +5,7 @@ import { create } from 'zustand';
 import {
   createOutfitDocument,
   addComment,
-  deleteComment,
+  deleteComment, deleteOutfit as fbDeleteOutfit,
   fetchFeed as fbFetchFeed,
   fetchOutfitDetails as fbFetchOutfitDetails,
   fetchCommentsForOutfit,
@@ -130,6 +130,29 @@ const useOutfitStore = create((set, get) => ({
         post.id === outfitId ? { ...post, ...updates } : post
       ),
     }));
+  },
+
+  // NEW: Delete an outfit
+  deleteOutfit: async (outfitId) => {
+    const { user } = useAuthStore.getState();
+    const authedUid = user?.uid || user?.user?.uid;
+    if (!authedUid) return { success: false, error: 'Not authenticated' };
+
+    // Optimistic update
+    const originalFeed = get().feed;
+    const originalMyOutfits = get().myOutfits;
+
+    set((state) => ({
+      feed: state.feed.filter(post => post.id !== outfitId),
+      myOutfits: state.myOutfits.filter(post => post.id !== outfitId),
+    }));
+
+    const res = await fbDeleteOutfit(outfitId, authedUid);
+
+    if (!res.success) {
+      set({ feed: originalFeed, myOutfits: originalMyOutfits });
+    }
+    return res;
   },
 
   // Like/unlike a post

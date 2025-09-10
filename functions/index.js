@@ -414,3 +414,42 @@ exports.onEntryRated = onDocumentUpdated("entries/{entryId}", async (event) => {
   }
   return null;
 });
+
+/**
+ * When an outfit is deleted, clean up its sub-collections (likes, comments)
+ * and decrement the user's post count.
+ */
+exports.onOutfitDelete = onDocumentDeleted("outfits/{outfitId}", async (event) => {
+  const snap = event.data;
+  if (!snap) {
+    console.log("No data on outfit delete, exiting.");
+    return;
+  }
+  const outfitData = snap.data();
+  const {outfitId} = event.params;
+  const {userId} = outfitData;
+
+  if (!userId) {
+    console.log(`Outfit ${outfitId} has no userId, cannot decrement count.`);
+    return;
+  }
+
+  const db = admin.firestore();
+  const batch = db.batch();
+
+  // 1. Decrement user's postsCount
+  const userRef = db.doc(`users/${userId}`);
+  batch.update(userRef, {"stats.postsCount": admin.firestore.FieldValue.increment(-1)});
+
+  // 2. Delete all comments for the outfit
+  const commentsQuery = db.collection("comments").where("outfitId", "==", outfitId);
+  const commentsSnap = await commentsQuery.get();
+  commentsSnap.forEach((doc) => batch.delete(doc.ref));
+
+  // 3. Delete all likes for the outfit
+  const likesQuery = db.collection("likes").where("outfitId", "==", outfitId);
+  const likesSnap = await likesQuery.get();
+  likesSnap.forEach((doc) => batch.delete(doc.ref));
+
+  await batch.commit();
+});

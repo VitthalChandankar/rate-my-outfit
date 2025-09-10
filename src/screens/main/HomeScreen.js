@@ -9,6 +9,7 @@ import useAuthStore from '../../store/authStore';
 import useOutfitStore from '../../store/outfitStore';
 import useUserStore from '../../store/UserStore';
 import useNotificationsStore from '../../store/notificationsStore';
+import useContestStore from '../../store/contestStore';
 import OutfitCard from '../../components/OutfitCard';
 
 function ensureKey(item) {
@@ -41,12 +42,16 @@ export default function HomeScreen() {
   const refreshing = useOutfitStore((s) => s.refreshing);
   const lastDoc = useOutfitStore((s) => s.lastDoc);
 
+  const contestsById = useContestStore((s) => s.contestsById);
+  const listContests = useContestStore((s) => s.listContests);
+
   const unreadCount = useNotificationsStore((s) => s.unreadCount);
 
   const [initialLoaded, setInitialLoaded] = useState(false);
 
   useEffect(() => {
     if (isFocused) {
+      listContests({ status: 'all', reset: true }); // Fetch all contests to populate cache
       fetchFeed({ limit: 12, reset: true }).finally(() => setInitialLoaded(true));
     }
   }, [isFocused, fetchFeed]);
@@ -118,8 +123,19 @@ export default function HomeScreen() {
   const handleOpen = useCallback((post) => {
     if (!post?.id) return;
     const isContest = post.type === 'contest' || !!post.contestId;
-    if (isContest) handleRate(post);
-    else navigation.navigate('OutfitDetails', { outfitId: post.id });
+    if (isContest) {
+      const contest = contestsById[post.contestId];
+      const now = new Date();
+      const contestIsActive = contest && contest.endAt && (contest.endAt.toDate ? contest.endAt.toDate() : new Date(contest.endAt)) > now;
+
+      if (contestIsActive) {
+        handleRate(post);
+      } else {
+        navigation.navigate('ContestDetails', { contestId: post.contestId });
+      }
+    } else {
+      navigation.navigate('OutfitDetails', { outfitId: post.id });
+    }
   }, [navigation, handleRate]);
 
   const handleRate = useCallback((post) => {

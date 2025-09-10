@@ -28,6 +28,7 @@ import {
   serverTimestamp,
   setDoc,
   startAfter,
+  deleteDoc as fbDeleteDoc,
   writeBatch,
 } from 'firebase/firestore';
 import { uploadImageToCloudinary } from './cloudinaryService';
@@ -200,6 +201,30 @@ async function fetchUserOutfits(userId, { limitCount = 50, startAfterDoc = null 
     const last = snap.docs[snap.docs.length - 1] || null;
     return { success: true, items, last };
   } catch (error) {
+    return { success: false, error };
+  }
+}
+
+async function deleteOutfit(outfitId, userId) {
+  if (!outfitId || !userId) {
+    return { success: false, error: 'Missing outfitId or userId' };
+  }
+
+  const outfitRef = doc(firestore, 'outfits', outfitId);
+
+  try {
+    const outfitSnap = await getDoc(outfitRef);
+    if (!outfitSnap.exists()) {
+      return { success: true }; // Already deleted
+    }
+    if (outfitSnap.data().userId !== userId) {
+      return { success: false, error: "Permission denied. You can only delete your own outfits." };
+    }
+
+    await fbDeleteDoc(outfitRef);
+    return { success: true };
+  } catch (error) {
+    console.error('deleteOutfit error:', error);
     return { success: false, error };
   }
 }
@@ -431,10 +456,25 @@ async function fbRateEntry({ entryId, contestId, userId, rating, aiFlag = false 
     const ratingId = `${entryId}_${userId}`;
     const ratingRef = doc(firestore, 'ratings', ratingId);
     const entryRef = doc(firestore, 'entries', entryId);
+    const contestRef = doc(firestore, 'contests', contestId);
 
     const result = await runTransaction(firestore, async (tx) => {
-      const entrySnap = await tx.get(entryRef);
+      const [entrySnap, contestSnap] = await Promise.all([
+        tx.get(entryRef),
+        tx.get(contestRef),
+      ]);
+
       if (!entrySnap.exists()) throw new Error('Entry not found');
+      if (!contestSnap.exists()) throw new Error('Contest not found');
+
+      // Check if contest is active
+      const contestData = contestSnap.data();
+      const now = new Date();
+      const endDate = contestData.endAt?.toDate ? contestData.endAt.toDate() : new Date();
+      if (now > endDate) {
+        throw new Error("This contest has ended and can no longer be rated.");
+      }
+
       const data = entrySnap.data();
       const oldAvg = data.averageRating || 0;
       const oldCount = data.ratingsCount || 0;
@@ -784,7 +824,7 @@ async function markNotificationsAsRead(userId) {
 
 export {
   addComment, auth, createUser, createOutfitDocument,
-  deleteComment, fetchCommentsForOutfit, fetchFeed, fetchOutfitDetails, fetchUserOutfits, firestore, loginWithEmail, // Removed submitRating
+  deleteComment, deleteOutfit, fetchCommentsForOutfit, fetchFeed, fetchOutfitDetails, fetchUserOutfits, firestore, loginWithEmail, // Removed submitRating
   logout, onAuthChange, sendResetEmail, signupWithEmail, uploadImage,
   toggleLikePost, fetchMyLikedOutfitIds, fetchLikersForOutfit, fbListContests, fbFetchContestEntries, fbCreateEntry, fbRateEntry, fbFetchContestLeaderboard, updateUserPushToken,
   getUserProfile, updateUserProfile, setUserAvatar, ensureUsernameUnique, fetchNotifications, markNotificationsAsRead, subscribeToUnreadNotifications,

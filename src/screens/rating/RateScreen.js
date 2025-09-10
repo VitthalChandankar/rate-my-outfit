@@ -49,8 +49,14 @@ export default function RateScreen({ route, navigation }) {
   }
 
   const { user } = useAuthStore();
-  const rateEntry = useContestStore((s) => s.rateEntry);
+  const { rateEntry, contestsById } = useContestStore((s) => ({
+    rateEntry: s.rateEntry,
+    contestsById: s.contestsById,
+  }));
   const submitRating = useOutfitStore((s) => s.submitRating);
+
+  const contest = contestsById[contestId];
+  const contestIsActive = contest && contest.endAt && (contest.endAt.toDate ? contest.endAt.toDate() : new Date()) > new Date();
 
   const displayUrl = useMemo(
     () => (imageUrl ? withCloudinaryTransforms(imageUrl, IMG_DETAIL) : null),
@@ -158,6 +164,12 @@ export default function RateScreen({ route, navigation }) {
 
   const onSubmit = async () => {
     if (!user?.uid) return Alert.alert('Sign in', 'Please sign in to rate.');
+    if (!contestIsActive) {
+      Alert.alert("Contest Ended", "This contest has ended and can no longer be rated.", [
+        { text: "OK", onPress: () => navigation.goBack() }
+      ]);
+      return;
+    }
     if (user?.uid === userId) return Alert.alert('Not allowed', 'You can’t rate your own post.');
     setSubmitting(true);
     try {

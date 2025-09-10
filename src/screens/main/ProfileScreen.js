@@ -6,6 +6,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Pressable,
   RefreshControl,
   StyleSheet,
@@ -24,6 +25,7 @@ import { Button } from 'react-native-paper';
 import useAuthStore from '../../store/authStore';
 import useOutfitStore from '../../store/outfitStore';
 import useUserStore from '../../store/UserStore';
+import useContestStore from '../../store/contestStore';
 import Avatar from '../../components/Avatar';
 import ProfileGridItem from '../../components/ProfileGridItem';
 
@@ -56,47 +58,72 @@ export default function ProfileScreen({ navigation }) {
 
   const { myProfile, loadMyProfile } = useUserStore();
 
-  const myOutfits = useOutfitStore((s) => s.myOutfits);
-  const fetchMyOutfits = useOutfitStore((s) => s.fetchMyOutfits);
-  const loading = useOutfitStore((s) => s.myOutfitsLoading);
-  const refreshing = useOutfitStore((s) => s.myOutfitsRefreshing);
-  const hasMore = useOutfitStore((s) => s.myOutfitsHasMore);
+  const { myOutfits, fetchMyOutfits, loading, refreshing, hasMore, deleteOutfit } = useOutfitStore();
+  const { contestsById, listContests } = useContestStore();
 
   const [tab, setTab] = useState('posts'); // posts | achievements | contests
 
   useEffect(() => {
     if (isFocused) {
       fetchMyOutfits({ reset: true });
+      listContests({ status: 'all', reset: true });
       if (uid) loadMyProfile(uid);
     }
-  }, [isFocused, fetchMyOutfits, uid, loadMyProfile]);
+  }, [isFocused, fetchMyOutfits, listContests, uid, loadMyProfile]);
 
   const data = useMemo(() => {
     const withKeys = (myOutfits || []).map(ensureKey);
     return dedupeById(withKeys);
   }, [myOutfits]);
 
+  const handlePostLongPress = useCallback((post) => {
+    if (!post?.id) return;
+    Alert.alert(
+      "Post Options",
+      "What would you like to do?",
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "View Post", onPress: () => handlePostPress(post) },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            await deleteOutfit(post.id);
+          },
+        },
+      ]
+    );
+  }, [handlePostPress, deleteOutfit]);
+
   const handlePostPress = useCallback((post) => {
     if (!post?.id) return;
     const isContest = post.type === 'contest' || !!post.contestId;
     if (isContest) {
-      const target = {
-        id: post.id,
-        userId: post.userId || post.user?.uid || '',
-        userName: post.user?.name || 'Creator',
-        userPhoto: post.user?.profilePicture || null,
-        imageUrl: post.imageUrl || null,
-        caption: post.caption || '',
-        createdAt: post.createdAt || null,
-        contestId: post.contestId || null,
-        averageRating: Number(post.averageRating ?? 0) || 0,
-        ratingsCount: Number(post.ratingsCount ?? 0) || 0,
-      };
-      navigation.navigate('RateEntry', { item: target, mode: 'entry' });
+      const contest = contestsById[post.contestId];
+      const now = new Date();
+      const contestIsActive = contest && contest.endAt && (contest.endAt.toDate ? contest.endAt.toDate() : new Date(contest.endAt)) > now;
+
+      if (contestIsActive) {
+        const target = {
+          id: post.id,
+          userId: post.userId || post.user?.uid || '',
+          userName: post.user?.name || 'Creator',
+          userPhoto: post.user?.profilePicture || null,
+          imageUrl: post.imageUrl || null,
+          caption: post.caption || '',
+          createdAt: post.createdAt || null,
+          contestId: post.contestId || null,
+          averageRating: Number(post.averageRating ?? 0) || 0,
+          ratingsCount: Number(post.ratingsCount ?? 0) || 0,
+        };
+        navigation.navigate('RateEntry', { item: target, mode: 'entry' });
+      } else {
+        navigation.navigate('ContestDetails', { contestId: post.contestId });
+      }
     } else {
       navigation.navigate('OutfitDetails', { outfitId: post.id });
     }
-  }, [navigation]);
+  }, [navigation, contestsById]);
 
   const onRefresh = useCallback(() => fetchMyOutfits({ reset: true }), [fetchMyOutfits]);
 
@@ -186,8 +213,8 @@ export default function ProfileScreen({ navigation }) {
   );
 
   const renderItem = useCallback(({ item }) => (
-    <ProfileGridItem item={item} onPress={handlePostPress} />
-  ), [handlePostPress]);
+    <ProfileGridItem item={item} onPress={handlePostPress} onLongPress={handlePostLongPress} />
+  ), [handlePostPress, handlePostLongPress]);
 
   const AchievementsEmpty = () => (
     <View style={styles.emptyWrap}>

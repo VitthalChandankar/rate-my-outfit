@@ -4,7 +4,7 @@
 // Modern screen for normal posts: shows image, like/comment actions, and caption.
 
 
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, useLayoutEffect } from 'react';
 import {
   StyleSheet,
   Text,
@@ -12,6 +12,7 @@ import {
   ScrollView,
   ActivityIndicator,
   TouchableOpacity, 
+  Alert,
   Pressable,
 } from 'react-native';
 import { Image as ExpoImage } from "expo-image";
@@ -28,11 +29,12 @@ export default function OutfitDetailsScreen({ route, navigation }) {
   const { user: authedUser } = useAuthStore();
   const authedUid = authedUser?.uid || authedUser?.user?.uid || null;
 
-  const { fetchOutfitDetails, toggleLike } = useOutfitStore();
+  const { fetchOutfitDetails, toggleLike, deleteOutfit } = useOutfitStore();
   const myLikedIds = useUserStore((s) => s.myLikedIds);
 
   const [outfit, setOutfit] = useState(null); // Will hold the full outfit object
   const [loading, setLoading] = useState(true);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     if (outfitId) {
@@ -45,6 +47,45 @@ export default function OutfitDetailsScreen({ route, navigation }) {
       });
     }
   }, [outfitId, fetchOutfitDetails]); // Re-fetch if outfitId changes
+
+  const isOwner = useMemo(() => authedUid && outfit?.userId === authedUid, [authedUid, outfit]);
+
+  const handleDelete = useCallback(() => {
+    if (!isOwner || !outfitId) return;
+    Alert.alert(
+      "Delete Post",
+      "Are you sure you want to delete this post? This action cannot be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            setDeleting(true);
+            const res = await deleteOutfit(outfitId);
+            if (res.success) {
+              navigation.goBack();
+            } else {
+              Alert.alert("Error", "Could not delete the post. Please try again.");
+              setDeleting(false);
+            }
+          },
+        },
+      ]
+    );
+  }, [isOwner, outfitId, deleteOutfit, navigation]);
+
+  useLayoutEffect(() => {
+    if (isOwner) {
+      navigation.setOptions({
+        headerRight: () => (
+          <TouchableOpacity onPress={handleDelete} disabled={deleting} style={{ marginRight: 15 }}>
+            <Ionicons name="ellipsis-horizontal" size={24} color="#111" />
+          </TouchableOpacity>
+        ),
+      });
+    }
+  }, [navigation, isOwner, handleDelete, deleting, outfit]);
 
   const displayUrl = useMemo(
     () => (outfit?.imageUrl ? withCloudinaryTransforms(outfit.imageUrl, IMG_DETAIL) : null),
