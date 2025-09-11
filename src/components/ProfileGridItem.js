@@ -1,12 +1,12 @@
 // src/components/ProfileGridItem.js
 
-import React from 'react';
+import React, { memo } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Image as ExpoImage } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { withCloudinaryTransforms, IMG_SQUARE_THUMB } from '../utils/cloudinaryUrl';
 
-const ProfileGridItem = ({ item, onPress, onLongPress }) => {
+const ProfileGridItem = memo(({ item, onPress, onLongPress }) => {
   if (!item?.imageUrl) {
     return <View style={styles.container} />;
   }
@@ -34,7 +34,7 @@ const ProfileGridItem = ({ item, onPress, onLongPress }) => {
       )}
     </TouchableOpacity>
   );
-};
+});
 
 const styles = StyleSheet.create({
   container: {
@@ -53,4 +53,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default React.memo(ProfileGridItem);
+export default ProfileGridItem;

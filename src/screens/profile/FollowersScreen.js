@@ -1,11 +1,41 @@
 // src/screens/profile/FollowersScreen.js
 // Instagram-like list: avatar, name, username, and Follow/Following button.
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, memo } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, View, ActivityIndicator } from 'react-native';
 import useUserStore from '../../store/UserStore';
 import useAuthStore from '../../store/authStore';
 import Avatar from '../../components/Avatar';
+
+const UserRow = memo(({ item, onToggle, isSelf, following, onNavigate }) => {
+  const display = {
+    name: item.name,
+    username: item.username,
+    picture: item.picture,
+  };
+
+  return (
+    <View style={styles.row}>
+      <Pressable onPress={onNavigate} style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+        <Avatar uri={display.picture} size={44} ring />
+        <View style={{ marginLeft: 10, flex: 1 }}>
+          <Text style={styles.name}>{display.name}</Text>
+          {!!display.username && <Text style={styles.sub}>@{display.username}</Text>}
+        </View>
+      </Pressable>
+      {!isSelf && (
+        <Pressable
+          onPress={onToggle}
+          style={({ pressed }) => [styles.followBtn, following && styles.followingBtn, pressed && { opacity: 0.9 }]}
+        >
+          <Text style={[styles.followText, following && styles.followingText]}>
+            {following ? 'Following' : 'Follow'}
+          </Text>
+        </Pressable>
+      )}
+    </View>
+  );
+});
 
 export default function FollowersScreen({ route, navigation }) {
   const { userId } = route.params || {};
@@ -81,45 +111,27 @@ export default function FollowersScreen({ route, navigation }) {
     );
   }
 
+  const renderItem = useCallback(({ item }) => {
+    const targetId = item.followerId;
+    const cached = profilesById[targetId];
+    const display = {
+      name: item.followerName || cached?.name || cached?.displayName || `User ${String(targetId).slice(0, 6)}`,
+      username: cached?.username || '',
+      picture: item.followerPicture || cached?.profilePicture || null,
+    };
+    const isSelf = authedId && targetId === authedId;
+    const following = !!relCache[relIdOf(authedId, targetId)];
+
+    return <UserRow item={display} onToggle={() => onToggle(targetId)} isSelf={isSelf} following={following} onNavigate={() => navigation.navigate('UserProfile', { userId: targetId })} />;
+  }, [profilesById, authedId, relCache, onToggle, navigation]);
+
   return (
     <FlatList
       data={rows}
       keyExtractor={(it) => it.id}
       contentContainerStyle={{ padding: 12 }}
       ListEmptyComponent={ListEmpty}
-      renderItem={({ item, index }) => {
-        const targetId = item.followerId;
-        const cached = profilesById[targetId];
-        const display = {
-          name: item.followerName || cached?.name || cached?.displayName || `User ${String(targetId).slice(0, 6)}`,
-          username: cached?.username || '',
-          picture: item.followerPicture || cached?.profilePicture || null,
-        };
-        const isSelf = authedId && targetId === authedId;
-        const following = !!relCache[relIdOf(authedId, targetId)];
-
-        return (
-          <View style={styles.row}>
-            <Pressable onPress={() => navigation.navigate('UserProfile', { userId: targetId })} style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
-              <Avatar uri={display.picture} size={44} ring />
-              <View style={{ marginLeft: 10, flex: 1 }}>
-                <Text style={styles.name}>{display.name}</Text>
-                {!!display.username && <Text style={styles.sub}>@{display.username}</Text>}
-              </View>
-            </Pressable>
-            {!isSelf && (
-              <Pressable
-                onPress={() => onToggle(targetId)}
-                style={({ pressed }) => [styles.followBtn, following && styles.followingBtn, pressed && { opacity: 0.9 }]}
-              >
-                <Text style={[styles.followText, following && styles.followingText]}>
-                  {following ? 'Following' : 'Follow'}
-                </Text>
-              </Pressable>
-            )}
-          </View>
-        );
-      }}
+      renderItem={renderItem}
       ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
       onEndReachedThreshold={0.5}
     />

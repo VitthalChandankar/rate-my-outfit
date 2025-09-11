@@ -28,7 +28,7 @@ function formatCount(num) {
   return num.toString();
 }
 
-function OutfitCard({ item, onPress, onRate, onUserPress, onLike, isLiked, onPressLikes, onPressComments, onPressContest }) {
+const OutfitCard = memo(({ item, onPress, onRate, onUserPress, onLike, isLiked, onPressLikes, onPressComments, onPressContest }) => {
   const raw = item || null;
   if (!raw) return null;
 
@@ -162,7 +162,7 @@ function OutfitCard({ item, onPress, onRate, onUserPress, onLike, isLiked, onPre
         </View>
       </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   card: { marginVertical: 10, backgroundColor: '#fff' },
@@ -236,4 +236,4 @@ const styles = StyleSheet.create({
   avatarInitial: { color: '#fff', fontWeight: '700' },
 });
 
-export default memo(OutfitCard);
+export default OutfitCard;
