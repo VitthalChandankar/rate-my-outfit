@@ -50,6 +50,9 @@ import SettingsScreen from '../screens/settings/SettingsScreen';
 import NotificationSettingsScreen from '../screens/settings/NotificationSettingsScreen';
 import LanguageScreen from '../screens/settings/LanguageScreen';
 
+import InboxScreen from '../screens/sharing/InboxScreen';
+import SharePostScreen from '../screens/sharing/SharePostScreen';
+
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
@@ -93,6 +96,8 @@ export default function AppNavigator({ navigationRef }) {
   }
 
   // Determine the user's state to route them correctly.
+  // A user needs email verification ONLY if they signed up with email/password and haven't verified yet.
+  // Phone users do not have an email to verify.
   const isEmailUser = user?.providerData.some(p => p.providerId === 'password');
   const authed = !!user;
   const needsEmailVerification = isEmailUser && !user.emailVerified;
@@ -200,6 +205,30 @@ function MainAppStack() {
           headerStyle: { backgroundColor: '#fff' },
           headerTintColor: '#111',
           headerTitleStyle: { fontWeight: 'bold' },
+        }}
+      />
+
+      {/* Sharing Flow */}
+      <Stack.Screen
+        name="Inbox"
+        component={InboxScreen}
+        options={{
+          headerShown: true,
+          title: 'Inbox',
+          headerStyle: { backgroundColor: '#fff' },
+          headerTintColor: '#111',
+          headerTitleStyle: { fontWeight: 'bold' },
+        }}
+      />
+      <Stack.Screen
+        name="SharePost"
+        component={SharePostScreen}
+        options={{
+          presentation: 'modal',
+          headerShown: true,
+          title: 'Share with a friend',
+          headerStyle: { backgroundColor: '#fff' },
+          headerTintColor: '#111',
         }}
       />
 

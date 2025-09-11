@@ -62,17 +62,22 @@ export default function HomeScreen() {
       headerShown: true,
       title: 'Rate My Outfit',
       headerRight: () => (
-        <TouchableOpacity onPress={() => navigation.navigate('Notifications')} style={{ marginRight: 10 }}>
-          <View>
-            <Ionicons name="notifications-outline" size={24} color="#111" />
-            {unreadCount > 0 && (
-              <View style={styles.badgeContainer}>
-                <Text style={styles.badgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
-              </View>
-            )}
-          </View>
-        </TouchableOpacity>
-      ),
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <TouchableOpacity onPress={() => navigation.navigate('Inbox')} style={{ marginRight: 16 }}>
+            <Ionicons name="paper-plane-outline" size={24} color="#111" />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => navigation.navigate('Notifications')} style={{ marginRight: 10 }}>
+            <View>
+              <Ionicons name="notifications-outline" size={24} color="#111" />
+              {unreadCount > 0 && (
+                <View style={styles.badgeContainer}>
+                  <Text style={styles.badgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
+                </View>
+              )}
+            </View>
+          </TouchableOpacity>
+        </View>
+      )
     });
   }, [navigation, unreadCount]);
 
@@ -113,6 +118,11 @@ export default function HomeScreen() {
   const handleCommentsPress = useCallback(({ outfitId, postOwnerId }) => {
     if (!outfitId) return;
     navigation.navigate('Comments', { outfitId, postOwnerId });
+  }, [navigation]);
+
+  const handleSharePress = useCallback((outfitData) => {
+    if (!outfitData?.id) return;
+    navigation.navigate('SharePost', { outfitData });
   }, [navigation]);
 
   const handleContestPress = useCallback((post) => {
@@ -192,6 +202,7 @@ export default function HomeScreen() {
           onPressLikes={handleLikesPress}
           onPressComments={handleCommentsPress}
           onPressContest={handleContestPress}
+          onPressShare={handleSharePress}
           isLiked={myLikedIds.has(item.id)}
         />
       )}

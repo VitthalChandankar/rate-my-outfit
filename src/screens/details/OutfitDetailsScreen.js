@@ -111,6 +111,11 @@ export default function OutfitDetailsScreen({ route, navigation }) {
     navigation.navigate('Comments', { outfitId, postOwnerId: outfit?.userId });
   }, [navigation, outfitId, outfit?.userId]);
 
+  const handleSharePress = useCallback(() => {
+    if (!outfit) return;
+    navigation.navigate('SharePost', { outfitData: outfit });
+  }, [navigation, outfit]);
+
   const handleUserPress = useCallback(() => {
     if (!outfit?.userId) return;
     if (authedUid && outfit.userId === authedUid) {
@@ -164,7 +169,7 @@ export default function OutfitDetailsScreen({ route, navigation }) {
         <TouchableOpacity style={styles.action} onPress={handleCommentsPress}>
           <Ionicons name="chatbubble-outline" size={26} color="#111" />
         </TouchableOpacity>
-        <TouchableOpacity style={styles.action}>
+        <TouchableOpacity style={styles.action} onPress={handleSharePress}>
           <Ionicons name="arrow-redo-outline" size={26} color="#111" />
         </TouchableOpacity>
       </View>

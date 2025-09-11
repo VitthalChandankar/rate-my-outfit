@@ -747,14 +747,16 @@ async function unfollowUser({ followerId, followingId }) {
   }
 }
 
-async function listFollowers({ userId, limitCount = 30, startAfterDoc = null }) {
+async function listFollowers({ userId, limitCount = 30, startAfterDoc = null, fetchAll = false }) {
   try {
     let qy = query(
       collection(firestore, 'follows'),
       where('followingId', '==', userId),
-      orderBy('createdAt', 'desc'),
-      limit(limitCount)
+      orderBy('createdAt', 'desc')
     );
+    if (!fetchAll) {
+      qy = query(qy, limit(limitCount));
+    }
     if (startAfterDoc) {
       qy = query(
         collection(firestore, 'follows'),
@@ -773,14 +775,16 @@ async function listFollowers({ userId, limitCount = 30, startAfterDoc = null }) 
   }
 }
 
-async function listFollowing({ userId, limitCount = 30, startAfterDoc = null }) {
+async function listFollowing({ userId, limitCount = 30, startAfterDoc = null, fetchAll = false }) {
   try {
     let qy = query(
       collection(firestore, 'follows'),
       where('followerId', '==', userId),
-      orderBy('createdAt', 'desc'),
-      limit(limitCount)
+      orderBy('createdAt', 'desc')
     );
+    if (!fetchAll) {
+      qy = query(qy, limit(limitCount));
+    }
     if (startAfterDoc) {
       qy = query(
         collection(firestore, 'follows'),
@@ -796,6 +800,71 @@ async function listFollowing({ userId, limitCount = 30, startAfterDoc = null }) 
     return { success: true, items, last };
   } catch (error) {
     console.error('fetchUserOutfits failed:', error);
+    return { success: false, error };
+  }
+}
+
+async function fbSharePost({ senderId, recipientId, outfitData }) {
+  try {
+    const senderSnap = await getDoc(doc(firestore, 'users', senderId));
+    if (!senderSnap.exists()) throw new Error('Sender not found');
+    const sender = senderSnap.data();
+
+    const payload = {
+      senderId,
+      senderName: sender.name || 'A user',
+      senderProfilePicture: sender.profilePicture || null,
+      recipientId,
+      outfitId: outfitData.id,
+      outfitImageUrl: outfitData.imageUrl,
+      outfitCaption: outfitData.caption || '',
+      createdAt: serverTimestamp(),
+      read: false,
+      reaction: null,
+    };
+
+    await addDoc(collection(firestore, 'shares'), payload);
+    // In a real app, a Cloud Function would trigger here to send a push notification.
+    return { success: true };
+  } catch (error) {
+    console.error('fbSharePost error:', error);
+    return { success: false, error };
+  }
+}
+
+async function fbFetchShares({ recipientId, limitCount = 20, startAfterDoc = null }) {
+  try {
+    let q = query(
+      collection(firestore, 'shares'),
+      where('recipientId', '==', recipientId),
+      orderBy('createdAt', 'desc'),
+      limit(limitCount)
+    );
+    if (startAfterDoc) {
+      q = query(q, startAfter(startAfterDoc));
+    }
+    const snap = await getDocs(q);
+    const items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const last = snap.docs[snap.docs.length - 1] || null;
+    return { success: true, items, last };
+  } catch (error) {
+    console.error('fbFetchShares error:', error);
+    return { success: false, error };
+  }
+}
+
+async function fbReactToShare({ shareId, reaction, read }) {
+  try {
+    const shareRef = doc(firestore, 'shares', shareId);
+    const updates = {};
+    if (reaction !== undefined) updates.reaction = reaction;
+    if (read !== undefined) updates.read = read;
+
+    if (Object.keys(updates).length > 0) {
+      await updateDoc(shareRef, updates);
+    }
+    return { success: true };
+  } catch (error) {
     return { success: false, error };
   }
 }
@@ -871,6 +940,8 @@ export {
   deleteComment, deleteOutfit, fetchCommentsForOutfit, fetchFeed, fetchOutfitDetails, fetchUserOutfits, firestore, loginWithEmail, fbCreateContest,
   logout, onAuthChange, sendResetEmail, signupWithEmail, uploadImage,
   toggleLikePost, fetchMyLikedOutfitIds, fetchLikersForOutfit, fbListContests, fbFetchContestEntries, fbCreateEntry, fbRateEntry, fbFetchContestLeaderboard, updateUserPushToken,
-  getUserProfile, updateUserProfile, setUserAvatar, ensureUsernameUnique, fetchNotifications, markNotificationsAsRead, subscribeToUnreadNotifications,
-  followUser, unfollowUser, isFollowing, listFollowers, listFollowing
+  getUserProfile, updateUserProfile, setUserAvatar, ensureUsernameUnique,
+  followUser, unfollowUser, isFollowing, listFollowers, listFollowing,
+  fetchNotifications, markNotificationsAsRead, subscribeToUnreadNotifications,
+  fbSharePost, fbFetchShares, fbReactToShare
 };

@@ -83,10 +83,8 @@ service cloud.firestore {
 
     // notifications: Read-only for the recipient. Created by Cloud Functions.
     match /notifications/{notificationId} {
-      // Allow a user to get a single notification if they are the recipient.
-      allow get: if isSignedIn() && request.auth.uid == resource.data.recipientId;
-      // Allow a user to LIST notifications ONLY if they are querying for their own.
-      allow list: if isSignedIn() && request.query.where.recipientId == request.auth.uid;
+      // A user can read (get or list) notifications if they are the recipient.
+      allow read: if isSignedIn() && request.auth.uid == resource.data.recipientId;
       // Allow the recipient to update the 'read' status.
       allow update: if isSignedIn() && request.auth.uid == resource.data.recipientId && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
       allow create: if false; // Only backend can create notifications
@@ -132,6 +130,17 @@ service cloud.firestore {
         && request.resource.data.rating >= 0 && request.resource.data.rating <= 10
         && request.resource.data.aiFlag is bool;
       allow delete: if isAdmin();
+    }
+
+    // shares: A user can read shares sent to them. They can create shares.
+    // They can update their own received shares (to add a reaction).
+    match /shares/{shareId} {
+      allow read, list: if isSignedIn() && request.auth.uid == resource.data.recipientId;
+      allow create: if isSignedIn() && request.auth.uid == request.resource.data.senderId;
+      // Allow recipient to update only the 'reaction' and 'read' fields.
+      allow update: if isSignedIn() && request.auth.uid == resource.data.recipientId && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reaction', 'read']);
+      // Users can delete shares they've received.
+      allow delete: if isSignedIn() && request.auth.uid == resource.data.recipientId;
     }
   }
 }

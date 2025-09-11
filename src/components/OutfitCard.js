@@ -28,7 +28,7 @@ function formatCount(num) {
   return num.toString();
 }
 
-const OutfitCard = memo(({ item, onPress, onRate, onUserPress, onLike, isLiked, onPressLikes, onPressComments, onPressContest }) => {
+const OutfitCard = memo(({ item, onPress, onRate, onUserPress, onLike, isLiked, onPressLikes, onPressComments, onPressContest, onPressShare }) => {
   const raw = item || null;
   if (!raw) return null;
 
@@ -65,6 +65,7 @@ const OutfitCard = memo(({ item, onPress, onRate, onUserPress, onLike, isLiked, 
   const handleLikesPress = () => { if (typeof onPressLikes === 'function') onPressLikes(id); };
   const handleCommentsPress = () => { if (typeof onPressComments === 'function') onPressComments({ outfitId: id, postOwnerId: userId }); };
   const handleContestTap = () => { if (typeof onPressContest === 'function') onPressContest(raw); };
+  const handleShare = () => { if (typeof onPressShare === 'function') onPressShare(raw); };
 
   const handleUserTap = () => {
     if (typeof onUserPress === 'function') {
@@ -143,7 +144,7 @@ const OutfitCard = memo(({ item, onPress, onRate, onUserPress, onLike, isLiked, 
           <TouchableOpacity style={styles.action} onPress={handleCommentsPress}>
             <Ionicons name="chatbubble-outline" size={24} color="#111" />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.action}>
+          <TouchableOpacity style={styles.action} onPress={handleShare}>
             <Ionicons name="arrow-redo-outline" size={24} color="#111" />
           </TouchableOpacity>
         </View>
