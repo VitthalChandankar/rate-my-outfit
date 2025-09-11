@@ -83,8 +83,11 @@ service cloud.firestore {
 
     // notifications: Read-only for the recipient. Created by Cloud Functions.
     match /notifications/{notificationId} {
-      allow read: if isSignedIn() && request.auth.uid == resource.data.recipientId;
-      // Allow the recipient to update the 'read' status, but nothing else.
+      // Allow a user to get a single notification if they are the recipient.
+      allow get: if isSignedIn() && request.auth.uid == resource.data.recipientId;
+      // Allow a user to LIST notifications ONLY if they are querying for their own.
+      allow list: if isSignedIn() && request.query.where.recipientId == request.auth.uid;
+      // Allow the recipient to update the 'read' status.
       allow update: if isSignedIn() && request.auth.uid == resource.data.recipientId && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
       allow create: if false; // Only backend can create notifications
       allow delete: if false; // Disallow client-side deletion

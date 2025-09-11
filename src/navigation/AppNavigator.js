@@ -45,6 +45,9 @@ import LikedByScreen from '../screens/details/LikedByScreen';
 import NotificationsScreen from '../screens/notifications/NotificationsScreen';
 import CommentsScreen from '../screens/details/CommentsScreen';
 
+import SettingsScreen from '../screens/settings/SettingsScreen';
+import NotificationSettingsScreen from '../screens/settings/NotificationSettingsScreen';
+
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
@@ -186,6 +189,30 @@ function MainAppStack() {
         component={CommentsScreen}
         options={{
           headerShown: true,
+          headerStyle: { backgroundColor: '#fff' },
+          headerTintColor: '#111',
+          headerTitleStyle: { fontWeight: 'bold' },
+        }}
+      />
+
+      {/* Settings flow */}
+      <Stack.Screen
+        name="Settings"
+        component={SettingsScreen}
+        options={{
+          headerShown: true,
+          title: 'Settings',
+          headerStyle: { backgroundColor: '#fff' },
+          headerTintColor: '#111',
+          headerTitleStyle: { fontWeight: 'bold' },
+        }}
+      />
+      <Stack.Screen
+        name="NotificationSettings"
+        component={NotificationSettingsScreen}
+        options={{
+          headerShown: true,
+          title: 'Notifications',
           headerStyle: { backgroundColor: '#fff' },
           headerTintColor: '#111',
           headerTitleStyle: { fontWeight: 'bold' },

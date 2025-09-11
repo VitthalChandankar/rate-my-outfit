@@ -17,10 +17,12 @@ import {
   Dimensions,
   Platform,
   FlatList,
+  TouchableOpacity,
 } from 'react-native';
 import { useIsFocused } from '@react-navigation/native';
 import { Image as ExpoImage } from 'expo-image';
 import { Button } from 'react-native-paper';
+import { Ionicons } from '@expo/vector-icons';
 
 import useAuthStore from '../../store/authStore';
 import useOutfitStore from '../../store/outfitStore';
@@ -176,6 +178,12 @@ export default function ProfileScreen({ navigation }) {
         <View style={styles.gradB} />
       </View>
 
+      <TouchableOpacity
+        style={styles.settingsButton}
+        onPress={() => navigation.navigate('Settings')}>
+        <Ionicons name="settings-outline" size={24} color="#333" />
+      </TouchableOpacity>
+
       <View style={styles.headerRow}>
         <View style={{ padding: 3, borderRadius: 52, backgroundColor: '#EDE7FF' }}>
           <Avatar uri={myProfile?.profilePicture} size={96} ring />
@@ -294,6 +302,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: OUTER_PAD,
     paddingBottom: 8,
     backgroundColor: '#FFFFFF',
+    position: 'relative',
+  },
+  settingsButton: {
+    position: 'absolute',
+    top: SAFE_H ? SAFE_H / 2 + 4 : 16,
+    right: OUTER_PAD,
+    zIndex: 10,
+    padding: 4,
   },
   headerBg: {
     position: 'absolute',
