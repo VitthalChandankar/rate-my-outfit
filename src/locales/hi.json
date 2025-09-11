@@ -1,0 +1,19 @@
+{
+  "settings": {
+    "title": "सेटिंग्स",
+    "account": "अकाउंट",
+    "editProfile": "प्रोफ़ाइल एडिट करें",
+    "changePassword": "पासवर्ड बदलें",
+    "preferences": "वरीयताएँ",
+    "notifications": "सूचनाएं",
+    "language": "भाषा",
+    "support": "सहायता",
+    "helpCenter": "सहायता केंद्र",
+    "contactUs": "हमसे संपर्क करें",
+    "about": "ऐप के बारे में",
+    "privacyPolicy": "गोपनीयता नीति",
+    "termsOfService": "सेवा की शर्तें",
+    "appVersion": "ऐप संस्करण",
+    "logout": "लॉग आउट"
+  }
+}

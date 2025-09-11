@@ -3,6 +3,7 @@ import React from 'react';
 import { ScrollView, View, Text, StyleSheet, TouchableOpacity, Alert, Linking } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import useAuthStore from '../../store/authStore';
+import i18n from '../../config/i18n';
 import * as Application from 'expo-application';
 
 // Reusable row component
@@ -49,33 +50,33 @@ export default function SettingsScreen({ navigation }) {
 
   return (
     <ScrollView style={styles.container}>
-      <SettingsSection title="Account">
-        <SettingsRow icon="person-outline" label="Edit Profile" onPress={() => navigation.navigate('EditProfile')} />
-        <SettingsRow icon="lock-closed-outline" label="Change Password" onPress={() => Alert.alert('Coming Soon', 'This feature is not yet implemented.')} />
+     <SettingsSection title={i18n.t('settings.account')}>
+        <SettingsRow icon="person-outline" label={i18n.t('settings.editProfile')} onPress={() => navigation.navigate('EditProfile')} />
+        <SettingsRow icon="lock-closed-outline" label={i18n.t('settings.changePassword')} onPress={() => Alert.alert('Coming Soon', 'This feature is not yet implemented.')} />
       </SettingsSection>
 
-      <SettingsSection title="Preferences">
-        <SettingsRow icon="notifications-outline" label="Notifications" onPress={() => navigation.navigate('NotificationSettings')} />
-        <SettingsRow icon="language-outline" label="Language" onPress={() => Alert.alert('Coming Soon', 'Multi-language support is planned for a future update.')} />
-      </SettingsSection>
+      <SettingsSection title={i18n.t('settings.preferences')}>
+        <SettingsRow icon="notifications-outline" label={i18n.t('settings.notifications')} onPress={() => navigation.navigate('NotificationSettings')} />
+        <SettingsRow icon="language-outline" label={i18n.t('settings.language')} onPress={() => navigation.navigate('Language')} />
+     </SettingsSection>
 
-      <SettingsSection title="Support">
-        <SettingsRow icon="help-circle-outline" label="Help Center" onPress={() => openLink('https://your-website.com/help')} />
-        <SettingsRow icon="chatbubble-ellipses-outline" label="Contact Us" onPress={() => Linking.openURL('mailto:support@yourapp.com?subject=App Support')} />
-      </SettingsSection>
+     <SettingsSection title={i18n.t('settings.support')}>
+        <SettingsRow icon="help-circle-outline" label={i18n.t('settings.helpCenter')} onPress={() => openLink('https://your-website.com/help')} />
+        <SettingsRow icon="chatbubble-ellipses-outline" label={i18n.t('settings.contactUs')} onPress={() => Linking.openURL('mailto:support@yourapp.com?subject=App Support')} />
+        </SettingsSection>
 
-      <SettingsSection title="About">
-        <SettingsRow icon="shield-checkmark-outline" label="Privacy Policy" onPress={() => openLink('https://your-website.com/privacy')} />
-        <SettingsRow icon="document-text-outline" label="Terms of Service" onPress={() => openLink('https://your-website.com/terms')} />
+        <SettingsSection title={i18n.t('settings.about')}>
+        <SettingsRow icon="shield-checkmark-outline" label={i18n.t('settings.privacyPolicy')} onPress={() => openLink('https://your-website.com/privacy')} />
+        <SettingsRow icon="document-text-outline" label={i18n.t('settings.termsOfService')} onPress={() => openLink('https://your-website.com/terms')} />
         <View style={styles.row}>
           <Ionicons name="information-circle-outline" size={22} color="#333" style={styles.rowIcon} />
-          <Text style={styles.rowLabel}>App Version</Text>
+          <Text style={styles.rowLabel}>{i18n.t('settings.appVersion')}</Text>
           <Text style={styles.versionText}>{appVersion}</Text>
         </View>
       </SettingsSection>
 
       <View style={{ marginTop: 24, marginBottom: 40 }}>
-        <SettingsRow icon="log-out-outline" label="Logout" color="#FF3B30" onPress={handleLogout} />
+      <SettingsRow icon="log-out-outline" label={i18n.t('settings.logout')} color="#FF3B30" onPress={handleLogout} />
       </View>
     </ScrollView>
   );
@@ -125,4 +126,3 @@ const styles = StyleSheet.create({
     color: '#6B7280',
   },
 });
-

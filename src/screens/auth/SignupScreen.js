@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, ActivityIndicator, Alert } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import useAuthStore from '../../store/authStore';
+import { isEmailDisposable } from '../../utils/emailValidator';
 
 export default function SignupScreen({ navigation }) {
   const signup = useAuthStore((s) => s.signup);
@@ -42,6 +43,13 @@ export default function SignupScreen({ navigation }) {
     }
     if (password.length < 6) {
       setError('Password must be at least 6 characters.');
+      return;
+    }
+
+    // Block disposable emails
+    if (await isEmailDisposable(email.trim())) {
+      setError('Disposable email addresses are not allowed. Please use a permanent email provider like Gmail or Outlook.');
+      setLoading(false);
       return;
     }
 

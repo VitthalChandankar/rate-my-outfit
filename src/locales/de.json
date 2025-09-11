@@ -1,0 +1,19 @@
+{
+  "settings": {
+    "title": "Einstellungen",
+    "account": "Konto",
+    "editProfile": "Profil bearbeiten",
+    "changePassword": "Passwort ändern",
+    "preferences": "Einstellungen",
+    "notifications": "Benachrichtigungen",
+    "language": "Sprache",
+    "support": "Hilfe",
+    "helpCenter": "Hilfe-Center",
+    "contactUs": "Kontaktiere uns",
+    "about": "Über",
+    "privacyPolicy": "Datenschutz-Bestimmungen",
+    "termsOfService": "Nutzungsbedingungen",
+    "appVersion": "App-Version",
+    "logout": "Abmelden"
+  }
+}

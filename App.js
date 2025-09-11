@@ -4,15 +4,28 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useEffect } from 'react';
 import { useNavigationContainerRef } from '@react-navigation/native';
 import * as Notifications from 'expo-notifications';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import theme from './src/theme/theme';
 import AppNavigator from './src/navigation/AppNavigator';
 import useAuthStore from './src/store/authStore';
+import i18n from './src/config/i18n';
 import useNotificationsStore from './src/store/notificationsStore';
 
 export default function App() {
   const { initializeAuth, user } = useAuthStore();
   const navigationRef = useNavigationContainerRef();
+
+  // Effect for loading saved language preference
+  useEffect(() => {
+    const loadLanguage = async () => {
+      const savedLanguage = await AsyncStorage.getItem('@user_language');
+      if (savedLanguage) {
+        i18n.locale = savedLanguage;
+      }
+    };
+    loadLanguage();
+  }, []);
 
   useEffect(() => {
     initializeAuth(); // listen to firebase auth changes on app start

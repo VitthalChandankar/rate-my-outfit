@@ -14,6 +14,7 @@ import LoginScreen from '../screens/auth/LoginScreen';
 import SignupScreen from '../screens/auth/SignupScreen';
 import CompleteProfileScreen from '../screens/auth/CompleteProfileScreen';
 import ForgotPasswordScreen from '../screens/auth/ForgotPasswordScreen';
+import WelcomeScreen from '../screens/auth/WelcomeScreen';
 import CreatePasswordScreen from '../screens/auth/CreatePasswordScreen';
 import EmailVerificationScreen from '../screens/auth/EmailVerificationScreen';
 import PhoneNumberScreen from '../screens/auth/PhoneNumberScreen';
@@ -47,6 +48,7 @@ import CommentsScreen from '../screens/details/CommentsScreen';
 
 import SettingsScreen from '../screens/settings/SettingsScreen';
 import NotificationSettingsScreen from '../screens/settings/NotificationSettingsScreen';
+import LanguageScreen from '../screens/settings/LanguageScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -80,9 +82,9 @@ export default function AppNavigator({ navigationRef }) {
   const { loading: authLoading, user } = useAuthStore();
   const { myProfile, loading: profileLoading } = useUserStore();
 
-  // Wait for both authentication and the initial profile load to complete
-  // to prevent a screen flicker on login.
-  if (authLoading || (user && !myProfile && profileLoading)) {
+  // Show a loading spinner while we determine the user's auth state and profile status.
+  const isAppLoading = authLoading || (user && !myProfile && profileLoading);
+  if (isAppLoading) {
     return (
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
         <ActivityIndicator />
@@ -90,33 +92,39 @@ export default function AppNavigator({ navigationRef }) {
     );
   }
 
+  // Determine the user's state to route them correctly.
+  const isEmailUser = user?.providerData.some(p => p.providerId === 'password');
   const authed = !!user;
-  const emailVerified = !!user?.emailVerified;
-  // Show CompleteProfile screen if user is new (hasn't set a username yet)
-  const isNewUser = authed && myProfile && !myProfile.username;
+  const needsEmailVerification = isEmailUser && !user.emailVerified;
+  const profileCompleted = !!myProfile?.profileCompleted;
 
   return (
     <NavigationContainer ref={navigationRef}>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {authed ? (
-          !emailVerified ? (
+          needsEmailVerification ? (
+            // 1. User is signed in but email is not verified.
             <Stack.Screen name="EmailVerification" component={EmailVerificationScreen} />
-          ) : isNewUser ? (
+          ) : !profileCompleted ? (
+            // 2. Email is verified, but profile is not complete.
             <Stack.Screen name="CompleteProfile" component={CompleteProfileScreen} />
           ) : (
+            // 3. User is fully authenticated and profile is complete.
             <Stack.Screen name="Main" component={MainAppStack} />
           )
         ) : (
+          // 4. User is not signed in. Show auth flow.
           <>
             <Stack.Screen name="Login" component={LoginScreen} />
             <Stack.Screen name="Signup" component={SignupScreen} />
             <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
             <Stack.Screen name="CreatePassword" component={CreatePasswordScreen} />
             <Stack.Screen name="PhoneNumber" component={PhoneNumberScreen} />
-            {/* Add EmailVerification here so it can be navigated to from Signup */}
             <Stack.Screen name="EmailVerification" component={EmailVerificationScreen} />
           </>
         )}
+        {/* Add screens here that are part of the main flow but need to be accessible globally */}
+        <Stack.Screen name="Welcome" component={WelcomeScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );
@@ -213,6 +221,17 @@ function MainAppStack() {
         options={{
           headerShown: true,
           title: 'Notifications',
+          headerStyle: { backgroundColor: '#fff' },
+          headerTintColor: '#111',
+          headerTitleStyle: { fontWeight: 'bold' },
+        }}
+      />
+      <Stack.Screen
+        name="Language"
+        component={LanguageScreen}
+        options={{
+          headerShown: true,
+          title: 'Select Language',
           headerStyle: { backgroundColor: '#fff' },
           headerTintColor: '#111',
           headerTitleStyle: { fontWeight: 'bold' },

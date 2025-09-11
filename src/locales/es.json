@@ -1,0 +1,19 @@
+{
+  "settings": {
+    "title": "Ajustes",
+    "account": "Cuenta",
+    "editProfile": "Editar Perfil",
+    "changePassword": "Cambiar Contraseña",
+    "preferences": "Preferencias",
+    "notifications": "Notificaciones",
+    "language": "Idioma",
+    "support": "Soporte",
+    "helpCenter": "Centro de Ayuda",
+    "contactUs": "Contáctanos",
+    "about": "Acerca de",
+    "privacyPolicy": "Política de Privacidad",
+    "termsOfService": "Términos de Servicio",
+    "appVersion": "Versión de la App",
+    "logout": "Cerrar Sesión"
+  }
+}

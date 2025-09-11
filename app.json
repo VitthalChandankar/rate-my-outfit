@@ -4,7 +4,8 @@
     "slug": "myapp",
     "version": "1.0.0",
     "plugins": [
-      "@react-native-firebase/app"
+      "@react-native-firebase/app",
+      "expo-localization"
     ],
     "orientation": "portrait",
     "icon": "./assets/icon.png",

@@ -1,0 +1,21 @@
+{
+    "settings": {
+      "title": "Settings",
+      "account": "Account",
+      "editProfile": "Edit Profile",
+      "changePassword": "Change Password",
+      "preferences": "Preferences",
+      "notifications": "Notifications",
+      "language": "Language",
+      "support": "Support",
+      "helpCenter": "Help Center",
+      "contactUs": "Contact Us",
+      "about": "About",
+      "privacyPolicy": "Privacy Policy",
+      "termsOfService": "Terms of Service",
+      "appVersion": "App Version",
+      "logout": "Logout"
+    }
+  }
+  
+  

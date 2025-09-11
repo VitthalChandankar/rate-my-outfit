@@ -54,16 +54,18 @@ const auth = initializeAuth(app, {
 const firestore = getFirestore(app);
 
 // --- User creation helper ---
-async function createUser(uid, email, name) {
+async function createUser(uid, email, name, phone = null) {
   const userDoc = {
     uid,
     name: name || 'New User',
     email: email || null,
+    phone: phone || null, // Add phone number
     profilePicture: null,
     createdAt: serverTimestamp(),
     bio: '',
     stats: { followersCount: 0, followingCount: 0, postsCount: 0, contestWins: 0, averageRating: 0 },
     preferences: { privacyLevel: 'public', notificationsEnabled: true },
+    profileCompleted: false, // Add this flag for the new auth flow
   };
   await setDoc(doc(firestore, 'users', uid), userDoc);
   return userDoc;
