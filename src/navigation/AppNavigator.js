@@ -82,7 +82,7 @@ function MainTabs() {
 }
 
 export default function AppNavigator({ navigationRef }) {
-  const { loading: authLoading, user } = useAuthStore();
+  const { loading: authLoading, user, onboardingJustCompleted } = useAuthStore();
   const { myProfile, loading: profileLoading } = useUserStore();
 
   // Show a loading spinner while we determine the user's auth state and profile status.
@@ -107,12 +107,14 @@ export default function AppNavigator({ navigationRef }) {
     <NavigationContainer ref={navigationRef}>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {authed ? (
-          needsEmailVerification ? (
+          needsEmailVerification ? ( // 1. User signed up with email, needs verification
             // 1. User is signed in but email is not verified.
             <Stack.Screen name="EmailVerification" component={EmailVerificationScreen} />
-          ) : !profileCompleted ? (
+          ) : !profileCompleted ? ( // 2. User is verified, but profile is incomplete
             // 2. Email is verified, but profile is not complete.
             <Stack.Screen name="CompleteProfile" component={CompleteProfileScreen} />
+          ) : onboardingJustCompleted ? ( // 3. User just finished profile, show Welcome screen
+            <Stack.Screen name="Welcome" component={WelcomeScreen} />
           ) : (
             // 3. User is fully authenticated and profile is complete.
             <Stack.Screen name="Main" component={MainAppStack} />
@@ -128,8 +130,6 @@ export default function AppNavigator({ navigationRef }) {
             <Stack.Screen name="EmailVerification" component={EmailVerificationScreen} />
           </>
         )}
-        {/* Add screens here that are part of the main flow but need to be accessible globally */}
-        <Stack.Screen name="Welcome" component={WelcomeScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

@@ -21,6 +21,8 @@ const useAuthStore = create((set, get) => ({
   loading: true,
   pushToken: null, // Add a place to store the current device's token
   isAdmin: false, // New state to track admin status
+  onboardingJustCompleted: false, // Flag to manage welcome screen navigation
+  setOnboardingCompleted: (status) => set({ onboardingJustCompleted: status }),
 
   // Listen to Firebase Auth state changes and hydrate normalized Firestore profile
   initializeAuth: () => {

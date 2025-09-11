@@ -103,14 +103,6 @@ export default function FollowersScreen({ route, navigation }) {
     </View>
   );
 
-  if (loading) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator />
-      </View>
-    );
-  }
-
   const renderItem = useCallback(({ item }) => {
     const targetId = item.followerId;
     const cached = profilesById[targetId];
@@ -124,6 +116,14 @@ export default function FollowersScreen({ route, navigation }) {
 
     return <UserRow item={display} onToggle={() => onToggle(targetId)} isSelf={isSelf} following={following} onNavigate={() => navigation.navigate('UserProfile', { userId: targetId })} />;
   }, [profilesById, authedId, relCache, onToggle, navigation]);
+
+  if (loading) {
+    return (
+      <View style={styles.center}>
+        <ActivityIndicator />
+      </View>
+    );
+  }
 
   return (
     <FlatList

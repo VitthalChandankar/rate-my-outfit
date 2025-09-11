@@ -1,5 +1,5 @@
 // src/screens/settings/NotificationSettingsScreen.js
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Switch, Alert } from 'react-native';
 import useUserStore from '../../store/UserStore';
 import useAuthStore from '../../store/authStore';
@@ -15,12 +15,18 @@ export default function NotificationSettingsScreen() {
   const { myProfile, updateProfile, updateMyPushToken } = useUserStore();
   const { pushToken } = useAuthStore();
   const [isSaving, setIsSaving] = useState(false);
+  const [isEnabled, setIsEnabled] = useState(myProfile?.preferences?.notificationsEnabled ?? true);
 
-  // Get the current preference, default to true if not set
-  const notificationsEnabled = myProfile?.preferences?.notificationsEnabled ?? true;
+  // Keep local state in sync with the store, which might update from other sources.
+  useEffect(() => {
+    setIsEnabled(myProfile?.preferences?.notificationsEnabled ?? true);
+  }, [myProfile?.preferences?.notificationsEnabled]);
 
   const handleToggleNotifications = async (newValue) => {
     if (isSaving || !myProfile?.uid) return;
+
+    // Optimistically update the local UI state immediately.
+    setIsEnabled(newValue);
     setIsSaving(true);
 
     // 1. Update the preference flag in the user's profile document.
@@ -39,6 +45,8 @@ export default function NotificationSettingsScreen() {
 
     if (!res.success) {
       Alert.alert('Error', 'Could not update your notification settings. Please try again.');
+      // On failure, revert the UI state.
+      setIsEnabled(!newValue);
     }
     setIsSaving(false);
   };
@@ -48,7 +56,7 @@ export default function NotificationSettingsScreen() {
       <View style={styles.sectionBody}>
         <SettingsRow
           label="Enable Push Notifications"
-          value={notificationsEnabled}
+          value={isEnabled}
           onValueChange={handleToggleNotifications}
           disabled={isSaving}
         />

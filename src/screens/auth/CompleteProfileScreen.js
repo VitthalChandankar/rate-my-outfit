@@ -12,7 +12,7 @@ import { uploadImage, ensureUsernameUnique } from '../../services/firebase';
 import Avatar from '../../components/Avatar';
 
 export default function CompleteProfileScreen({ navigation }) {
-  const { user } = useAuthStore();
+  const { user, setOnboardingCompleted } = useAuthStore();
   const { myProfile, updateProfile, setAvatar } = useUserStore();
 
   const [username, setUsername] = useState('');
@@ -76,8 +76,8 @@ export default function CompleteProfileScreen({ navigation }) {
         throw new Error(finalRes.error || 'Failed to save your profile.');
       }
 
-      // 5. Navigate to the Welcome screen on success
-      navigation.replace('Welcome');
+      // 5. Set the flag to show the Welcome screen. The AppNavigator will handle the redirection.
+      setOnboardingCompleted(true);
 
     } catch (e) {
       Alert.alert('Error', e.message || 'An unexpected error occurred.');
@@ -91,7 +91,7 @@ export default function CompleteProfileScreen({ navigation }) {
     setLoading(true);
     await updateProfile(user.uid, { profileCompleted: true });
     setLoading(false);
-    navigation.replace('Welcome');
+    setOnboardingCompleted(true);
   };
 
   return (

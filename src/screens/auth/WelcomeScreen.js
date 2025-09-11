@@ -3,10 +3,11 @@ import React, { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Animated, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import useAuthStore from '../../store/authStore';
 import useUserStore from '../../store/UserStore';
 
 export default function WelcomeScreen({ navigation }) {
-  const { myProfile } = useUserStore();
+  const { myProfile, setOnboardingCompleted } = useUserStore();
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(50)).current;
 
@@ -18,6 +19,7 @@ export default function WelcomeScreen({ navigation }) {
   }, [fadeAnim, slideAnim]);
 
   const handleContinue = () => {
+    setOnboardingCompleted(false); // Reset the flag
     // Replace the auth flow stack with the main app stack
     navigation.reset({
       index: 0,

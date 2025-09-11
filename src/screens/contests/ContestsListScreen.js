@@ -17,6 +17,7 @@ import {
   Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useIsFocused } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { Surface } from 'react-native-paper';
 import useContestStore from '../../store/contestStore';
@@ -182,6 +183,7 @@ const ContestCard = memo(({ item, onPress }) => {
 });
 
 export default function ContestsListScreen({ navigation }) {
+  const isFocused = useIsFocused();
   const isAdmin = useAuthStore((s) => s.isAdmin);
   const allContests = useContestStore((s) => s.contests);
   const loading = useContestStore((s) => s.contestsLoading);
@@ -202,8 +204,10 @@ export default function ContestsListScreen({ navigation }) {
   }, [allContests, filter, searchQuery]);
 
   useEffect(() => {
-    listContests({ limit: 20, reset: true, status: filter });
-  }, [filter, listContests]);
+    if (isFocused) {
+      listContests({ limit: 20, reset: true, status: filter });
+    }
+  }, [filter, listContests, isFocused]);
 
   const onRefresh = useCallback(
     () => listContests({ limit: 20, reset: true, status: filter }),
