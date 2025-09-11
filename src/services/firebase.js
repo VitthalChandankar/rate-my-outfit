@@ -217,8 +217,17 @@ async function deleteOutfit(outfitId, userId) {
     if (!outfitSnap.exists()) {
       return { success: true }; // Already deleted
     }
-    if (outfitSnap.data().userId !== userId) {
+    const outfitData = outfitSnap.data();
+    if (outfitData.userId !== userId) {
       return { success: false, error: "Permission denied. You can only delete your own outfits." };
+    }
+
+    // If it's a contest entry, also delete the corresponding document from the 'entries' collection.
+    // The most robust way to do this (and to delete from Cloudinary) is with a Cloud Function.
+    // This client-side deletion is a good immediate improvement.
+    if (outfitData.type === 'contest' && outfitData.entryId) {
+      const entryRef = doc(firestore, 'entries', outfitData.entryId);
+      await fbDeleteDoc(entryRef);
     }
 
     await fbDeleteDoc(outfitRef);
@@ -375,28 +384,37 @@ async function fetchLikersForOutfit({ outfitId, limitCount = 30, startAfterDoc =
 async function fbListContests({ limitCount = 20, startAfterDoc = null, status = 'active', country = 'all' } = {}) {
   try {
     const now = new Date();
-    let qy = query(collection(firestore, 'contests'));
+    let qy = collection(firestore, 'contests');
 
-    // Apply status filtering on the server
+    // Apply status-specific filtering and ordering.
+    // Each status needs its own orderBy clause to be compatible with the 'where' filter.
     if (status === 'active') {
-      qy = query(qy, where('startAt', '<=', now), where('endAt', '>', now));
+      // Firestore doesn't allow range filters on two different fields.
+      // The workaround is to query on one and filter the other on the client.
+      // We fetch all contests that haven't ended yet, sorted by which ends soonest.
+      // The store will then filter out the 'upcoming' ones.
+      qy = query(qy, where('endAt', '>', now), orderBy('endAt', 'asc'));
     } else if (status === 'upcoming') {
-      qy = query(qy, where('startAt', '>', now));
+      // Show upcoming contests, with the soonest-starting ones first.
+      qy = query(qy, where('startAt', '>', now), orderBy('startAt', 'asc'));
     } else if (status === 'ended') {
-      qy = query(qy, where('endAt', '<=', now));
+      // Show ended contests, with the most-recently-ended ones first.
+      qy = query(qy, where('endAt', '<=', now), orderBy('endAt', 'desc'));
+    } else {
+      // Fallback for 'all' status, sorted by creation date.
+      qy = query(qy, orderBy('createdAt', 'desc'));
     }
 
-    // Apply ordering and pagination
-    qy = query(qy, orderBy('startAt', 'desc'), limit(limitCount));
-    if (startAfterDoc) {
-      qy = query(qy, startAfter(startAfterDoc));
-    }
+    // Apply pagination
+    qy = query(qy, limit(limitCount));
+    if (startAfterDoc) qy = query(qy, startAfter(startAfterDoc));
 
     const snap = await getDocs(qy);
     const items = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
     const last = snap.docs[snap.docs.length - 1] || null;
     return { success: true, items, last };
   } catch (error) {
+    console.error("fbListContests error:", error);
     return { success: false, error };
   }
 }

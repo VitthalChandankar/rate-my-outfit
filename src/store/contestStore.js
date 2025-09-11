@@ -83,19 +83,31 @@ const useContestStore = create((set, get) => ({
     const res = await fbListContests({ limitCount: limit, startAfterDoc, status, country });
 
     if (res.success) {
-      
-      const newContestsById = (res.items || []).reduce((acc, contest) => {
+      let finalItems = res.items || [];
+
+      // Client-side filtering for 'active' status because the Firestore query is broad.
+      if (status === 'active') {
+        const now = Date.now();
+        finalItems = finalItems.filter(c => {
+          if (!c.startAt) return true; // Keep if no start date is set
+          // Timestamps can be objects with toDate() or serialized.
+          const startMs = c.startAt.toDate ? c.startAt.toDate().getTime() : new Date(c.startAt).getTime();
+          return startMs <= now;
+        });
+      }
+
+      const newContestsById = finalItems.reduce((acc, contest) => {
         acc[contest.id] = contest;
         return acc;
       }, {});
 
       set((state) => ({
-        contests: reset ? res.items : [...state.contests, ...res.items],
+        contests: reset ? finalItems : [...state.contests, ...finalItems],
         contestsById: { ...state.contestsById, ...newContestsById },
-        contestsLast: res.last || state.contestsLast,
+        contestsLast: res.last, // Use the last doc from the unfiltered server response for pagination
         contestsLoading: false,
         contestsRefreshing: false,
-        hasMoreContests: !!res.last,
+        hasMoreContests: (res.items || []).length === limit, // Fix for infinite loading
       }));
     } else {
       set({ contestsLoading: false, contestsRefreshing: false });
