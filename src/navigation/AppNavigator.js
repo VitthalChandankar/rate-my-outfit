@@ -53,6 +53,11 @@ import LanguageScreen from '../screens/settings/LanguageScreen';
 import InboxScreen from '../screens/sharing/InboxScreen';
 import SharePostScreen from '../screens/sharing/SharePostScreen';
 
+// Admin Screens
+import AdminDashboardScreen from '../screens/admin/AdminDashboardScreen';
+import ManageAchievementsScreen from '../screens/admin/ManageAchievementsScreen';
+import CreateAchievementScreen from '../screens/admin/CreateAchievementScreen';
+
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
@@ -230,6 +235,26 @@ function MainAppStack() {
           headerStyle: { backgroundColor: '#fff' },
           headerTintColor: '#111',
         }}
+      />
+
+      {/* Admin Flow */}
+      <Stack.Screen
+        name="AdminDashboard"
+        component={AdminDashboardScreen}
+        options={{
+          headerShown: true,
+          title: 'Admin Dashboard',
+        }}
+      />
+      <Stack.Screen
+        name="ManageAchievements"
+        component={ManageAchievementsScreen}
+        options={{ headerShown: true, title: 'Manage Achievements' }}
+      />
+      <Stack.Screen
+        name="CreateAchievement"
+        component={CreateAchievementScreen}
+        options={{ headerShown: true, title: 'Create/Edit Achievement' }}
       />
 
       {/* Settings flow */}

@@ -10,7 +10,7 @@ service cloud.firestore {
 
     function isAdmin() {
       // Add your admin UIDs here
-      return isSignedIn() && (request.auth.uid in ["S3YNVH6Tn8RCauiQrj2oy6e37FI3"]);
+      return isSignedIn() && (request.auth.uid in ["S3YNVH6Tn8RCauiQrj2oy6e37FI3","QURZGWBt6sTa0Zv8dn0qj4tldh12","X6QLjRFs5vf38H7hoG7zcmiDZhy2"]);
     }
 
     // --- Collections ---
@@ -19,6 +19,18 @@ service cloud.firestore {
     match /users/{userId} {
       allow read: if true;
       allow create, update, delete: if isSignedIn() && request.auth.uid == userId;
+
+      // userAchievements: Public read, only backend can write.
+      match /userAchievements/{achievementId} {
+        allow read: if true;
+        allow write: if false; // Prevent client-side awarding
+      }
+    }
+
+    // achievements: Public read, only admin can write.
+    match /achievements/{achievementId} {
+      allow read: if true;
+      allow write: if isAdmin();
     }
 
     // usernames: Public read for availability checks, owner can write.

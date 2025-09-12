@@ -3,7 +3,7 @@
 // segmented control, crisp grid, and actions (Edit/Share/Logout) for the signed-in user.
 // ProfileScreen: the owner’s self profile inside the MainTabs.
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState, memo } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -32,6 +32,7 @@ import { fetchOutfitsByIds } from '../../services/firebase';
 import useContestStore from '../../store/contestStore';
 import Avatar from '../../components/Avatar';
 import ProfileGridItem from '../../components/ProfileGridItem';
+import AchievementBadge from '../../components/AchievementBadge';
 
 const { width } = Dimensions.get('window');
 const SAFE_H = Platform.select({ ios: 44, android: 0, default: 0 });
@@ -61,8 +62,9 @@ export default function ProfileScreen({ navigation }) {
   const uid = user?.uid || user?.user?.uid || null;
 
   const { myProfile, loadMyProfile } = useUserStore();
+  const isAdmin = myProfile?.isAdmin;
   const mySavedIds = useUserStore((s) => s.mySavedIds);
-  const setCoverPhoto = useUserStore((s) => s.setCoverPhoto);
+  const { setCoverPhoto, myAchievements, fetchMyAchievements, markAchievementAsSeen } = useUserStore();
 
   const { myOutfits, fetchMyOutfits, loading, refreshing, hasMore, deleteOutfit, savedOutfits, fetchSavedOutfits, savedOutfitsLoading, toggleSave } = useOutfitStore();
   const { contestsById } = useContestStore();
@@ -79,7 +81,10 @@ export default function ProfileScreen({ navigation }) {
 
   useEffect(() => {
     if (isFocused && tab === 'saved') fetchSavedOutfits(uid);
-  }, [isFocused, tab, fetchSavedOutfits, uid, mySavedIds]);
+    if (isFocused && tab === 'achievements') {
+      fetchMyAchievements(uid);
+    }
+  }, [isFocused, tab, fetchSavedOutfits, fetchMyAchievements, uid, mySavedIds]);
 
   const handleCoverPhotoChange = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -186,6 +191,10 @@ export default function ProfileScreen({ navigation }) {
     <ProfileGridItem item={item} onPress={handlePostPress} onLongPress={handlePostLongPress} />
   ), [handlePostPress, handlePostLongPress]);
 
+  const renderAchievementItem = useCallback(({ item }) => (
+    <AchievementBadge item={item} onReveal={markAchievementAsSeen} />
+  ), [markAchievementAsSeen]);
+
   const AchievementsEmpty = () => (
     <View style={styles.emptyWrap}>
       <Text style={styles.emptyTitle}>No achievements yet</Text>
@@ -254,13 +263,18 @@ export default function ProfileScreen({ navigation }) {
         </View>
 
         {!!myProfile?.bio && <Text style={styles.bio}>{myProfile.bio}</Text>}
+        {isAdmin && (
+          <Button mode="outlined" onPress={() => navigation.navigate('AdminDashboard')} style={styles.adminButton}>
+            Admin Dashboard
+          </Button>
+        )}
         <Button mode="contained" onPress={() => navigation.navigate('EditProfile')} style={styles.actionMain} labelStyle={styles.actionMainText}>Edit Profile</Button>
         <SegBar tab={tab} setTab={setTab} />
       </View>
     );
   };
 
-  const listData = tab === 'posts' ? data : tab === 'saved' ? savedOutfits : [];
+  const listData = tab === 'posts' ? data : tab === 'saved' ? savedOutfits : myAchievements;
   const listEmpty =
     tab === 'posts'
       ? (!loading && !refreshing ? <Text style={styles.empty}>No uploads yet — be the first to upload!</Text> : null)
@@ -287,7 +301,7 @@ export default function ProfileScreen({ navigation }) {
         data={listData}
         keyExtractor={(item) => String(item?.id || item?._localKey)}
         numColumns={3}
-        columnWrapperStyle={{ margin: -1 }}
+        columnWrapperStyle={tab === 'achievements' ? styles.achievementsGrid : { margin: -1 }}
         renderItem={renderItem} // This is fine
         ListHeaderComponent={<ProfileHeader />}
         refreshControl={<RefreshControl refreshing={!!refreshing} onRefresh={onRefresh} />}
@@ -295,7 +309,7 @@ export default function ProfileScreen({ navigation }) {
         onEndReached={onEnd}
         ListEmptyComponent={listEmpty}
         ListFooterComponent={loading ? <ActivityIndicator style={{ marginVertical: 16 }} /> : null}
-        showsVerticalScrollIndicator={false}
+        showsVerticalScrollIndicator={false} // This is fine
         // Performance tuning for grid
         initialNumToRender={18}
         maxToRenderPerBatch={24}
@@ -341,15 +355,15 @@ const styles = StyleSheet.create({
     // Container for name and username
   },
   name: {
-    fontSize: 20,
-    fontWeight: '500',
+    fontSize: 22,
+    fontWeight: '900',
     color: '#111827',
   },
   username: {
     fontSize: 14,
     color: '#6B7280',
     fontWeight: '600',
-    marginTop: 1,
+    marginTop: 2,
   },
   settingsButton: {
     position: 'absolute',
@@ -360,7 +374,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.3)',
   },
   bio: {
-    marginTop: 10,
+    marginTop: 16,
     paddingHorizontal: OUTER_PAD,
     color: '#4B5563',
     fontSize: 14,
@@ -378,6 +392,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#7A5AF8',
     marginTop: 12,
     marginHorizontal: OUTER_PAD,
+  },
+  adminButton: {
+    marginTop: 16,
+    marginHorizontal: OUTER_PAD,
+    borderColor: '#A43B76',
   },
   actionMainText: { color: '#fff', fontWeight: '900', letterSpacing: 0.2 },
 
@@ -406,4 +425,7 @@ const styles = StyleSheet.create({
   emptyTitle: { fontWeight: '900', color: '#1F2937' },
   emptySub: { marginTop: 6, color: '#6B7280' },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFFFFF' },
+  achievementsGrid: {
+    justifyContent: 'flex-start',
+  },
 });

@@ -65,7 +65,7 @@ async function createUser(uid, email, name, phone = null) {
     profilePicture: null,
     createdAt: serverTimestamp(),
     bio: '',
-    stats: { followersCount: 0, followingCount: 0, postsCount: 0, contestWins: 0, averageRating: 0 },
+    stats: { followersCount: 0, followingCount: 0, postsCount: 0, contestWins: 0, averageRating: 0, achievementsCount: 0 },
     preferences: { privacyLevel: 'public', notificationsEnabled: true },
     profileCompleted: false, // Add this flag for the new auth flow
   };
@@ -415,6 +415,53 @@ async function fetchOutfitsByIds(outfitIds = []) {
   const snap = await getDocs(q);
   const items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
   return { success: true, items };
+}
+
+async function fetchUserAchievements(userId) {
+  if (!userId) return { success: false, error: 'User ID is required.' };
+  try {
+    // In a real app, you might fetch all possible achievements and merge them
+    // with the user's unlocked ones. For now, we fetch only what the user has.
+    const q = query(
+      collection(firestore, 'users', userId, 'userAchievements'),
+      orderBy('unlockedAt', 'desc')
+    );
+    const snap = await getDocs(q);
+    const items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    return { success: true, items };
+  } catch (error) {
+    return { success: false, error };
+  }
+}
+
+async function listAchievements() {
+  try {
+    const q = query(collection(firestore, "achievements"));
+    const snap = await getDocs(q);
+    const items = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    return { success: true, items };
+  } catch (error) {
+    console.error("listAchievements error:", error);
+    return { success: false, error };
+  }
+}
+
+async function createOrUpdateAchievement({ id, title, description, imageUri }) {
+  try {
+    let imageUrl = imageUri;
+    // If imageUri is a local file path, upload it first.
+    if (imageUri && !imageUri.startsWith("http")) {
+      const uploadRes = await uploadImage(imageUri);
+      if (!uploadRes.success) {
+        throw new Error("Image upload failed.");
+      }
+      imageUrl = uploadRes.url;
+    }
+    await setDoc(doc(firestore, "achievements", id), { title, description, imageUrl }, { merge: true });
+    return { success: true };
+  } catch (error) {
+    return { success: false, error };
+  }
 }
 
 // --- Contests utilities ---
@@ -981,5 +1028,5 @@ export {
   getUserProfile, updateUserProfile, setUserAvatar, ensureUsernameUnique,
   followUser, unfollowUser, isFollowing, listFollowers, listFollowing,
   fetchNotifications, markNotificationsAsRead, subscribeToUnreadNotifications,
-  fbSharePost, fbFetchShares, fbReactToShare, toggleSavePost, fetchMySavedOutfitIds, fetchOutfitsByIds
+  fbSharePost, fbFetchShares, fbReactToShare, toggleSavePost, fetchMySavedOutfitIds, fetchOutfitsByIds, fetchUserAchievements, listAchievements, createOrUpdateAchievement
 };

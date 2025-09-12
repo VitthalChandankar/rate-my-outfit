@@ -21,7 +21,7 @@ import { useIsFocused } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { Surface } from 'react-native-paper';
 import useContestStore from '../../store/contestStore';
-import useAuthStore from '../../store/authStore';
+import useUserStore from '../../store/UserStore';
 
 const { width } = Dimensions.get('window');
 const PADDING_H = 16;
@@ -184,7 +184,7 @@ const ContestCard = memo(({ item, onPress }) => {
 
 export default function ContestsListScreen({ navigation }) {
   const isFocused = useIsFocused();
-  const isAdmin = useAuthStore((s) => s.isAdmin);
+  const isAdmin = useUserStore((s) => s.myProfile?.isAdmin);
   const allContests = useContestStore((s) => s.contests);
   const loading = useContestStore((s) => s.contestsLoading);
   const refreshing = useContestStore((s) => s.contestsRefreshing);

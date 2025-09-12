@@ -2,6 +2,7 @@
 /* eslint-disable max-len */
 const admin = require("firebase-admin");
 const {onDocumentCreated, onDocumentDeleted, onDocumentUpdated} = require("firebase-functions/v2/firestore");
+const {onTaskDispatched} = require("firebase-functions/v2/tasks");
 
 admin.initializeApp();
 
@@ -416,29 +417,189 @@ exports.onEntryRated = onDocumentUpdated("entries/{entryId}", async (event) => {
 });
 
 /**
- * When an outfit is created, increment the user's post count.
+ * When an outfit is created, increment the user's post count and award "First Post" achievement if applicable.
  */
 exports.onOutfitCreate = onDocumentCreated("outfits/{outfitId}", async (event) => {
   const snap = event.data;
   if (!snap) {
     console.log("No data on outfit create, exiting.");
-    return;
+    return null;
   }
   const outfitData = snap.data();
   const { userId } = outfitData;
 
   if (!userId) {
     console.log(`Outfit ${event.params.outfitId} has no userId, cannot increment count.`);
+    return null;
+  }
+
+  const db = admin.firestore();
+  const userRef = db.doc(`users/${userId}`);
+
+  const achievementId = "first_post";
+  const achievementRef = db.collection("achievements").doc(achievementId);
+  const achievementDataSnap = await achievementRef.get();
+
+  if (!achievementDataSnap.exists) {
+    console.error(`Achievement definition for '${achievementId}' not found in Firestore.`);
+    return null;
+  }
+
+  const FIRST_POST_ACHIEVEMENT = achievementDataSnap.data();
+
+
+  const userAchievementRef = db.collection("users").doc(userId).collection("userAchievements").doc(achievementId);
+
+  try {
+    await db.runTransaction(async (transaction) => {
+      const [userSnap, achievementSnap] = await Promise.all([
+        transaction.get(userRef),
+        transaction.get(userAchievementRef),
+      ]);
+
+      if (!userSnap.exists) {
+        console.log(`User ${userId} does not exist. Cannot update stats.`);
+        return;
+      }
+
+      const currentStats = userSnap.data().stats || {};
+      const newStats = {
+        ...currentStats,
+        postsCount: (currentStats.postsCount || 0) + 1,
+      };
+
+      // Check if achievement should be awarded
+      if (!achievementSnap.exists) {
+        console.log(`Awarding achievement "${achievementId}" to user ${userId}.`);
+        newStats.achievementsCount = (currentStats.achievementsCount || 0) + 1;
+
+        // 1. Award the achievement
+        transaction.set(userAchievementRef, {
+          ...FIRST_POST_ACHIEVEMENT,
+          unlockedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+
+        // 2. Create a notification for the user
+        const notificationRef = db.collection("notifications").doc();
+        transaction.set(notificationRef, {
+          recipientId: userId,
+          senderId: userId, // For achievement, sender is the system/user themselves
+          type: "achievement",
+          title: "Achievement Unlocked!",
+          body: `You've earned the "${FIRST_POST_ACHIEVEMENT.title}" badge!`,
+          imageUrl: FIRST_POST_ACHIEVEMENT.imageUrl,
+          read: false,
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+      }
+
+      // 3. Update user stats in one go
+      transaction.update(userRef, { stats: newStats });
+    });
+    console.log(`Successfully processed onOutfitCreate for user ${userId}.`);
+  } catch (error) {
+    console.error(`Error in onOutfitCreate for user ${userId}:`, error);
+  }
+
+  return null;
+});
+
+/**
+ * When a new contest is created, schedule a Cloud Function to run when it ends.
+ */
+exports.onContestCreate = onDocumentCreated("contests/{contestId}", async (event) => {
+  const snap = event.data;
+  if (!snap) return null;
+
+  const contestData = snap.data();
+  const { endAt, title } = contestData;
+
+  if (!endAt || !endAt.toDate) {
+    console.error(`Contest ${event.params.contestId} is missing a valid endAt timestamp.`);
+    return null;
+  }
+
+  const endTime = endAt.toDate();
+  const now = new Date();
+
+  // Don't schedule for contests that have already ended.
+  if (endTime <= now) {
+    console.log(`Contest "${title}" has already ended. Not scheduling.`);
+    return null;
+  }
+
+  // Schedule the 'processContestEnd' function to run at the contest's end time.
+  // This requires enabling the Cloud Scheduler API in your Google Cloud project.
+  const {getFunctions} = require("firebase-admin/functions");
+  const queue = getFunctions().taskQueue("resolvecontestwinner");
+
+  try {
+    await queue.enqueue(
+        {contestId: event.params.contestId},
+        {scheduleTime: endTime},
+    );
+    console.log(`Successfully scheduled winner processing for contest "${title}" at ${endTime.toISOString()}`);
+  } catch (error) {
+    console.error(`Failed to schedule task for contest ${event.params.contestId}:`, error);
+  }
+
+  return null;
+});
+
+/**
+ * Processes a contest when it ends to find and declare a winner.
+ * This function is triggered by a Cloud Scheduler task created by onContestCreate.
+ */
+exports.resolveContestWinner = onTaskDispatched({taskQueue: "resolvecontestwinner"}, async (event) => {
+  const { contestId } = event.data;
+  if (!contestId) {
+    console.error("No contestId provided in the scheduled task payload.");
     return;
   }
 
-  const userRef = admin.firestore().doc(`users/${userId}`);
-  try {
-    await userRef.update({ "stats.postsCount": admin.firestore.FieldValue.increment(1) });
-    console.log(`Incremented postsCount for user ${userId}.`);
-  } catch (error) {
-    console.error(`Failed to increment postsCount for user ${userId}:`, error);
+  console.log(`Processing end of contest ${contestId}.`);
+  const db = admin.firestore();
+  const MIN_VOTES = 1; // Minimum votes an entry needs to be considered for winning.
+
+  // 1. Fetch all entries for the contest.
+  const entriesQuery = db.collection("entries").where("contestId", "==", contestId);
+  const entriesSnap = await entriesQuery.get();
+
+  if (entriesSnap.empty) {
+    console.log(`Contest ${contestId} has no entries. No winner to declare.`);
+    return null;
   }
+
+  // 2. Find the entry with the highest average rating that meets the minimum vote count.
+  let winnerEntry = null;
+  let highestRating = -1;
+
+  entriesSnap.forEach((doc) => {
+    const entry = doc.data();
+    const rating = entry.averageRating || 0;
+    const votes = entry.ratingsCount || 0;
+
+    if (votes >= MIN_VOTES && rating > highestRating) {
+      highestRating = rating;
+      winnerEntry = {id: doc.id, ...entry};
+    }
+  });
+
+  if (!winnerEntry) {
+    console.log(`No entry in contest ${contestId} met the minimum of ${MIN_VOTES} votes.`);
+    return null;
+  }
+
+  // 3. Mark the winning entry as the winner.
+  // This will trigger the `onEntryUpdateAwardWinner` function to handle achievements and stats.
+  const winnerRef = db.collection("entries").doc(winnerEntry.id);
+  try {
+    await winnerRef.update({isWinner: true});
+    console.log(`Declared user ${winnerEntry.userId} as the winner of contest ${contestId} with entry ${winnerEntry.id}.`);
+  } catch (error) {
+    console.error(`Failed to update winner status for entry ${winnerEntry.id}:`, error);
+  }
+
   return null;
 });
 

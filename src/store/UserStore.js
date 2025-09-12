@@ -23,6 +23,7 @@ import {
   fetchMyLikedOutfitIds,
   fetchMySavedOutfitIds,
   updateUserPushToken,
+  fetchUserAchievements,
   uploadImage,
   listFollowing,
 } from '../services/firebase';
@@ -53,6 +54,11 @@ const useUserStore = create((set, get) => ({
   // Set of outfit IDs the user has liked
   myLikedIds: new Set(),
   mySavedIds: new Set(),
+
+  // Achievements
+  myAchievements: [],
+  myAchievementsLoading: false,
+  seenAchievements: new Set(), // To track which have been animated
 
   // Subscribe to the current user's profile doc for real-time updates
   subscribeMyProfile: (uid) => {
@@ -188,6 +194,29 @@ const useUserStore = create((set, get) => ({
     else current.add(outfitId);
     set({ mySavedIds: new Set(current) });
   },
+
+  fetchMyAchievements: async (uid) => {
+    if (!uid) return;
+    set({ myAchievementsLoading: true });
+    const res = await fetchUserAchievements(uid);
+    if (res.success) {
+      const seen = get().seenAchievements;
+      const itemsWithNewFlag = res.items.map(item => ({
+        ...item,
+        isNew: !!item.unlockedAt && !seen.has(item.id),
+      }));
+      set({ myAchievements: itemsWithNewFlag });
+    }
+    set({ myAchievementsLoading: false });
+  },
+
+  markAchievementAsSeen: (achievementId) => {
+    set(state => ({
+      seenAchievements: new Set(state.seenAchievements).add(achievementId),
+      myAchievements: state.myAchievements.map(a => a.id === achievementId ? { ...a, isNew: false } : a),
+    }));
+  },
+
   // Relationship check with cache
   isFollowing: async (followerId, followingId) => {
     const key = relIdOf(followerId, followingId);
@@ -307,6 +336,9 @@ const useUserStore = create((set, get) => ({
       followingHasMore: true,
       myLikedIds: new Set(),
       mySavedIds: new Set(),
+      myAchievements: [],
+      myAchievementsLoading: false,
+      seenAchievements: new Set(),
       relCache: {},
       _unsubProfile: null,
     });
