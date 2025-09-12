@@ -23,6 +23,7 @@ import {
   fetchMyLikedOutfitIds,
   fetchMySavedOutfitIds,
   updateUserPushToken,
+  uploadImage,
   listFollowing,
 } from '../services/firebase';
 
@@ -124,6 +125,34 @@ const useUserStore = create((set, get) => ({
       const profiles = { ...get().profilesById, [uid]: res.user };
       set({ myProfile: uid === cur?.uid ? res.user : cur, profilesById: profiles });
     }
+    set({ updating: false });
+    return res;
+  },
+
+  setCoverPhoto: async (uid, imageUri) => {
+    if (!uid || !imageUri) return { success: false, error: 'Missing uid or imageUri' };
+    set({ updating: true });
+
+    // Optimistic update for instant UI feedback
+    const originalProfile = get().myProfile;
+    if (originalProfile) {
+      set({ myProfile: { ...originalProfile, coverPhoto: imageUri } });
+    }
+
+    const uploadRes = await uploadImage(imageUri);
+    if (!uploadRes.success) {
+      set({ updating: false, myProfile: originalProfile }); // Revert on upload failure
+      return { success: false, error: 'Image upload failed.' };
+    }
+
+    const res = await updateUserProfile({ uid, data: { coverPhoto: uploadRes.url } });
+    
+    // The real-time listener will also update this, but setting it here ensures
+    // the UI has the permanent URL as soon as the backend call is complete.
+    if (!res.success) {
+      set({ myProfile: originalProfile }); // Revert on DB update failure
+    }
+
     set({ updating: false });
     return res;
   },

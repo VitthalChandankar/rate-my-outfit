@@ -61,6 +61,7 @@ async function createUser(uid, email, name, phone = null) {
     name: name || 'New User',
     email: email || null,
     phone: phone || null, // Add phone number
+    coverPhoto: null,
     profilePicture: null,
     createdAt: serverTimestamp(),
     bio: '',

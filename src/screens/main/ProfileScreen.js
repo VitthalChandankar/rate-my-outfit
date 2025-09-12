@@ -19,6 +19,7 @@ import {
   FlatList,
   TouchableOpacity,
 } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { useIsFocused } from '@react-navigation/native';
 import { Image as ExpoImage } from 'expo-image';
 import { Button } from 'react-native-paper';
@@ -54,81 +55,6 @@ function dedupeById(items) {
   return Array.from(map.values());
 }
 
-const SegBar = ({ tab, setTab }) => {
-  const tabs = ['posts', 'achievements', 'saved'];
-  const idx = tabs.indexOf(tab) ?? 0;
-  const IND_W = (width - OUTER_PAD * 2 - 8) / 3;
-  const anim = useRef(new Animated.Value(idx)).current;
-  useEffect(() => {
-    Animated.timing(anim, { toValue: idx, duration: 240, easing: Easing.out(Easing.quad), useNativeDriver: false }).start();
-  }, [idx, anim]);
-  const left = anim.interpolate({ inputRange: [0, 1, 2], outputRange: [4, 4 + IND_W, 4 + IND_W * 2] });
-
-  return (
-    <View style={styles.segmentWrap}>
-      <Animated.View style={[styles.segmentIndicator, { width: IND_W, left }]} />
-      {tabs.map((k) => {
-        const sel = tab === k;
-        const label = k.charAt(0).toUpperCase() + k.slice(1);
-        return (
-          <Pressable key={k} onPress={() => setTab(k)} style={({ pressed }) => [styles.segmentTab, pressed && { opacity: 0.95 }]}>
-            <Text style={[styles.segmentText, sel && styles.segmentTextActive]}>{label}</Text>
-          </Pressable>
-        );
-      })}
-    </View>
-  );
-};
-
-const ProfileHeader = ({ myProfile, uid, navigation, logout, tab, setTab }) => {
-  const postsCount = Math.max(0, myProfile?.stats?.postsCount ?? 0);
-
-  return (
-    <View style={styles.header}>
-      <View style={styles.headerBg}>
-        <View style={styles.gradA} />
-        <View style={styles.gradB} />
-      </View>
-
-      <View style={styles.headerRow}>
-        <Avatar uri={myProfile?.profilePicture} size={96} ring />
-        <View style={styles.statsRow}>
-          <View style={styles.statBlock}>
-            <Text style={styles.statValue}>{postsCount}</Text>
-            <Text style={styles.statLabel}>Posts</Text>
-          </View>
-          <Pressable onPress={() => navigation.navigate('Followers', { userId: uid })} style={styles.statBlock}>
-            <Text style={styles.statValue}>{myProfile?.stats?.followersCount || 0}</Text>
-            <Text style={styles.statLabel}>Followers</Text>
-          </Pressable>
-          <Pressable onPress={() => navigation.navigate('Following', { userId: uid })} style={styles.statBlock}>
-            <Text style={styles.statValue}>{myProfile?.stats?.followingCount || 0}</Text>
-            <Text style={styles.statLabel}>Following</Text>
-          </Pressable>
-        </View>
-      </View>
-
-      <View style={styles.bioContainer}>
-        <View style={styles.nameRow}>
-          <Text style={styles.name}>{myProfile?.name || myProfile?.displayName || 'Your Name'}</Text>
-          <TouchableOpacity style={styles.settingsButton} onPress={() => navigation.navigate('Settings')}>
-            <Ionicons name="settings-outline" size={24} color="#333" />
-          </TouchableOpacity>
-        </View>
-        {!!myProfile?.username && <Text style={styles.username}>@{myProfile.username}</Text>}
-        {!!myProfile?.bio && <Text style={styles.bio}>{myProfile.bio}</Text>}
-      </View>
-
-      <View style={styles.actionsContainer}>
-        <Button mode="contained" onPress={() => navigation.navigate('EditProfile')} style={styles.actionMain} labelStyle={styles.actionMainText}>Edit Profile</Button>
-      </View>
-
-      <SegBar tab={tab} setTab={setTab} />
-      <View style={{ height: 8 }} />
-    </View>
-  );
-};
-
 export default function ProfileScreen({ navigation }) {
   const isFocused = useIsFocused();
   const { user, logout } = useAuthStore();
@@ -136,6 +62,7 @@ export default function ProfileScreen({ navigation }) {
 
   const { myProfile, loadMyProfile } = useUserStore();
   const mySavedIds = useUserStore((s) => s.mySavedIds);
+  const setCoverPhoto = useUserStore((s) => s.setCoverPhoto);
 
   const { myOutfits, fetchMyOutfits, loading, refreshing, hasMore, deleteOutfit, savedOutfits, fetchSavedOutfits, savedOutfitsLoading, toggleSave } = useOutfitStore();
   const { contestsById } = useContestStore();
@@ -153,6 +80,27 @@ export default function ProfileScreen({ navigation }) {
   useEffect(() => {
     if (isFocused && tab === 'saved') fetchSavedOutfits(uid);
   }, [isFocused, tab, fetchSavedOutfits, uid, mySavedIds]);
+
+  const handleCoverPhotoChange = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaType.Images,
+      allowsEditing: true,
+      aspect: [16, 9], // Enforce a widescreen aspect ratio
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets?.[0]?.uri) {
+      const uri = result.assets[0].uri;
+      Alert.alert(
+        'Update Cover Photo',
+        'Do you want to set this as your new cover photo?',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Update', onPress: () => setCoverPhoto(uid, uri) },
+        ]
+      );
+    }
+  };
 
   const data = useMemo(() => {
     const withKeys = (myOutfits || []).map(ensureKey);
@@ -252,6 +200,68 @@ export default function ProfileScreen({ navigation }) {
     </View>
   );
 
+  const SegBar = ({ tab, setTab }) => {
+    const tabs = ['posts', 'achievements', 'saved'];
+    const idx = tabs.indexOf(tab) ?? 0;
+    const IND_W = (width - OUTER_PAD * 2 - 8) / 3;
+    const anim = useRef(new Animated.Value(idx)).current;
+    useEffect(() => {
+      Animated.timing(anim, { toValue: idx, duration: 240, easing: Easing.out(Easing.quad), useNativeDriver: false }).start();
+    }, [idx, anim]);
+    const left = anim.interpolate({ inputRange: [0, 1, 2], outputRange: [4, 4 + IND_W, 4 + IND_W * 2] });
+
+    return (
+      <View style={styles.segmentWrap}>
+        <Animated.View style={[styles.segmentIndicator, { width: IND_W, left }]} />
+        {tabs.map((k) => {
+          const sel = tab === k;
+          const label = k.charAt(0).toUpperCase() + k.slice(1);
+          return (
+            <Pressable key={k} onPress={() => setTab(k)} style={({ pressed }) => [styles.segmentTab, pressed && { opacity: 0.95 }]}>
+              <Text style={[styles.segmentText, sel && styles.segmentTextActive]}>{label}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
+    );
+  };
+
+  const ProfileHeader = () => {
+    const postsCount = Math.max(0, myProfile?.stats?.postsCount ?? 0);
+    return (
+      <View style={styles.header}>
+        <TouchableOpacity activeOpacity={0.9} onPress={handleCoverPhotoChange} style={styles.coverPhotoContainer}>
+          <ExpoImage source={{ uri: myProfile?.coverPhoto }} style={styles.coverPhoto} contentFit="cover" />
+          {/* The overlay is now a sibling to the image, not a child */}
+          <View style={styles.coverOverlay} />
+        </TouchableOpacity>
+
+        <View style={styles.profileDetails}>
+          <Avatar uri={myProfile?.profilePicture} size={96} ring ringColor="rgba(255,255,255,0.3)" />
+          <View style={styles.nameAndActions}>
+            <Text style={styles.name}>{myProfile?.name || 'Your Name'}</Text>
+            {!!myProfile?.username && <Text style={styles.username}>@{myProfile.username}</Text>}
+          </View>
+          <TouchableOpacity style={styles.settingsButton} onPress={() => navigation.navigate('Settings')}>
+            <Ionicons name="settings-outline" size={24} color="#fff" />
+          </TouchableOpacity>
+        </View>
+
+        {!!myProfile?.bio && <Text style={styles.bio}>{myProfile.bio}</Text>}
+
+        <View style={styles.statsAndActions}>
+          <View style={styles.statsRow}>
+            <View style={styles.statBlock}><Text style={styles.statValue}>{postsCount}</Text><Text style={styles.statLabel}>Posts</Text></View>
+            <Pressable onPress={() => navigation.navigate('Followers', { userId: uid })} style={styles.statBlock}><Text style={styles.statValue}>{myProfile?.stats?.followersCount || 0}</Text><Text style={styles.statLabel}>Followers</Text></Pressable>
+            <Pressable onPress={() => navigation.navigate('Following', { userId: uid })} style={styles.statBlock}><Text style={styles.statValue}>{myProfile?.stats?.followingCount || 0}</Text><Text style={styles.statLabel}>Following</Text></Pressable>
+          </View>
+          <Button mode="contained" onPress={() => navigation.navigate('EditProfile')} style={styles.actionMain} labelStyle={styles.actionMainText}>Edit Profile</Button>
+        </View>
+        <SegBar tab={tab} setTab={setTab} />
+      </View>
+    );
+  };
+
   const listData = tab === 'posts' ? data : tab === 'saved' ? savedOutfits : [];
   const listEmpty =
     tab === 'posts'
@@ -279,9 +289,9 @@ export default function ProfileScreen({ navigation }) {
         data={listData}
         keyExtractor={(item) => String(item?.id || item?._localKey)}
         numColumns={3}
-        columnWrapperStyle={{ margin: -1 }} // This is fine
+        columnWrapperStyle={{ margin: -1 }}
         renderItem={renderItem} // This is fine
-        ListHeaderComponent={<ProfileHeader myProfile={myProfile} uid={uid} navigation={navigation} logout={logout} tab={tab} setTab={setTab} />}
+        ListHeaderComponent={<ProfileHeader />}
         refreshControl={<RefreshControl refreshing={!!refreshing} onRefresh={onRefresh} />}
         onEndReachedThreshold={0.35}
         onEndReached={onEnd}
@@ -304,60 +314,70 @@ export default function ProfileScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  header: {
-    // The header now controls its own padding
-    paddingTop: SAFE_H ? SAFE_H / 2 : 12,
+  header: { backgroundColor: '#FFFFFF', paddingBottom: 8 },
+  coverPhotoContainer: {
+    width: '100%',
+    height: 180,
+    backgroundColor: '#EAEAEA',
+  },
+  coverPhoto: {
+    width: '100%',
+    height: '100%',
+  },
+  coverOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.2)',
+  },
+  profileDetails: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
     paddingHorizontal: OUTER_PAD,
-    paddingBottom: 8,
-    backgroundColor: '#FFFFFF',
-    position: 'relative',
+    marginTop: -48, // Pulls the avatar up into the cover photo
   },
-  headerBg: {
-    position: 'absolute',
-    left: 0, right: 0, top: 0,
-    height: 160,
-    overflow: 'hidden',
+  nameAndActions: {
+    marginLeft: 16,
+    flex: 1,
   },
-  gradA: {
-    position: 'absolute',
-    left: -40, right: -40, top: -80, height: 200,
-    backgroundColor: '#7A5AF8', opacity: 0.25, borderBottomLeftRadius: 60, borderBottomRightRadius: 60,
-    transform: [{ skewY: '-6deg' }],
+  name: {
+    fontSize: 22,
+    fontWeight: '900',
+    color: '#FFFFFF',
+    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
   },
-  gradB: {
-    position: 'absolute',
-    left: -20, right: -20, top: -60, height: 180,
-    backgroundColor: '#D946EF', opacity: 0.18, borderBottomLeftRadius: 50, borderBottomRightRadius: 50,
-    transform: [{ skewY: '5deg' }],
+  username: {
+    fontSize: 15,
+    color: '#FFFFFF',
+    fontWeight: '600',
+    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
   },
-  headerRow: { flexDirection: 'row', alignItems: 'center', marginTop: 8 },
-  statsRow: { flexDirection: 'row', flex: 1, justifyContent: 'space-around', marginLeft: 16 },
-  statBlock: { alignItems: 'center' },
-  statValue: { fontWeight: '900', color: '#111827', fontSize: 18, textAlign: 'center' },
-  statLabel: { color: '#6B7280', marginTop: 2, fontSize: 12, textAlign: 'center' },
-
-  bioContainer: {
+  settingsButton: {
+    padding: 6,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0,0,0,0.3)',
+  },
+  bio: {
     marginTop: 12,
+    paddingHorizontal: OUTER_PAD,
+    color: '#4B5563',
+    fontSize: 14,
   },
-  nameRow: {
+  statsAndActions: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-  },
-  name: { fontWeight: '900', color: '#111827', fontSize: 20, letterSpacing: -0.2 },
-  settingsButton: { padding: 4 },
-  username: { color: '#6B7280', marginTop: 4, fontWeight: '700' },
-  bio: { marginTop: 6, color: '#4B5563' },
-
-  actionsContainer: {
-    flexDirection: 'row',
-    gap: 10,
+    paddingHorizontal: OUTER_PAD,
     marginTop: 16,
   },
-  actionMain: { flex: 1, borderRadius: 12, backgroundColor: '#1ABC9C' },
+  statsRow: { flexDirection: 'row', gap: 24 },
+  statBlock: { alignItems: 'center' },
+  statValue: { fontWeight: '900', color: '#111827', fontSize: 18, textAlign: 'center' },
+  statLabel: { color: '#6B7280', marginTop: 2, fontSize: 12, textAlign: 'center' },
+  actionMain: { borderRadius: 12, backgroundColor: '#1ABC9C' },
   actionMainText: { color: '#fff', fontWeight: '900', letterSpacing: 0.2 },
-  actionGhost: { flex: 1, borderRadius: 12 },
-  actionGhostText: { fontWeight: '800' },
 
   segmentWrap: {
     marginTop: 16,
