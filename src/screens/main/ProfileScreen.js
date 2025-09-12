@@ -27,6 +27,7 @@ import { Ionicons } from '@expo/vector-icons';
 import useAuthStore from '../../store/authStore';
 import useOutfitStore from '../../store/outfitStore';
 import useUserStore from '../../store/UserStore';
+import { fetchOutfitsByIds } from '../../services/firebase';
 import useContestStore from '../../store/contestStore';
 import Avatar from '../../components/Avatar';
 import ProfileGridItem from '../../components/ProfileGridItem';
@@ -53,17 +54,93 @@ function dedupeById(items) {
   return Array.from(map.values());
 }
 
+const SegBar = ({ tab, setTab }) => {
+  const tabs = ['posts', 'achievements', 'saved'];
+  const idx = tabs.indexOf(tab) ?? 0;
+  const IND_W = (width - OUTER_PAD * 2 - 8) / 3;
+  const anim = useRef(new Animated.Value(idx)).current;
+  useEffect(() => {
+    Animated.timing(anim, { toValue: idx, duration: 240, easing: Easing.out(Easing.quad), useNativeDriver: false }).start();
+  }, [idx, anim]);
+  const left = anim.interpolate({ inputRange: [0, 1, 2], outputRange: [4, 4 + IND_W, 4 + IND_W * 2] });
+
+  return (
+    <View style={styles.segmentWrap}>
+      <Animated.View style={[styles.segmentIndicator, { width: IND_W, left }]} />
+      {tabs.map((k) => {
+        const sel = tab === k;
+        const label = k.charAt(0).toUpperCase() + k.slice(1);
+        return (
+          <Pressable key={k} onPress={() => setTab(k)} style={({ pressed }) => [styles.segmentTab, pressed && { opacity: 0.95 }]}>
+            <Text style={[styles.segmentText, sel && styles.segmentTextActive]}>{label}</Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+};
+
+const ProfileHeader = ({ myProfile, uid, navigation, logout, tab, setTab }) => {
+  const postsCount = Math.max(0, myProfile?.stats?.postsCount ?? 0);
+
+  return (
+    <View style={styles.header}>
+      <View style={styles.headerBg}>
+        <View style={styles.gradA} />
+        <View style={styles.gradB} />
+      </View>
+
+      <View style={styles.headerRow}>
+        <Avatar uri={myProfile?.profilePicture} size={96} ring />
+        <View style={styles.statsRow}>
+          <View style={styles.statBlock}>
+            <Text style={styles.statValue}>{postsCount}</Text>
+            <Text style={styles.statLabel}>Posts</Text>
+          </View>
+          <Pressable onPress={() => navigation.navigate('Followers', { userId: uid })} style={styles.statBlock}>
+            <Text style={styles.statValue}>{myProfile?.stats?.followersCount || 0}</Text>
+            <Text style={styles.statLabel}>Followers</Text>
+          </Pressable>
+          <Pressable onPress={() => navigation.navigate('Following', { userId: uid })} style={styles.statBlock}>
+            <Text style={styles.statValue}>{myProfile?.stats?.followingCount || 0}</Text>
+            <Text style={styles.statLabel}>Following</Text>
+          </Pressable>
+        </View>
+      </View>
+
+      <View style={styles.bioContainer}>
+        <View style={styles.nameRow}>
+          <Text style={styles.name}>{myProfile?.name || myProfile?.displayName || 'Your Name'}</Text>
+          <TouchableOpacity style={styles.settingsButton} onPress={() => navigation.navigate('Settings')}>
+            <Ionicons name="settings-outline" size={24} color="#333" />
+          </TouchableOpacity>
+        </View>
+        {!!myProfile?.username && <Text style={styles.username}>@{myProfile.username}</Text>}
+        {!!myProfile?.bio && <Text style={styles.bio}>{myProfile.bio}</Text>}
+      </View>
+
+      <View style={styles.actionsContainer}>
+        <Button mode="contained" onPress={() => navigation.navigate('EditProfile')} style={styles.actionMain} labelStyle={styles.actionMainText}>Edit Profile</Button>
+      </View>
+
+      <SegBar tab={tab} setTab={setTab} />
+      <View style={{ height: 8 }} />
+    </View>
+  );
+};
+
 export default function ProfileScreen({ navigation }) {
   const isFocused = useIsFocused();
   const { user, logout } = useAuthStore();
   const uid = user?.uid || user?.user?.uid || null;
 
   const { myProfile, loadMyProfile } = useUserStore();
+  const mySavedIds = useUserStore((s) => s.mySavedIds);
 
-  const { myOutfits, fetchMyOutfits, loading, refreshing, hasMore, deleteOutfit } = useOutfitStore();
-  const { contestsById, listContests } = useContestStore();
+  const { myOutfits, fetchMyOutfits, loading, refreshing, hasMore, deleteOutfit, savedOutfits, fetchSavedOutfits, savedOutfitsLoading, toggleSave } = useOutfitStore();
+  const { contestsById } = useContestStore();
 
-  const [tab, setTab] = useState('posts'); // posts | achievements | contests
+  const [tab, setTab] = useState('posts'); // posts | achievements | saved
 
   useEffect(() => {
     if (isFocused) {
@@ -73,10 +150,9 @@ export default function ProfileScreen({ navigation }) {
     }
   }, [isFocused, fetchMyOutfits, uid, loadMyProfile]);
 
-  // Fetch contest data only when the contest tab is active
   useEffect(() => {
-    if (isFocused && tab === 'contests') listContests({ status: 'all', reset: true });
-  }, [isFocused, tab, listContests]);
+    if (isFocused && tab === 'saved') fetchSavedOutfits(uid);
+  }, [isFocused, tab, fetchSavedOutfits, uid, mySavedIds]);
 
   const data = useMemo(() => {
     const withKeys = (myOutfits || []).map(ensureKey);
@@ -85,22 +161,37 @@ export default function ProfileScreen({ navigation }) {
 
   const handlePostLongPress = useCallback((post) => {
     if (!post?.id) return;
-    Alert.alert(
-      "Post Options",
-      "What would you like to do?",
-      [
-        { text: "Cancel", style: "cancel" },
-        { text: "View Post", onPress: () => handlePostPress(post) },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: async () => {
-            await deleteOutfit(post);
+
+    if (tab === 'saved') {
+      Alert.alert(
+        "Saved Post",
+        "What would you like to do?",
+        [
+          { text: "Cancel", style: "cancel" },
+          { text: "View Post", onPress: () => handlePostPress(post) },
+          {
+            text: "Unsave",
+            style: "destructive",
+            onPress: () => toggleSave(post.id),
           },
-        },
-      ]
-    );
-  }, [handlePostPress, deleteOutfit]);
+        ]
+      );
+    } else {
+      Alert.alert(
+        "Post Options",
+        "What would you like to do?",
+        [
+          { text: "Cancel", style: "cancel" },
+          { text: "View Post", onPress: () => handlePostPress(post) },
+          {
+            text: "Delete",
+            style: "destructive",
+            onPress: () => deleteOutfit(post),
+          },
+        ]
+      );
+    }
+  }, [handlePostPress, deleteOutfit, tab, toggleSave]);
 
   const handlePostPress = useCallback((post) => {
     if (!post?.id) return;
@@ -143,89 +234,6 @@ export default function ProfileScreen({ navigation }) {
     Animated.timing(fadeIn, { toValue: 1, duration: 300, easing: Easing.out(Easing.quad), useNativeDriver: true }).start();
   }, [fadeIn]);
 
-  // Use the server-side count, but ensure it's not displayed as negative.
-  const postsCount = Math.max(0, myProfile?.stats?.postsCount ?? 0);
-
-  const SegBar = () => {
-    const idx = { posts: 0, achievements: 1, contests: 2 }[tab] ?? 0; // Keep achievements/contests tabs for future
-    const IND_W = (width - OUTER_PAD * 2 - 8) / 3;
-    const anim = useRef(new Animated.Value(idx)).current;
-    useEffect(() => {
-      Animated.timing(anim, { toValue: idx, duration: 240, easing: Easing.out(Easing.quad), useNativeDriver: false }).start();
-    }, [idx, anim]);
-    const left = anim.interpolate({ inputRange: [0, 1, 2], outputRange: [4, 4 + IND_W, 4 + IND_W * 2] });
-
-    return (
-      <View style={styles.segmentWrap}>
-        <Animated.View style={[styles.segmentIndicator, { width: IND_W, left }]} />
-        {['posts', 'achievements', 'contests'].map((k) => {
-          const sel = tab === k;
-          const label = k === 'posts' ? 'Posts' : k === 'achievements' ? 'Achievements' : 'Contests';
-          return (
-            <Pressable key={k} onPress={() => setTab(k)} style={({ pressed }) => [styles.segmentTab, pressed && { opacity: 0.95 }]}>
-              <Text style={[styles.segmentText, sel && styles.segmentTextActive]}>{label}</Text>
-            </Pressable>
-          );
-        })}
-      </View>
-    );
-  };
-
-  const Header = () => (
-    <View style={styles.header}>
-      <View style={styles.headerBg}>
-        <View style={styles.gradA} />
-        <View style={styles.gradB} />
-      </View>
-
-      <TouchableOpacity
-        style={styles.settingsButton}
-        onPress={() => navigation.navigate('Settings')}>
-        <Ionicons name="settings-outline" size={24} color="#333" />
-      </TouchableOpacity>
-
-      <View style={styles.headerRow}>
-        <View style={{ padding: 3, borderRadius: 52, backgroundColor: '#EDE7FF' }}>
-          <Avatar uri={myProfile?.profilePicture} size={96} ring />
-        </View>
-
-        <View style={styles.statsRow}>
-          <Pressable onPress={() => navigation.navigate('Followers', { userId: uid })} style={styles.statBlock}>
-            <Text style={styles.statValue}>{myProfile?.stats?.followersCount || 0}</Text>
-            <Text style={styles.statLabel}>Followers</Text>
-          </Pressable>
-          <Pressable onPress={() => navigation.navigate('Following', { userId: uid })} style={styles.statBlock}>
-            <Text style={styles.statValue}>{myProfile?.stats?.followingCount || 0}</Text>
-            <Text style={styles.statLabel}>Following</Text>
-          </Pressable>
-          <View style={styles.statBlock}>
-            <Text style={styles.statValue}>{postsCount}</Text>
-            <Text style={styles.statLabel}>Posts</Text>
-          </View>
-        </View>
-      </View>
-
-      <Text style={styles.name}>{myProfile?.name || myProfile?.displayName || 'Your Name'}</Text>
-      {!!myProfile?.username && <Text style={styles.username}>@{myProfile.username}</Text>}
-      {!!myProfile?.bio && <Text style={styles.bio}>{myProfile.bio}</Text>}
-
-      <View style={{ flexDirection: 'row', gap: 10, marginTop: 12 }}>
-        <Button mode="contained" onPress={() => navigation.navigate('EditProfile')} style={styles.actionMain} labelStyle={styles.actionMainText}>
-          Edit Profile
-        </Button>
-        <Button mode="elevated" onPress={() => {}} style={styles.actionGhost} labelStyle={styles.actionGhostText}>
-          Share
-        </Button>
-        <Button mode="outlined" onPress={logout} style={styles.actionGhost} labelStyle={styles.actionGhostText}>
-          Logout
-        </Button>
-      </View>
-
-      <SegBar />
-      <View style={{ height: 8 }} />
-    </View>
-  );
-
   const renderItem = useCallback(({ item }) => (
     <ProfileGridItem item={item} onPress={handlePostPress} onLongPress={handlePostLongPress} />
   ), [handlePostPress, handlePostLongPress]);
@@ -237,20 +245,20 @@ export default function ProfileScreen({ navigation }) {
     </View>
   );
 
-  const ContestsEmpty = () => (
+  const SavedEmpty = () => (
     <View style={styles.emptyWrap}>
-      <Text style={styles.emptyTitle}>No contest history</Text>
-      <Text style={styles.emptySub}>Enter active contests to see them here.</Text>
+      <Text style={styles.emptyTitle}>No saved posts</Text>
+      <Text style={styles.emptySub}>Tap the bookmark icon on a post to save it.</Text>
     </View>
   );
 
-  const listData = tab === 'posts' ? data : [];
+  const listData = tab === 'posts' ? data : tab === 'saved' ? savedOutfits : [];
   const listEmpty =
     tab === 'posts'
-      ? (!loading ? <Text style={styles.empty}>No uploads yet — be the first to upload!</Text> : null)
+      ? (!loading && !refreshing ? <Text style={styles.empty}>No uploads yet — be the first to upload!</Text> : null)
       : tab === 'achievements'
       ? <AchievementsEmpty />
-      : <ContestsEmpty />;
+      : <SavedEmpty />;
 
   if (loading && (myOutfits?.length ?? 0) === 0) {
     return (
@@ -271,9 +279,9 @@ export default function ProfileScreen({ navigation }) {
         data={listData}
         keyExtractor={(item) => String(item?.id || item?._localKey)}
         numColumns={3}
-        columnWrapperStyle={{ margin: -1 }}
-        renderItem={renderItem}
-        ListHeaderComponent={Header}
+        columnWrapperStyle={{ margin: -1 }} // This is fine
+        renderItem={renderItem} // This is fine
+        ListHeaderComponent={<ProfileHeader myProfile={myProfile} uid={uid} navigation={navigation} logout={logout} tab={tab} setTab={setTab} />}
         refreshControl={<RefreshControl refreshing={!!refreshing} onRefresh={onRefresh} />}
         onEndReachedThreshold={0.35}
         onEndReached={onEnd}
@@ -304,13 +312,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     position: 'relative',
   },
-  settingsButton: {
-    position: 'absolute',
-    top: SAFE_H ? SAFE_H / 2 + 4 : 16,
-    right: OUTER_PAD,
-    zIndex: 10,
-    padding: 4,
-  },
   headerBg: {
     position: 'absolute',
     left: 0, right: 0, top: 0,
@@ -330,16 +331,30 @@ const styles = StyleSheet.create({
     transform: [{ skewY: '5deg' }],
   },
   headerRow: { flexDirection: 'row', alignItems: 'center', marginTop: 8 },
-  statsRow: { flexDirection: 'row', marginLeft: 'auto', gap: 16, paddingRight: 2 },
+  statsRow: { flexDirection: 'row', flex: 1, justifyContent: 'space-around', marginLeft: 16 },
   statBlock: { alignItems: 'center' },
   statValue: { fontWeight: '900', color: '#111827', fontSize: 18, textAlign: 'center' },
   statLabel: { color: '#6B7280', marginTop: 2, fontSize: 12, textAlign: 'center' },
 
-  name: { fontWeight: '900', color: '#111827', fontSize: 20, marginTop: 12, letterSpacing: -0.2 },
+  bioContainer: {
+    marginTop: 12,
+  },
+  nameRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  name: { fontWeight: '900', color: '#111827', fontSize: 20, letterSpacing: -0.2 },
+  settingsButton: { padding: 4 },
   username: { color: '#6B7280', marginTop: 4, fontWeight: '700' },
   bio: { marginTop: 6, color: '#4B5563' },
 
-  actionMain: { flex: 1, borderRadius: 12, backgroundColor: '#7A5AF8' },
+  actionsContainer: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 16,
+  },
+  actionMain: { flex: 1, borderRadius: 12, backgroundColor: '#1ABC9C' },
   actionMainText: { color: '#fff', fontWeight: '900', letterSpacing: 0.2 },
   actionGhost: { flex: 1, borderRadius: 12 },
   actionGhostText: { fontWeight: '800' },
@@ -350,7 +365,7 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     height: 46,
     borderRadius: 14,
-    backgroundColor: 'rgba(122,90,248,0.08)',
+    backgroundColor: 'rgba(26, 188, 156, 0.08)',
     overflow: 'hidden',
     position: 'relative',
     flexDirection: 'row',
@@ -377,5 +392,5 @@ const styles = StyleSheet.create({
   emptyWrap: { alignItems: 'center', paddingVertical: 40 },
   emptyTitle: { fontWeight: '900', color: '#1F2937' },
   emptySub: { marginTop: 6, color: '#6B7280' },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFFFFF' },
 });

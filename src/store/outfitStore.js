@@ -11,6 +11,8 @@ import {
   fetchCommentsForOutfit,
   toggleLikePost,
   fetchLikersForOutfit,
+  toggleSavePost,
+  fetchOutfitsByIds,
   fetchUserOutfits,
   uploadImage,
 } from '../services/firebase';
@@ -31,6 +33,9 @@ const useOutfitStore = create((set, get) => ({
   myOutfitsRefreshing: false,
   myOutfitsHasMore: true,
 
+  // Saved posts
+  savedOutfits: [],
+  savedOutfitsLoading: false,
   // Likers list per outfit
   likers: {},
 
@@ -198,6 +203,21 @@ const useOutfitStore = create((set, get) => ({
     }
   },
 
+  // Save/unsave a post
+  toggleSave: async (outfitId) => {
+    const { user } = useAuthStore.getState();
+    const userId = user?.uid;
+    if (!outfitId || !userId) return;
+
+    const { toggleSavedId } = useUserStore.getState();
+    toggleSavedId(outfitId); // Optimistic UI update
+
+    const res = await toggleSavePost({ outfitId, userId });
+    if (!res.success) {
+      toggleSavedId(outfitId); // Revert on failure
+    }
+  },
+
   // Fetch users who liked a post
   fetchLikers: async ({ outfitId, reset = false, limit = 30 }) => {
     if (!outfitId) return { success: false, error: 'outfitId required' };
@@ -325,6 +345,22 @@ const useOutfitStore = create((set, get) => ({
       set({ myOutfitsLoading: false, myOutfitsRefreshing: false });
       return { success: false, error: e };
     }
+  },
+
+  fetchSavedOutfits: async (userId) => {
+    if (!userId) return;
+    const { mySavedIds, hydrateMySaves } = useUserStore.getState();
+    if (mySavedIds.size === 0) {
+      await hydrateMySaves(userId); // Ensure we have the latest saves
+    }
+    const ids = Array.from(useUserStore.getState().mySavedIds);
+
+    set({ savedOutfitsLoading: true });
+    const res = await fetchOutfitsByIds(ids);
+    if (res.success) {
+      set({ savedOutfits: res.items });
+    }
+    set({ savedOutfitsLoading: false });
   },
 
 

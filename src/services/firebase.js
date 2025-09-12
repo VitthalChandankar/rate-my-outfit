@@ -25,6 +25,7 @@ import {
   orderBy,
   query,
   runTransaction,
+  documentId,
   serverTimestamp,
   setDoc,
   startAfter,
@@ -377,6 +378,42 @@ async function fetchLikersForOutfit({ outfitId, limitCount = 30, startAfterDoc =
     console.error('fetchLikersForOutfit failed:', error);
     return { success: false, error };
   }
+}
+
+async function toggleSavePost({ outfitId, userId }) {
+  const saveRef = doc(firestore, 'saves', `${outfitId}_${userId}`);
+  try {
+    const saveSnap = await getDoc(saveRef);
+    if (saveSnap.exists()) {
+      await deleteDoc(saveRef);
+      return { success: true, isSaved: false };
+    } else {
+      await setDoc(saveRef, { outfitId, userId, createdAt: serverTimestamp() });
+      return { success: true, isSaved: true };
+    }
+  } catch (error) {
+    console.error('toggleSavePost error:', error);
+    return { success: false, error };
+  }
+}
+
+async function fetchMySavedOutfitIds(userId) {
+  try {
+    const q = query(collection(firestore, 'saves'), where('userId', '==', userId));
+    const snap = await getDocs(q);
+    const ids = snap.docs.map(doc => doc.data().outfitId);
+    return { success: true, ids };
+  } catch (error) {
+    return { success: false, error };
+  }
+}
+
+async function fetchOutfitsByIds(outfitIds = []) {
+  if (outfitIds.length === 0) return { success: true, items: [] };
+  const q = query(collection(firestore, 'outfits'), where(documentId(), 'in', outfitIds));
+  const snap = await getDocs(q);
+  const items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  return { success: true, items };
 }
 
 // --- Contests utilities ---
@@ -943,5 +980,5 @@ export {
   getUserProfile, updateUserProfile, setUserAvatar, ensureUsernameUnique,
   followUser, unfollowUser, isFollowing, listFollowers, listFollowing,
   fetchNotifications, markNotificationsAsRead, subscribeToUnreadNotifications,
-  fbSharePost, fbFetchShares, fbReactToShare
+  fbSharePost, fbFetchShares, fbReactToShare, toggleSavePost, fetchMySavedOutfitIds, fetchOutfitsByIds
 };

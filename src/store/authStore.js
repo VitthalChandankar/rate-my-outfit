@@ -31,7 +31,7 @@ const useAuthStore = create((set, get) => ({
 
     return onAuthChange(async (firebaseUser) => {
       try {
-        const { loadMyProfile, subscribeMyProfile, hydrateMyLikes, clearMyProfile, updateMyPushToken } = useUserStore.getState();
+        const { loadMyProfile, subscribeMyProfile, hydrateMyLikes, hydrateMySaves, clearMyProfile, updateMyPushToken } = useUserStore.getState();
         const { subscribeToUnreadCount, clearNotifications } = useNotificationsStore.getState();
         const previousUser = get().user;
 
@@ -44,7 +44,7 @@ const useAuthStore = create((set, get) => ({
           // If this is a new login/signup, load their profile and register for push notifications.
           if (firebaseUser.uid !== previousUser?.uid) {
             const uid = firebaseUser.uid;
-            await Promise.all([loadMyProfile(uid), hydrateMyLikes(uid)]);
+            await Promise.all([loadMyProfile(uid), hydrateMyLikes(uid), hydrateMySaves(uid)]);
             subscribeMyProfile(uid);
             subscribeToUnreadCount(uid); // Start subscription
 

@@ -65,6 +65,16 @@ service cloud.firestore {
       allow update: if false;
     }
 
+    // saves: Signed-in users can read. Owner can create/delete their own save.
+    match /saves/{saveId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn()
+        && request.auth.uid == request.resource.data.userId
+        && saveId == request.resource.data.outfitId + '_' + request.auth.uid;
+      allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow update: if false;
+    }
+
     // follows: Signed-in users can read. Owner can create/delete their own follow relationship.
     match /follows/{followId} {
       function parts() { return followId.split('_'); }

@@ -28,7 +28,7 @@ function formatCount(num) {
   return num.toString();
 }
 
-const OutfitCard = memo(({ item, onPress, onRate, onUserPress, onLike, isLiked, onPressLikes, onPressComments, onPressContest, onPressShare }) => {
+const OutfitCard = memo(({ item, onPress, onRate, onUserPress, onLike, isLiked, isSaved, onPressSave, onPressLikes, onPressComments, onPressContest, onPressShare }) => {
   const raw = item || null;
   if (!raw) return null;
 
@@ -63,6 +63,7 @@ const OutfitCard = memo(({ item, onPress, onRate, onUserPress, onLike, isLiked, 
   const handleRate = () => { if (typeof onRate === 'function') onRate(raw); };
   const handleLike = () => { if (typeof onLike === 'function') onLike(raw); };
   const handleLikesPress = () => { if (typeof onPressLikes === 'function') onPressLikes(id); };
+  const handleSavePress = () => { if (typeof onPressSave === 'function') onPressSave(id); };
   const handleCommentsPress = () => { if (typeof onPressComments === 'function') onPressComments({ outfitId: id, postOwnerId: userId }); };
   const handleContestTap = () => { if (typeof onPressContest === 'function') onPressContest(raw); };
   const handleShare = () => { if (typeof onPressShare === 'function') onPressShare(raw); };
@@ -148,7 +149,11 @@ const OutfitCard = memo(({ item, onPress, onRate, onUserPress, onLike, isLiked, 
             <Ionicons name="arrow-redo-outline" size={24} color="#111" />
           </TouchableOpacity>
         </View>
-        <View style={styles.footerRight} />
+        <View style={styles.footerRight}>
+          <TouchableOpacity style={styles.action} onPress={handleSavePress}>
+            <Ionicons name={isSaved ? 'bookmark' : 'bookmark-outline'} size={24} color={'#111'} />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Likes, Comments, and Caption Section */}
@@ -172,8 +177,8 @@ const styles = StyleSheet.create({
   userName: { fontWeight: '700' },
   time: { color: '#888', fontSize: 12 },
 
-  sponsoredBadge: { backgroundColor: '#FFE4F2', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 14 },
-  sponsoredText: { color: '#C2185B', fontWeight: '800', fontSize: 12 },
+  sponsoredBadge: { backgroundColor: '#A43B76', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 14 },
+  sponsoredText: { color: '#FFFFFF', fontWeight: '800', fontSize: 12 },
 
   image: { width: '100%', height: 420, backgroundColor: '#F4F4F4' },
   imagePlaceholder: { backgroundColor: '#EEE' },
@@ -217,10 +222,10 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 14,
     paddingVertical: 10,
-    backgroundColor: '#FFEBF5',
+    backgroundColor: '#A43B76',
   },
-  ctaText: { fontWeight: '800', color: '#C2185B' },
-  ctaBtnText: { color: '#7A5AF8', fontWeight: '900', fontSize: 18 },
+  ctaText: { fontWeight: '800', color: '#FFFFFF' },
+  ctaBtnText: { color: '#FFFFFF', fontWeight: '900', fontSize: 18 },
 
   footer: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 10, gap: 16 },
   actionsLeft: { flexDirection: 'row', gap: 14 },

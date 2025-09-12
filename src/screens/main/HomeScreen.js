@@ -36,7 +36,8 @@ export default function HomeScreen() {
 
   const feed = useOutfitStore((s) => s.feed);
   const toggleLike = useOutfitStore((s) => s.toggleLike);
-  const myLikedIds = useUserStore((s) => s.myLikedIds);
+  const { toggleSave } = useOutfitStore();
+  const { myLikedIds, mySavedIds } = useUserStore((s) => ({ myLikedIds: s.myLikedIds, mySavedIds: s.mySavedIds }));
   const fetchFeed = useOutfitStore((s) => s.fetchFeed);
   const loading = useOutfitStore((s) => s.loading);
   const refreshing = useOutfitStore((s) => s.refreshing);
@@ -109,6 +110,11 @@ export default function HomeScreen() {
     if (!authedUid || !post?.id) return;
     toggleLike(post.id, authedUid, post.userId);
   }, [authedUid, toggleLike]);
+
+  const handleSave = useCallback((outfitId) => {
+    if (!authedUid || !outfitId) return;
+    toggleSave(outfitId);
+  }, [authedUid, toggleSave]);
 
   const handleLikesPress = useCallback((outfitId) => {
     if (!outfitId) return;
@@ -204,6 +210,8 @@ export default function HomeScreen() {
           onPressContest={handleContestPress}
           onPressShare={handleSharePress}
           isLiked={myLikedIds.has(item.id)}
+          isSaved={mySavedIds.has(item.id)}
+          onPressSave={handleSave}
         />
       )}
       refreshControl={<RefreshControl refreshing={!!refreshing} onRefresh={onRefresh} />}
