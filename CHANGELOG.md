@@ -293,3 +293,15 @@ imp
 Delete unused functions:
 firebase functions:delete myFunctionName
 Check Artifact Registry manually once in a while → delete old repos if Firebase didn’t.
+
+
+-------------------------
+
+created new branch experement/darkmode
+this has changes for dark and light mode. the setting has toggle button, we are also changing the paper icon colours
+issue - when light theme selected the settingScreen ui is changed not looking good from previous. 
+choosen colour is not good , we will change later
+the homescreen when changed to dark we need to modify the the image container its white as of now.
+contest screens are not reflecting theme colour
+
+future release change ..
