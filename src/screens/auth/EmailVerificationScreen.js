@@ -5,11 +5,13 @@ import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert } fr
 import { Ionicons } from '@expo/vector-icons';
 import { sendEmailVerification } from 'firebase/auth';
 
+import { useTheme } from '../../theme/ThemeContext';
 import { auth } from '../../services/firebase';
 import useAuthStore from '../../store/authStore';
 
 export default function EmailVerificationScreen({ navigation }) {
   const { logout } = useAuthStore();
+  const { colors } = useTheme();
   const [isResending, setIsResending] = useState(false);
 
   useEffect(() => {
@@ -45,19 +47,19 @@ export default function EmailVerificationScreen({ navigation }) {
   };
 
   return (
-    <View style={styles.container}>
-      <Ionicons name="mail-unread-outline" size={80} color="#FF5A5F" />
-      <Text style={styles.title}>Verify Your Email</Text>
-      <Text style={styles.subtitle}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <Ionicons name="mail-unread-outline" size={80} color={colors.accent} />
+      <Text style={[styles.title, { color: colors.text }]}>Verify Your Email</Text>
+      <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
         We've sent a verification link to <Text style={{ fontWeight: 'bold' }}>{auth.currentUser?.email}</Text>.
         Please check your inbox and click the link to continue.
       </Text>
 
       <ActivityIndicator style={{ marginVertical: 20 }} />
-      <Text style={styles.waitingText}>Waiting for verification...</Text>
+      <Text style={[styles.waitingText, { color: colors.textTertiary }]}>Waiting for verification...</Text>
 
-      <TouchableOpacity style={styles.button} onPress={handleResend} disabled={isResending}>
-        <Text style={styles.buttonText}>{isResending ? 'Sending...' : 'Resend Email'}</Text>
+      <TouchableOpacity style={[styles.button, { backgroundColor: colors.inputBackground }]} onPress={handleResend} disabled={isResending}>
+        <Text style={[styles.buttonText, { color: colors.text }]}>{isResending ? 'Sending...' : 'Resend Email'}</Text>
       </TouchableOpacity>
 
       <TouchableOpacity
@@ -66,29 +68,27 @@ export default function EmailVerificationScreen({ navigation }) {
             await logout(); // Await the logout process
           } catch (e) { Alert.alert('Logout Failed', 'Please try again.'); }
         }}>
-        <Text style={styles.backText}>Back to Login</Text>
+        <Text style={[styles.backText, { color: colors.textSecondary }]}>Back to Login</Text>
       </TouchableOpacity>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24, backgroundColor: '#fff' },
+  container: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
   title: { fontSize: 28, fontWeight: '700', textAlign: 'center', marginTop: 16, marginBottom: 8 },
-  subtitle: { fontSize: 16, color: '#666', textAlign: 'center', marginBottom: 32, lineHeight: 24 },
-  waitingText: { color: '#888', fontStyle: 'italic' },
+  subtitle: { fontSize: 16, textAlign: 'center', marginBottom: 32, lineHeight: 24 },
+  waitingText: { fontStyle: 'italic' },
   button: {
-    backgroundColor: '#F4F4F4',
     borderRadius: 12,
     paddingVertical: 14,
     width: '100%',
     alignItems: 'center',
     marginTop: 32,
   },
-  buttonText: { color: '#333', fontSize: 18, fontWeight: '600' },
+  buttonText: { fontSize: 18, fontWeight: '600' },
   backText: {
     marginTop: 20,
-    color: '#666',
     fontSize: 16,
   },
 });

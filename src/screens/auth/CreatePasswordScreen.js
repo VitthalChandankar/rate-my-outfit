@@ -5,10 +5,12 @@ import { View, Text, StyleSheet, TextInput, TouchableOpacity, ActivityIndicator,
 import { Ionicons } from '@expo/vector-icons';
 import { updatePassword } from 'firebase/auth';
 
+import { useTheme } from '../../theme/ThemeContext';
 import { auth } from '../../services/firebase';
 
 export default function CreatePasswordScreen({ navigation }) {
   const [password, setPassword] = useState('');
+  const { colors } = useTheme();
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isPasswordSecure, setIsPasswordSecure] = useState(true);
   const [isConfirmPasswordSecure, setIsConfirmPasswordSecure] = useState(true);
@@ -48,71 +50,68 @@ export default function CreatePasswordScreen({ navigation }) {
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Create a Password</Text>
-      <Text style={styles.subtitle}>Secure your new account with a password.</Text>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <Text style={[styles.title, { color: colors.text }]}>Create a Password</Text>
+      <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Secure your new account with a password.</Text>
 
-      {error ? <Text style={styles.errorText}>{error}</Text> : null}
+      {error ? <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text> : null}
 
-      <View style={styles.inputContainer}>
-        <Ionicons name="lock-closed-outline" size={20} color="#888" />
+      <View style={[styles.inputContainer, { backgroundColor: colors.inputBackground }]}>
+        <Ionicons name="lock-closed-outline" size={20} color={colors.textTertiary} />
         <TextInput
-          style={styles.input}
+          style={[styles.input, { color: colors.text }]}
           placeholder="Password"
           secureTextEntry={isPasswordSecure}
           value={password}
           onChangeText={setPassword}
         />
         <TouchableOpacity onPress={() => setIsPasswordSecure(!isPasswordSecure)}>
-          <Ionicons name={isPasswordSecure ? 'eye-off' : 'eye'} size={24} color="#888" />
+          <Ionicons name={isPasswordSecure ? 'eye-off' : 'eye'} size={24} color={colors.textTertiary} />
         </TouchableOpacity>
       </View>
 
-      <View style={styles.inputContainer}>
-        <Ionicons name="lock-closed-outline" size={20} color="#888" />
+      <View style={[styles.inputContainer, { backgroundColor: colors.inputBackground }]}>
+        <Ionicons name="lock-closed-outline" size={20} color={colors.textTertiary} />
         <TextInput
-          style={styles.input}
+          style={[styles.input, { color: colors.text }]}
           placeholder="Confirm Password"
           secureTextEntry={isConfirmPasswordSecure}
           value={confirmPassword}
           onChangeText={setConfirmPassword}
         />
         <TouchableOpacity onPress={() => setIsConfirmPasswordSecure(!isConfirmPasswordSecure)}>
-          <Ionicons name={isConfirmPasswordSecure ? 'eye-off' : 'eye'} size={24} color="#888" />
+          <Ionicons name={isConfirmPasswordSecure ? 'eye-off' : 'eye'} size={24} color={colors.textTertiary} />
         </TouchableOpacity>
       </View>
 
-      <TouchableOpacity style={[styles.button, loading && { opacity: 0.7 }]} onPress={handleSetPassword} disabled={loading}>
-        {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Set Password & Continue</Text>}
+      <TouchableOpacity style={[styles.button, { backgroundColor: colors.accent }, loading && { opacity: 0.7 }]} onPress={handleSetPassword} disabled={loading}>
+        {loading ? <ActivityIndicator color={colors.textOnAccent} /> : <Text style={[styles.buttonText, { color: colors.textOnAccent }]}>Set Password & Continue</Text>}
       </TouchableOpacity>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: 'center', padding: 24, backgroundColor: '#fff' },
+  container: { flex: 1, justifyContent: 'center', padding: 24 },
   title: { fontSize: 28, fontWeight: '700', textAlign: 'center', marginBottom: 8 },
-  subtitle: { fontSize: 16, color: '#666', textAlign: 'center', marginBottom: 32 },
+  subtitle: { fontSize: 16, textAlign: 'center', marginBottom: 32 },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F4F4F4',
     borderRadius: 12,
     paddingHorizontal: 12,
     marginBottom: 16,
     height: 50,
   },
-  input: { flex: 1, fontSize: 16, color: '#333', marginLeft: 8 },
+  input: { flex: 1, fontSize: 16, marginLeft: 8 },
   button: {
-    backgroundColor: '#FF5A5F',
     borderRadius: 12,
     paddingVertical: 14,
     alignItems: 'center',
     marginTop: 10,
   },
-  buttonText: { color: '#fff', fontSize: 18, fontWeight: '600' },
+  buttonText: { fontSize: 18, fontWeight: '600' },
   errorText: {
-    color: 'red',
     marginBottom: 12,
     textAlign: 'center',
   },

@@ -34,6 +34,7 @@ import * as FileSystem from 'expo-file-system';
 import { Image as ExpoImage } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { useTheme } from '../../theme/ThemeContext';
 import useAuthStore from '../../store/authStore';
 import useOutfitStore from '../../store/outfitStore'; // general feed upload
 import useContestStore from '../../store/contestStore'; // contest entry upload
@@ -46,6 +47,7 @@ const hasImageManipulator = !!ImageManipulator?.manipulateAsync;
 export default function UploadScreen({ navigation, route }) {
   const contestId = route?.params?.contestId || null;
   const isContest = !!contestId;
+  const { colors } = useTheme();
 
   const { user } = useAuthStore();
   const uploadOutfit = useOutfitStore((s) => s.uploadOutfit);
@@ -308,22 +310,22 @@ export default function UploadScreen({ navigation, route }) {
       inputRange: [0, 1],
       outputRange: ['0%', '100%'],
     });
-    const theme = isContest
-      ? { bg: '#F3E8FF', bar: '#7A5AF8', accent: '#B794F4', label: 'Submitting entry' }
-      : { bg: '#E6F4FF', bar: '#1E90FF', accent: '#8EC5FF', label: 'Uploading' };
+    const themeColors = isContest
+      ? { bg: colors.tertiaryContainer, bar: colors.tertiary, accent: colors.onTertiaryContainer, label: 'Submitting entry' }
+      : { bg: colors.primaryContainer, bar: colors.primary, accent: colors.onPrimaryContainer, label: 'Uploading' };
     return (
-      <View style={[styles.progressWrap, { backgroundColor: theme.bg }]}>
-        <View style={[styles.progressBar, { backgroundColor: '#FFFFFF' }]}>
-          <View style={{ width: widthPct, height: '100%', backgroundColor: theme.bar }} />
+      <View style={[styles.progressWrap, { backgroundColor: themeColors.bg }]}>
+        <View style={[styles.progressBar, { backgroundColor: colors.surface }]}>
+          <View style={{ width: widthPct, height: '100%', backgroundColor: themeColors.bar }} />
           <Animated.View
             style={[
               styles.shimmer,
-              { left: shimmerPos, backgroundColor: theme.accent },
+              { left: shimmerPos, backgroundColor: themeColors.accent },
             ]}
           />
         </View>
         <View style={styles.progressMeta}>
-          <Text variant="labelMedium">{theme.label}</Text>
+          <Text variant="labelMedium" style={{ color: colors.onSurfaceVariant }}>{themeColors.label}</Text>
           <Text variant="labelMedium">{Math.round(progress * 100)}%</Text>
         </View>
       </View>
@@ -355,14 +357,14 @@ export default function UploadScreen({ navigation, route }) {
   };
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
       >
       {/* Tap outside to dismiss */}
-        <Pressable style={{ flex: 1 }} onPress={Keyboard.dismiss}>
+        <Pressable style={{ flex: 1, backgroundColor: colors.background }} onPress={Keyboard.dismiss}>
           <ScrollView
             ref={scrollRef}
             contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24 }}
@@ -370,7 +372,7 @@ export default function UploadScreen({ navigation, route }) {
           >
           {/* Header */}
           <View style={styles.header}>
-              <Text variant="titleMedium" style={styles.title}>
+              <Text variant="titleMedium" style={[styles.title, { color: colors.text }]}>
               {isContest ? 'Enter Contest' : 'Upload Outfit'}
             </Text>
             <IconButton
@@ -385,8 +387,8 @@ export default function UploadScreen({ navigation, route }) {
           </View>
 
           {/* Preview card */}
-            <Surface style={styles.card} elevation={1}>
-            <View style={styles.previewWrap}>
+            <Surface style={[styles.card, { backgroundColor: colors.surface }]} elevation={1}>
+            <View style={[styles.previewWrap, { backgroundColor: colors.inputBackground }]}>
               {selectedUri ? (
                 <>
                     <ExpoImage source={{ uri: selectedUri }} style={styles.preview} contentFit="cover" transition={120} />
@@ -394,12 +396,12 @@ export default function UploadScreen({ navigation, route }) {
                       icon="close"
                       size={18}
                       onPress={clearSelection}
-                      style={styles.clearBtn}
+                      style={[styles.clearBtn, { backgroundColor: colors.surface }]}
                       accessibilityLabel="Remove selected image"
                     />
                 </>
               ) : (
-                  <View style={styles.placeholder}>
+                  <View style={[styles.placeholder, { backgroundColor: colors.inputBackground }]}>
                     <IconButton icon="image-multiple" size={30} disabled />
                     <Text variant="labelLarge">No image selected</Text>
                   </View>
@@ -450,7 +452,7 @@ export default function UploadScreen({ navigation, route }) {
           {/* iOS Done bar */}
           {Platform.OS === 'ios' && (
             <InputAccessoryView nativeID={inputAccessoryViewID}>
-              <View style={styles.accessoryBar}>
+              <View style={[styles.accessoryBar, { backgroundColor: colors.inputBackground, borderTopColor: colors.border }]}>
                     <Button compact onPress={Keyboard.dismiss}>Done</Button>
               </View>
             </InputAccessoryView>
@@ -483,7 +485,7 @@ export default function UploadScreen({ navigation, route }) {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#fff' },
+  safe: { flex: 1 },
   header: {
     paddingHorizontal: 16,
     paddingBottom: 4,
@@ -492,11 +494,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   title: { fontWeight: '700' },
-  card: { borderRadius: 16, padding: 14, backgroundColor: '#ffffff' },
-  previewWrap: { width: '100%', height: 340, borderRadius: 12, overflow: 'hidden', backgroundColor: '#F4F4F4' },
+  card: { borderRadius: 16, padding: 14 },
+  previewWrap: { width: '100%', height: 340, borderRadius: 12, overflow: 'hidden' },
   preview: { width: '100%', height: '100%' },
   placeholder: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  clearBtn: { position: 'absolute', right: 6, top: 6, backgroundColor: 'rgba(255,255,255,0.9)', borderRadius: 16 },
+  clearBtn: { position: 'absolute', right: 6, top: 6, opacity: 0.9, borderRadius: 16 },
   actionsRow: { marginTop: 12, flexDirection: 'row', gap: 10, justifyContent: 'space-between' },
   actionBtn: { flex: 1 },
   input: { marginTop: 10 },
@@ -508,9 +510,7 @@ const styles = StyleSheet.create({
   progressMeta: { marginTop: 8, flexDirection: 'row', justifyContent: 'space-between' },
   // iOS accessory bar
   accessoryBar: {
-    backgroundColor: '#F2F2F7',
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderColor: '#D1D1D6',
     alignItems: 'flex-end',
     paddingRight: 8,
   },

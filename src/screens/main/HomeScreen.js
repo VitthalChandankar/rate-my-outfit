@@ -6,6 +6,7 @@ import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, Text, View, To
 import { useIsFocused, useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import useAuthStore from '../../store/authStore';
+import { useTheme } from '../../theme/ThemeContext';
 import useOutfitStore from '../../store/outfitStore';
 import useUserStore from '../../store/UserStore';
 import useNotificationsStore from '../../store/notificationsStore';
@@ -29,6 +30,7 @@ function dedupeById(items) {
 export default function HomeScreen() {
   const navigation = useNavigation();
   const isFocused = useIsFocused();
+  const { colors } = useTheme();
 
   const listRef = useRef(null);
   const { user: authedUser } = useAuthStore();
@@ -61,17 +63,19 @@ export default function HomeScreen() {
     navigation.setOptions({
       headerShown: true,
       title: 'Rate My Outfit',
+      headerStyle: { backgroundColor: colors.surface },
+      headerTitleStyle: { color: colors.text },
       headerRight: () => (
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
           <TouchableOpacity onPress={() => navigation.navigate('Inbox')} style={{ marginRight: 16 }}>
-            <Ionicons name="paper-plane-outline" size={24} color="#111" />
+            <Ionicons name="paper-plane-outline" size={24} color={colors.text} />
           </TouchableOpacity>
           <TouchableOpacity onPress={() => navigation.navigate('Notifications')} style={{ marginRight: 10 }}>
             <View>
-              <Ionicons name="notifications-outline" size={24} color="#111" />
+              <Ionicons name="notifications-outline" size={24} color={colors.text} />
               {unreadCount > 0 && (
-                <View style={styles.badgeContainer}>
-                  <Text style={styles.badgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
+                <View style={[styles.badgeContainer, { backgroundColor: colors.badge }]}>
+                  <Text style={[styles.badgeText, { color: colors.badgeText }]}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
                 </View>
               )}
             </View>
@@ -79,7 +83,7 @@ export default function HomeScreen() {
         </View>
       )
     });
-  }, [navigation, unreadCount]);
+  }, [navigation, unreadCount, colors]);
 
   // Add listener for tab press to scroll to top
   useEffect(() => {
@@ -177,9 +181,9 @@ export default function HomeScreen() {
 
   if (!initialLoaded && loading && (feed?.length ?? 0) === 0) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator />
-        <Text style={{ marginTop: 8, color: '#666' }}>Loading feed…</Text>
+      <View style={[styles.center, { backgroundColor: colors.background }]}>
+        <ActivityIndicator color={colors.primary} />
+        <Text style={{ marginTop: 8, color: colors.textSecondary }}>Loading feed…</Text>
       </View>
     );
   }
@@ -209,9 +213,9 @@ export default function HomeScreen() {
       refreshControl={<RefreshControl refreshing={!!refreshing} onRefresh={onRefresh} />}
       onEndReached={loadMore}
       onEndReachedThreshold={0.5}
-      contentContainerStyle={styles.container}
-      ListEmptyComponent={!loading ? <Text style={styles.empty}>No outfits yet — be the first to upload!</Text> : null}
-      ListFooterComponent={loading ? <ActivityIndicator style={{ marginVertical: 16 }} /> : null}
+      contentContainerStyle={[styles.container, { backgroundColor: colors.background }]}
+      ListEmptyComponent={!loading ? <Text style={[styles.empty, { color: colors.textSecondary }]}>No outfits yet — be the first to upload!</Text> : null}
+      ListFooterComponent={loading ? <ActivityIndicator style={{ marginVertical: 16 }} color={colors.primary} /> : null}
       // Performance tuning
       initialNumToRender={6}
       maxToRenderPerBatch={6}
@@ -228,14 +232,13 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { backgroundColor: '#fff', paddingBottom: 12 },
-  empty: { textAlign: 'center', marginTop: 40, color: '#666' },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff' },
+  container: { paddingBottom: 12 },
+  empty: { textAlign: 'center', marginTop: 40 },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   badgeContainer: {
     position: 'absolute',
     right: -6,
     top: -3,
-    backgroundColor: '#FF3B30',
     borderRadius: 9,
     minWidth: 18,
     height: 18,
@@ -244,7 +247,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 5,
   },
   badgeText: {
-    color: '#fff',
     fontSize: 11,
     fontWeight: 'bold',
   },

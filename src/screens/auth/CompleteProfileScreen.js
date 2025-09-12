@@ -9,11 +9,13 @@ import CountryPicker from 'react-native-country-picker-modal';
 import useAuthStore from '../../store/authStore';
 import useUserStore from '../../store/UserStore';
 import { uploadImage, ensureUsernameUnique } from '../../services/firebase';
+import { useTheme } from '../../theme/ThemeContext';
 import Avatar from '../../components/Avatar';
 
 export default function CompleteProfileScreen({ navigation }) {
   const { user, setOnboardingCompleted } = useAuthStore();
   const { myProfile, updateProfile, setAvatar } = useUserStore();
+  const { colors } = useTheme();
 
   const [username, setUsername] = useState('');
   const [phone, setPhone] = useState('');
@@ -96,21 +98,21 @@ export default function CompleteProfileScreen({ navigation }) {
 
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-    <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.title}>Complete Your Profile</Text>
-      <Text style={styles.subtitle}>Choose a unique username and add a profile picture.</Text>
+    <ScrollView contentContainerStyle={[styles.container, { backgroundColor: colors.background }]}>
+      <Text style={[styles.title, { color: colors.text }]}>Complete Your Profile</Text>
+      <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Choose a unique username and add a profile picture.</Text>
 
       <TouchableOpacity onPress={handlePickAvatar} style={styles.avatarPicker}>
         <Avatar uri={avatarUri || myProfile?.profilePicture} size={120} />
-        <View style={styles.cameraIcon}>
-          <Ionicons name="camera" size={24} color="#fff" />
+        <View style={[styles.cameraIcon, { backgroundColor: colors.accent }]}>
+          <Ionicons name="camera" size={24} color={colors.white} />
         </View>
       </TouchableOpacity>
 
       <View style={styles.inputContainer}>
         <Ionicons name="at" size={20} color="#888" style={{ marginRight: 8 }} />
         <TextInput
-          style={styles.input}
+          style={[styles.input, { color: colors.text }]}
           placeholder="Username"
           value={username}
           onChangeText={setUsername}
@@ -119,7 +121,7 @@ export default function CompleteProfileScreen({ navigation }) {
           editable={!loading}
         />
       </View>
-      <Text style={styles.helperText}>Your username must be unique. 3-20 characters, letters, numbers, '.', '_'</Text>
+      <Text style={[styles.helperText, { color: colors.textSecondary }]}>Your username must be unique. 3-20 characters, letters, numbers, '.', '_'</Text>
 
       <View style={styles.inputContainer}>
         <CountryPicker
@@ -138,7 +140,7 @@ export default function CompleteProfileScreen({ navigation }) {
         />
         <Ionicons name="caret-down" size={12} color="#888" style={{ marginRight: 8 }} />
         <TextInput
-          style={styles.input}
+          style={[styles.input, { color: colors.text }]}
           placeholder="Phone Number"
           keyboardType="phone-pad"
           value={phone}
@@ -146,20 +148,20 @@ export default function CompleteProfileScreen({ navigation }) {
           editable={!loading}
         />
       </View>
-      <Text style={styles.helperText}>Optional. Used for account recovery and login. Not shown on your profile.</Text>
+      <Text style={[styles.helperText, { color: colors.textSecondary }]}>Optional. Used for account recovery and login. Not shown on your profile.</Text>
 
       <TouchableOpacity
         style={[
-          styles.button,
+          styles.button, { backgroundColor: colors.accent },
           (loading) && { opacity: 0.7 },
         ]}
         onPress={handleFinish}
         disabled={loading}>
-        {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Finish</Text>}
+        {loading ? <ActivityIndicator color={colors.textOnAccent} /> : <Text style={[styles.buttonText, { color: colors.textOnAccent }]}>Finish</Text>}
       </TouchableOpacity>
 
       <TouchableOpacity onPress={handleSkip} disabled={loading}>
-        <Text style={styles.skipText}>Skip for Now</Text>
+        <Text style={[styles.skipText, { color: colors.textSecondary }]}>Skip for Now</Text>
       </TouchableOpacity>
     </ScrollView>
     </KeyboardAvoidingView>
@@ -167,37 +169,33 @@ export default function CompleteProfileScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 24, backgroundColor: '#fff' },
-  title: { fontSize: 28, fontWeight: '700', color: '#222', marginBottom: 8 },
-  subtitle: { fontSize: 16, color: '#666', marginBottom: 32, textAlign: 'center' },
+  container: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 24 },
+  title: { fontSize: 28, fontWeight: '700', marginBottom: 8 },
+  subtitle: { fontSize: 16, marginBottom: 32, textAlign: 'center' },
   avatarPicker: { marginBottom: 16, position: 'relative' },
   cameraIcon: {
     position: 'absolute',
     bottom: 5,
     right: 5,
-    backgroundColor: '#FF5A5F',
     borderRadius: 15,
     padding: 6,
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F4F4F4',
     borderRadius: 12,
     paddingHorizontal: 12,
     marginBottom: 16,
     height: 50,
     width: '100%',
   },
-  input: { flex: 1, fontSize: 16, color: '#333' },
+  input: { flex: 1, fontSize: 16 },
   helperText: {
     fontSize: 12,
-    color: '#666',
     width: '100%',
     marginBottom: 16,
   },
   button: {
-    backgroundColor: '#FF5A5F',
     borderRadius: 12,
     paddingVertical: 14,
     width: '100%',
@@ -205,6 +203,6 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     marginTop: 10,
   },
-  buttonText: { color: '#fff', fontSize: 18, fontWeight: '600' },
-  skipText: { fontSize: 16, color: '#666', marginTop: 8 },
+  buttonText: { fontSize: 18, fontWeight: '600' },
+  skipText: { fontSize: 16, marginTop: 8 },
 });

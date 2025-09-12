@@ -12,10 +12,12 @@ import {
   View,
   ActivityIndicator,
 } from 'react-native';
+import { useTheme } from '../../theme/ThemeContext';
 import useAuthStore from '../../store/authStore';
 
 export default function LoginScreen({ navigation }) {
   const { login } = useAuthStore();
+  const { colors } = useTheme();
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -48,28 +50,28 @@ export default function LoginScreen({ navigation }) {
   return (
     <KeyboardAvoidingView
       behavior={Platform.select({ ios: 'padding', android: undefined })}
-      style={{ flex: 1 }}
+      style={{ flex: 1, backgroundColor: colors.background }}
     >
       <ScrollView
-        contentContainerStyle={styles.container}
+        contentContainerStyle={[styles.container, { backgroundColor: colors.background }]}
         keyboardShouldPersistTaps="handled"
       >
         {/* Logo / App Name */}
-        <Ionicons name="shirt" size={64} color="#FF5A5F" style={{ marginBottom: 16 }} />
+        <Ionicons name="shirt" size={64} color={colors.accent} style={{ marginBottom: 16 }} />
        
-        <Text style={styles.title}>Rate My Outfit</Text>
-        <Text style={styles.subtitle}>Sign in or create an account</Text>
+        <Text style={[styles.title, { color: colors.text }]}>Rate My Outfit</Text>
+        <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Sign in or create an account</Text>
 
         {/* Error message */}
-        {error ? <Text style={styles.errorText}>{error}</Text> : null}
+        {error ? <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text> : null}
 
         {/* Input for Email or Phone */}
-        <View style={styles.inputContainer}>
-          <Ionicons name="mail-outline" size={20} color="#999" style={{ marginRight: 8 }} />
+        <View style={[styles.inputContainer, { backgroundColor: colors.inputBackground }]}>
+          <Ionicons name="mail-outline" size={20} color={colors.textTertiary} style={{ marginRight: 8 }} />
           <TextInput
-            style={styles.input}
+            style={[styles.input, { color: colors.text }]}
             placeholder="Email"
-            placeholderTextColor="#999"
+            placeholderTextColor={colors.textTertiary}
             autoCapitalize="none"
             keyboardType="email-address"
             value={identifier}
@@ -80,12 +82,12 @@ export default function LoginScreen({ navigation }) {
         </View>
 
         {/* Password Input */}
-        <View style={styles.inputContainer}>
-          <Ionicons name="lock-closed-outline" size={20} color="#999" style={{ marginRight: 8 }} />
+        <View style={[styles.inputContainer, { backgroundColor: colors.inputBackground }]}>
+          <Ionicons name="lock-closed-outline" size={20} color={colors.textTertiary} style={{ marginRight: 8 }} />
           <TextInput
-            style={styles.input}
+            style={[styles.input, { color: colors.text }]}
             placeholder="Password"
-            placeholderTextColor="#999"
+            placeholderTextColor={colors.textTertiary}
             secureTextEntry
             value={password}
             onChangeText={setPassword}
@@ -97,24 +99,24 @@ export default function LoginScreen({ navigation }) {
 
         {/* Continue Button */}
         <TouchableOpacity
-          style={[styles.button, loading && { opacity: 0.7 }]}
+          style={[styles.button, { backgroundColor: colors.accent }, loading && { opacity: 0.7 }]}
           onPress={handleLogin}
           disabled={loading}
           activeOpacity={0.85}
         >
-          {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Continue</Text>}
+          {loading ? <ActivityIndicator color={colors.textOnAccent} /> : <Text style={[styles.buttonText, { color: colors.textOnAccent }]}>Continue</Text>}
         </TouchableOpacity>
 
         <View style={styles.linksContainer}>
           <TouchableOpacity onPress={() => navigation.navigate('ForgotPassword')} disabled={loading}>
-            <Text style={styles.linkText}>Forgot Password?</Text>
+            <Text style={[styles.linkText, { color: colors.accent }]}>Forgot Password?</Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={() => navigation.navigate('Signup')} disabled={loading}>
-            <Text style={styles.linkText}>Create Account</Text>
+            <Text style={[styles.linkText, { color: colors.accent }]}>Create Account</Text>
           </TouchableOpacity>
         </View>
-        <TouchableOpacity style={styles.altLoginButton} onPress={() => navigation.navigate('PhoneNumber')} disabled={loading}>
-          <Text style={styles.altLoginText}>Login with Phone OTP</Text>
+        <TouchableOpacity style={[styles.altLoginButton, { borderColor: colors.border }]} onPress={() => navigation.navigate('PhoneNumber')} disabled={loading}>
+          <Text style={[styles.altLoginText, { color: colors.text }]}>Login with Phone OTP</Text>
         </TouchableOpacity>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -127,23 +129,19 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 24,
-    backgroundColor: '#fff',
     paddingVertical: 50,
   },
   title: {
     fontSize: 28,
     fontWeight: '700',
-    color: '#222',
   },
   subtitle: {
     fontSize: 16,
-    color: '#666',
     marginBottom: 32,
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F4F4F4',
     borderRadius: 12,
     paddingHorizontal: 12,
     marginBottom: 16,
@@ -153,10 +151,8 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     fontSize: 16,
-    color: '#333',
   },
   button: {
-    backgroundColor: '#FF5A5F',
     borderRadius: 12,
     paddingVertical: 14,
     width: '100%',
@@ -165,12 +161,10 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   buttonText: {
-    color: '#fff',
     fontSize: 18,
     fontWeight: '600',
   },
   errorText: {
-    color: 'red',
     marginBottom: 12,
     fontSize: 14,
     alignSelf: 'flex-start',
@@ -181,10 +175,9 @@ const styles = StyleSheet.create({
     width: '100%',
     marginTop: 12,
   },
-  linkText: { color: '#FF5A5F', fontWeight: '600', fontSize: 14 },
+  linkText: { fontWeight: '600', fontSize: 14 },
   altLoginButton: {
     marginTop: 24,
-    borderColor: '#E0E0E0',
     borderWidth: 1,
     borderRadius: 12,
     paddingVertical: 14,
@@ -192,7 +185,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   altLoginText: {
-    color: '#333',
     fontWeight: '600',
   },
 });

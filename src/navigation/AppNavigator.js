@@ -5,7 +5,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
-
+import { useTheme } from '../theme/ThemeContext';
 import useAuthStore from '../store/authStore';
 import useUserStore from '../store/UserStore';
 
@@ -57,6 +57,7 @@ const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
 function MainTabs() {
+  const { colors } = useTheme();
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -69,8 +70,8 @@ function MainTabs() {
           else if (route.name === 'Profile') iconName = 'person';
           return <Ionicons name={iconName} size={size} color={color} />;
         },
-        tabBarActiveTintColor: '#7A5AF8',
-        tabBarInactiveTintColor: 'gray',
+        tabBarActiveTintColor: colors.tabBarActive,
+        tabBarInactiveTintColor: colors.tabBarInactive,
       })}
     >
       <Tab.Screen name="Home" component={HomeScreen} options={{ headerShown: false }} />
@@ -82,6 +83,7 @@ function MainTabs() {
 }
 
 export default function AppNavigator({ navigationRef }) {
+  const { colors } = useTheme(); // Use hook here for loading screen
   const { loading: authLoading, user, onboardingJustCompleted } = useAuthStore();
   const { myProfile, loading: profileLoading } = useUserStore();
 
@@ -89,7 +91,7 @@ export default function AppNavigator({ navigationRef }) {
   const isAppLoading = authLoading || (user && !myProfile && profileLoading);
   if (isAppLoading) {
     return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background }}>
         <ActivityIndicator />
       </View>
     );
@@ -136,6 +138,7 @@ export default function AppNavigator({ navigationRef }) {
 }
 
 function MainAppStack() {
+  const { colors } = useTheme();
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       {/* Root tabs */}
@@ -147,9 +150,9 @@ function MainAppStack() {
         component={OutfitDetailsScreen}
         options={{
           headerShown: true,
-          title: 'Post',
+          title: 'Post', // This title can be set dynamically in the screen itself
           headerBackTitleVisible: false,
-        }} />
+        }}/>
       <Stack.Screen name="ContestDetails" component={ContestDetailsScreen} />
       <Stack.Screen
         name="CreateContest"
@@ -177,9 +180,9 @@ function MainAppStack() {
         component={NotificationsScreen}
         options={{
           headerShown: true,
-          headerStyle: { backgroundColor: '#fff' },
-          headerTintColor: '#111',
-          headerTitleStyle: { fontWeight: 'bold' },
+          headerStyle: { backgroundColor: colors.surface }, // This will now use the theme's surface color
+          headerTintColor: colors.text, // This will now use the theme's text color
+          headerTitleStyle: { fontWeight: 'bold' }, // This is fine
         }}
       />
 
@@ -190,9 +193,9 @@ function MainAppStack() {
         options={{
           headerShown: true,
           title: 'Likes',
-          headerStyle: { backgroundColor: '#fff' },
-          headerTintColor: '#111',
-          headerTitleStyle: { fontWeight: 'bold' },
+          headerStyle: { backgroundColor: colors.surface }, // This will now use the theme's surface color
+          headerTintColor: colors.text, // This will now use the theme's text color
+          headerTitleStyle: { fontWeight: 'bold' }, // This is fine
         }}
       />
 
@@ -202,9 +205,9 @@ function MainAppStack() {
         component={CommentsScreen}
         options={{
           headerShown: true,
-          headerStyle: { backgroundColor: '#fff' },
-          headerTintColor: '#111',
-          headerTitleStyle: { fontWeight: 'bold' },
+          headerStyle: { backgroundColor: colors.surface }, // This will now use the theme's surface color
+          headerTintColor: colors.text, // This will now use the theme's text color
+          headerTitleStyle: { fontWeight: 'bold' }, // This is fine
         }}
       />
 
@@ -215,9 +218,9 @@ function MainAppStack() {
         options={{
           headerShown: true,
           title: 'Inbox',
-          headerStyle: { backgroundColor: '#fff' },
-          headerTintColor: '#111',
-          headerTitleStyle: { fontWeight: 'bold' },
+          headerStyle: { backgroundColor: colors.surface }, // This will now use the theme's surface color
+          headerTintColor: colors.text, // This will now use the theme's text color
+          headerTitleStyle: { fontWeight: 'bold' }, // This is fine
         }}
       />
       <Stack.Screen
@@ -227,8 +230,8 @@ function MainAppStack() {
           presentation: 'modal',
           headerShown: true,
           title: 'Share with a friend',
-          headerStyle: { backgroundColor: '#fff' },
-          headerTintColor: '#111',
+          headerStyle: { backgroundColor: colors.surface }, // This will now use the theme's surface color
+          headerTintColor: colors.text, // This will now use the theme's text color
         }}
       />
 
@@ -239,9 +242,9 @@ function MainAppStack() {
         options={{
           headerShown: true,
           title: 'Settings',
-          headerStyle: { backgroundColor: '#fff' },
-          headerTintColor: '#111',
-          headerTitleStyle: { fontWeight: 'bold' },
+          headerStyle: { backgroundColor: colors.surface }, // This will now use the theme's surface color
+          headerTintColor: colors.text, // This will now use the theme's text color
+          headerTitleStyle: { fontWeight: 'bold' }, // This is fine
         }}
       />
       <Stack.Screen
@@ -250,9 +253,9 @@ function MainAppStack() {
         options={{
           headerShown: true,
           title: 'Notifications',
-          headerStyle: { backgroundColor: '#fff' },
-          headerTintColor: '#111',
-          headerTitleStyle: { fontWeight: 'bold' },
+          headerStyle: { backgroundColor: colors.surface }, // This will now use the theme's surface color
+          headerTintColor: colors.text, // This will now use the theme's text color
+          headerTitleStyle: { fontWeight: 'bold' }, // This is fine
         }}
       />
       <Stack.Screen
@@ -261,9 +264,9 @@ function MainAppStack() {
         options={{
           headerShown: true,
           title: 'Select Language',
-          headerStyle: { backgroundColor: '#fff' },
-          headerTintColor: '#111',
-          headerTitleStyle: { fontWeight: 'bold' },
+          headerStyle: { backgroundColor: colors.surface }, // This will now use the theme's surface color
+          headerTintColor: colors.text, // This will now use the theme's text color
+          headerTitleStyle: { fontWeight: 'bold' }, // This is fine
         }}
       />
     </Stack.Navigator>

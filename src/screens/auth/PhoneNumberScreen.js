@@ -5,11 +5,13 @@ import { View, Text, StyleSheet, TextInput, TouchableOpacity, ActivityIndicator,
 import { FirebaseRecaptchaVerifierModal } from 'expo-firebase-recaptcha';
 import { PhoneAuthProvider, signInWithCredential } from 'firebase/auth';
 import CountryPicker from 'react-native-country-picker-modal';
+import { useTheme } from '../../theme/ThemeContext';
 import { doc, getDoc, getFirestore } from 'firebase/firestore';
 import { auth, createUser } from '../../services/firebase'; // Assuming auth is exported from firebase.js
 
 export default function PhoneNumberScreen({ route, navigation }) {
   const initialPhoneNumber = route.params?.phoneNumber || '';
+  const { colors } = useTheme();
   const recaptchaVerifier = useRef(null);
   const [phoneNumber, setPhoneNumber] = useState(initialPhoneNumber);
   const [countryCode, setCountryCode] = useState('IN');
@@ -98,7 +100,7 @@ export default function PhoneNumberScreen({ route, navigation }) {
 
   return (
     <KeyboardAvoidingView
-      style={{ flex: 1, backgroundColor: '#fff' }}
+      style={{ flex: 1, backgroundColor: colors.background }}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <ScrollView contentContainerStyle={styles.scrollContainer}>
@@ -107,19 +109,19 @@ export default function PhoneNumberScreen({ route, navigation }) {
           firebaseConfig={auth.app.options}
           // This will be invisible unless verification fails multiple times
         />
-        <View style={styles.container}>
-          <Text style={styles.title}>{verificationId ? 'Enter OTP' : 'Enter Phone Number'}</Text>
-          <Text style={styles.subtitle}>
+        <View style={[styles.container, { backgroundColor: colors.background }]}>
+          <Text style={[styles.title, { color: colors.text }]}>{verificationId ? 'Enter OTP' : 'Enter Phone Number'}</Text>
+          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
             {verificationId
               ? `We've sent a 6-digit code to +${country.callingCode[0]} ${phoneNumber}`
               : 'We’ll send you a code to verify your number.'}
           </Text>
 
-          {error ? <Text style={styles.errorText}>{error}</Text> : null}
+          {error ? <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text> : null}
 
           {!verificationId ? (
             <>
-              <View style={styles.inputContainer}>
+              <View style={[styles.inputContainer, { backgroundColor: colors.inputBackground, borderColor: colors.border }]}>
                 <CountryPicker
                   {...{
                     countryCode,
@@ -134,9 +136,9 @@ export default function PhoneNumberScreen({ route, navigation }) {
                     },
                   }}
                 />
-             <Text style={styles.callingCode}>+{country.callingCode[0]}</Text>
+             <Text style={[styles.callingCode, { color: colors.text }]}>+{country.callingCode[0]}</Text>
                 <TextInput
-                  style={styles.input}
+                  style={[styles.input, { color: colors.text }]}
                   placeholder="Mobile number"
                   keyboardType="phone-pad"
                   value={phoneNumber}
@@ -144,8 +146,8 @@ export default function PhoneNumberScreen({ route, navigation }) {
                   autoFocus
                 />
               </View>
-              <TouchableOpacity style={[styles.button, loading && { opacity: 0.7 }]} onPress={sendVerificationCode} disabled={loading}>
-                {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Send OTP</Text>}
+              <TouchableOpacity style={[styles.button, { backgroundColor: colors.accent }, loading && { opacity: 0.7 }]} onPress={sendVerificationCode} disabled={loading}>
+                {loading ? <ActivityIndicator color={colors.textOnAccent} /> : <Text style={[styles.buttonText, { color: colors.textOnAccent }]}>Send OTP</Text>}
               </TouchableOpacity>
             </>
           ) : (
@@ -155,7 +157,7 @@ export default function PhoneNumberScreen({ route, navigation }) {
                   <TextInput
                     key={index}
                     ref={(ref) => (otpInputs.current[index] = ref)}
-                    style={styles.otpBox}
+                    style={[styles.otpBox, { borderColor: colors.gray300, color: colors.text }]}
                     keyboardType="number-pad"
                     maxLength={1}
                     onChangeText={(text) => handleOtpChange(text, index)}
@@ -164,14 +166,14 @@ export default function PhoneNumberScreen({ route, navigation }) {
                   />
                 ))}
               </View>
-              <TouchableOpacity style={[styles.button, loading && { opacity: 0.7 }]} onPress={confirmCode} disabled={loading}>
-                {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Confirm & Login</Text>}
+              <TouchableOpacity style={[styles.button, { backgroundColor: colors.accent }, loading && { opacity: 0.7 }]} onPress={confirmCode} disabled={loading}>
+                {loading ? <ActivityIndicator color={colors.textOnAccent} /> : <Text style={[styles.buttonText, { color: colors.textOnAccent }]}>Confirm & Login</Text>}
               </TouchableOpacity>
             </>
           )}
           <View style={styles.footer}>
             <TouchableOpacity onPress={() => navigation.goBack()} disabled={loading}>
-              <Text style={styles.backText}>Back to Login</Text>
+              <Text style={[styles.backText, { color: colors.textSecondary }]}>Back to Login</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -185,15 +187,13 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     justifyContent: 'center',
   },
-  container: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24, backgroundColor: '#fff' },
+  container: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
   title: { fontSize: 28, fontWeight: '700', marginBottom: 8, textAlign: 'center' },
-  subtitle: { fontSize: 16, color: '#666', marginBottom: 32, textAlign: 'center' },
+  subtitle: { fontSize: 16, marginBottom: 32, textAlign: 'center' },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F4F4F4',
     borderWidth: 1,
-    borderColor: '#E5E7EB',
     borderRadius: 12,
     paddingHorizontal: 16,
     marginBottom: 16,
@@ -203,7 +203,6 @@ const styles = StyleSheet.create({
   callingCode: {
     fontSize: 16,
     fontWeight: '500',
-    color: '#111',
     marginHorizontal: 8,
   },
   input: {
@@ -213,13 +212,11 @@ const styles = StyleSheet.create({
   },
   button: {
     width: '100%',
-    backgroundColor: '#FF5A5F',
     paddingVertical: 14,
     borderRadius: 12,
     alignItems: 'center',
   },
   buttonText: {
-    color: '#fff',
     fontWeight: '600',
     fontSize: 18,
   },
@@ -230,11 +227,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   backText: {
-    color: '#666',
     fontSize: 16,
   },
   errorText: {
-    color: 'red',
     marginBottom: 12,
     textAlign: 'center',
   },
@@ -248,7 +243,6 @@ const styles = StyleSheet.create({
     width: 48,
     height: 52,
     borderWidth: 1,
-    borderColor: '#D1D5DB',
     borderRadius: 8,
     textAlign: 'center',
     fontSize: 20,

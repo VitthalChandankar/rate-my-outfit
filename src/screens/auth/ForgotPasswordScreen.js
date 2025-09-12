@@ -3,9 +3,11 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '../../theme/ThemeContext';
 import { sendResetEmail } from '../../services/firebase';
 
 export default function ForgotPasswordScreen({ navigation }) {
+  const { colors } = useTheme();
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -32,20 +34,20 @@ export default function ForgotPasswordScreen({ navigation }) {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-        <Ionicons name="arrow-back" size={24} color="#333" />
+        <Ionicons name="arrow-back" size={24} color={colors.text} />
       </TouchableOpacity>
 
-      <Text style={styles.title}>Reset Password</Text>
-      <Text style={styles.subtitle}>Enter your email address and we'll send you a link to get back into your account.</Text>
+      <Text style={[styles.title, { color: colors.text }]}>Reset Password</Text>
+      <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Enter your email address and we'll send you a link to get back into your account.</Text>
 
-      {error ? <Text style={styles.errorText}>{error}</Text> : null}
+      {error ? <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text> : null}
 
-      <View style={styles.inputContainer}>
-        <Ionicons name="mail-outline" size={20} color="#888" style={{ marginRight: 8 }} />
+      <View style={[styles.inputContainer, { backgroundColor: colors.inputBackground }]}>
+        <Ionicons name="mail-outline" size={20} color={colors.textTertiary} style={{ marginRight: 8 }} />
         <TextInput
-          style={styles.input}
+          style={[styles.input, { color: colors.text }]}
           placeholder="Email"
           keyboardType="email-address"
           autoCapitalize="none"
@@ -56,40 +58,37 @@ export default function ForgotPasswordScreen({ navigation }) {
         />
       </View>
 
-      <TouchableOpacity style={[styles.button, loading && { opacity: 0.7 }]} onPress={handleSendLink} disabled={loading}>
-        {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Send Reset Link</Text>}
+      <TouchableOpacity style={[styles.button, { backgroundColor: colors.accent }, loading && { opacity: 0.7 }]} onPress={handleSendLink} disabled={loading}>
+        {loading ? <ActivityIndicator color={colors.textOnAccent} /> : <Text style={[styles.buttonText, { color: colors.textOnAccent }]}>Send Reset Link</Text>}
       </TouchableOpacity>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: 'center', paddingHorizontal: 24, backgroundColor: '#fff' },
+  container: { flex: 1, justifyContent: 'center', paddingHorizontal: 24 },
   backButton: { position: 'absolute', top: 60, left: 24 },
-  title: { fontSize: 28, fontWeight: '700', color: '#222', marginBottom: 8, textAlign: 'center' },
-  subtitle: { fontSize: 16, color: '#666', marginBottom: 32, textAlign: 'center' },
+  title: { fontSize: 28, fontWeight: '700', marginBottom: 8, textAlign: 'center' },
+  subtitle: { fontSize: 16, marginBottom: 32, textAlign: 'center' },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F4F4F4',
     borderRadius: 12,
     paddingHorizontal: 12,
     marginBottom: 16,
     height: 50,
     width: '100%',
   },
-  input: { flex: 1, fontSize: 16, color: '#333' },
+  input: { flex: 1, fontSize: 16 },
   button: {
-    backgroundColor: '#FF5A5F',
     borderRadius: 12,
     paddingVertical: 14,
     width: '100%',
     alignItems: 'center',
     marginTop: 10,
   },
-  buttonText: { color: '#fff', fontSize: 18, fontWeight: '600' },
+  buttonText: { fontSize: 18, fontWeight: '600' },
   errorText: {
-    color: 'red',
     marginBottom: 12,
     fontSize: 14,
     textAlign: 'center',

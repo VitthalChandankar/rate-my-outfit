@@ -3,11 +3,13 @@ import React, { useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, ActivityIndicator, Alert } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import useAuthStore from '../../store/authStore';
+import { useTheme } from '../../theme/ThemeContext';
 import { isEmailDisposable } from '../../utils/emailValidator';
 
 export default function SignupScreen({ navigation }) {
   const signup = useAuthStore((s) => s.signup);
   const [name, setName] = useState('');
+  const { colors } = useTheme();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -67,23 +69,22 @@ export default function SignupScreen({ navigation }) {
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      style={{ flex: 1, backgroundColor: '#fff' }}
+      style={{ flex: 1, backgroundColor: colors.background }}
     >
-      <ScrollView contentContainerStyle={styles.container}>
-        
+      <ScrollView contentContainerStyle={[styles.container, { backgroundColor: colors.background }]}>
         {/* Logo / App Name */}
-        <Ionicons name="shirt" size={64} color="#FF5A5F" style={{ marginBottom: 16 }} />
-        <Text style={styles.title}>Create Account</Text>
-        <Text style={styles.subtitle}>Join Rate My Outfit</Text>
+        <Ionicons name="shirt" size={64} color={colors.accent} style={{ marginBottom: 16 }} />
+        <Text style={[styles.title, { color: colors.text }]}>Create Account</Text>
+        <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Join Rate My Outfit</Text>
 
         {/* Error message */}
-        {error ? <Text style={styles.errorText}>{error}</Text> : null}
+        {error ? <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text> : null}
 
         {/* Name Input */}
-        <View style={styles.inputContainer}>
-          <Ionicons name="person-outline" size={20} color="#888" style={{ marginRight: 8 }} />
+        <View style={[styles.inputContainer, { backgroundColor: colors.inputBackground }]}>
+          <Ionicons name="person-outline" size={20} color={colors.textTertiary} style={{ marginRight: 8 }} />
           <TextInput
-            style={styles.input}
+            style={[styles.input, { color: colors.text }]}
             placeholder="Full Name"
             value={name}
             onChangeText={setName}
@@ -91,10 +92,10 @@ export default function SignupScreen({ navigation }) {
         </View>
 
         {/* Email Input */}
-        <View style={styles.inputContainer}>
-          <Ionicons name="mail-outline" size={20} color="#888" style={{ marginRight: 8 }} />
+        <View style={[styles.inputContainer, { backgroundColor: colors.inputBackground }]}>
+          <Ionicons name="mail-outline" size={20} color={colors.textTertiary} style={{ marginRight: 8 }} />
           <TextInput
-            style={styles.input}
+            style={[styles.input, { color: colors.text }]}
             placeholder="Email"
             keyboardType="email-address"
             autoCapitalize="none"
@@ -104,52 +105,52 @@ export default function SignupScreen({ navigation }) {
         </View>
 
         {/* Password Input */}
-        <View style={styles.inputContainer}>
-          <Ionicons name="lock-closed-outline" size={20} color="#888" style={{ marginRight: 8 }} />
+        <View style={[styles.inputContainer, { backgroundColor: colors.inputBackground }]}>
+          <Ionicons name="lock-closed-outline" size={20} color={colors.textTertiary} style={{ marginRight: 8 }} />
           <TextInput
-            style={styles.input}
+            style={[styles.input, { color: colors.text }]}
             placeholder="Password"
             secureTextEntry={isPasswordSecure}
             value={password}
             onChangeText={setPassword}
           />
           <TouchableOpacity onPress={() => setIsPasswordSecure(!isPasswordSecure)}>
-            <Ionicons name={isPasswordSecure ? 'eye-off' : 'eye'} size={24} color="#888" />
+            <Ionicons name={isPasswordSecure ? 'eye-off' : 'eye'} size={24} color={colors.textTertiary} />
           </TouchableOpacity>
         </View>
 
         {/* Confirm Password Input */}
-        <View style={styles.inputContainer}>
-          <Ionicons name="lock-closed-outline" size={20} color="#888" style={{ marginRight: 8 }} />
+        <View style={[styles.inputContainer, { backgroundColor: colors.inputBackground }]}>
+          <Ionicons name="lock-closed-outline" size={20} color={colors.textTertiary} style={{ marginRight: 8 }} />
           <TextInput
-            style={styles.input}
+            style={[styles.input, { color: colors.text }]}
             placeholder="Confirm Password"
             secureTextEntry={isConfirmPasswordSecure}
             value={confirmPassword}
             onChangeText={setConfirmPassword}
           />
           <TouchableOpacity onPress={() => setIsConfirmPasswordSecure(!isConfirmPasswordSecure)}>
-            <Ionicons name={isConfirmPasswordSecure ? 'eye-off' : 'eye'} size={24} color="#888" />
+            <Ionicons name={isConfirmPasswordSecure ? 'eye-off' : 'eye'} size={24} color={colors.textTertiary} />
           </TouchableOpacity>
         </View>
 
         {/* Signup Button */}
-        <TouchableOpacity style={[styles.button, loading && { opacity: 0.7 }]} onPress={handleSignup} disabled={loading}>
+        <TouchableOpacity style={[styles.button, { backgroundColor: colors.accent }, loading && { opacity: 0.7 }]} onPress={handleSignup} disabled={loading}>
           {loading ? (
-            <ActivityIndicator color="#fff" />
+            <ActivityIndicator color={colors.textOnAccent} />
           ) : (
-            <Text style={styles.buttonText}>Sign Up</Text>
+            <Text style={[styles.buttonText, { color: colors.textOnAccent }]}>Sign Up</Text>
           )}
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.altLoginButton} onPress={() => navigation.navigate('PhoneNumber')} disabled={loading}>
-          <Text style={styles.altLoginText}>Sign up with Phone Number</Text>
+        <TouchableOpacity style={[styles.altLoginButton, { borderColor: colors.border }]} onPress={() => navigation.navigate('PhoneNumber')} disabled={loading}>
+          <Text style={[styles.altLoginText, { color: colors.text }]}>Sign up with Phone Number</Text>
         </TouchableOpacity>
 
         {/* Login Link */}
         <TouchableOpacity onPress={() => navigation.navigate('Login')}>
-          <Text style={styles.loginText}>
-            Already have an account? <Text style={{ color: '#FF5A5F', fontWeight: '600' }}>Log in</Text>
+          <Text style={[styles.loginText, { color: colors.textSecondary }]}>
+            Already have an account? <Text style={{ color: colors.accent, fontWeight: '600' }}>Log in</Text>
           </Text>
         </TouchableOpacity>
 
@@ -164,23 +165,19 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 24,
-    backgroundColor: '#fff',
     paddingVertical: 50,
   },
   title: {
     fontSize: 28,
     fontWeight: '700',
-    color: '#222',
   },
   subtitle: {
     fontSize: 16,
-    color: '#666',
     marginBottom: 32,
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F4F4F4',
     borderRadius: 12,
     paddingHorizontal: 12,
     marginBottom: 16,
@@ -190,10 +187,8 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     fontSize: 16,
-    color: '#333',
   },
   button: {
-    backgroundColor: '#FF5A5F',
     borderRadius: 12,
     paddingVertical: 14,
     width: '100%',
@@ -202,24 +197,20 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   buttonText: {
-    color: '#fff',
     fontSize: 18,
     fontWeight: '600',
   },
   loginText: {
     fontSize: 14,
-    color: '#666',
     marginTop: 8,
   },
   errorText: {
-    color: 'red',
     marginBottom: 12,
     fontSize: 14,
     alignSelf: 'flex-start',
   },
   altLoginButton: {
     marginTop: 16,
-    borderColor: '#E0E0E0',
     borderWidth: 1,
     borderRadius: 12,
     paddingVertical: 14,
@@ -227,7 +218,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   altLoginText: {
-    color: '#333',
     fontWeight: '600',
   },
 });
