@@ -1,28 +1,24 @@
 // File: src/screens/contests/ContestDetailsScreen.js
 // World-class contest details screen: immersive banner, clean typography, and a focused user flow.
-// Opens the new rating flow (RateEntry -> RateScreen).
 
-import React, { useEffect, useRef, useState, memo } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Pressable,
   FlatList,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
-  Animated,
-  Easing,
   Dimensions,
 } from 'react-native';
 import { Image as ExpoImage } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 
 import useContestStore from '../../store/contestStore';
-import useAuthStore from '../../store/authStore';
+import { Surface } from 'react-native-paper';
 import OutfitCard from '../../components/OutfitCard';
-import Avatar from '../../components/Avatar';
+import { LeaderboardList } from './LeaderboardScreen';
 
 const { width } = Dimensions.get('window');
 const PADDING_H = 16;
@@ -45,144 +41,117 @@ function statusFromRange(startMs, endMs, now = Date.now()) {
   if (startMs && now < startMs) return 'upcoming';
   return 'active';
 }
-function rangeLabel(startMs, endMs) {
-  if (!startMs || !endMs) return '—';
-  const s = new Date(startMs).toLocaleDateString();
-  const e = new Date(endMs).toLocaleDateString();
-  return `${s} → ${e}`;
+
+function formatDate(ms) {
+  if (!ms) return '—';
+  const date = new Date(ms);
+  const options = { day: 'numeric', month: 'short', year: 'numeric' };
+  return date.toLocaleDateString('en-US', options).toUpperCase();
 }
 
-// A simple, self-contained leaderboard row component
-const LeaderboardRow = memo(({ item, rank, navigation }) => {
-  if (!item?.user) return null;
-
-  const isWinner = rank === 1;
-  const handlePress = () => {
-    if (item.userId) {
-      navigation.navigate('UserProfile', { userId: item.userId });
-    }
-  };
-
-  return (
-    <Pressable onPress={handlePress} style={({ pressed }) => [styles.lbRow, pressed && { backgroundColor: '#f9f9f9' }]}>
-      <Text style={[styles.lbRank, isWinner && styles.lbRankWinner]}>{rank}</Text>
-      <Avatar uri={item.user.profilePicture} size={44} />
-      <View style={styles.lbUser}>
-        <Text style={styles.lbName} numberOfLines={1}>{item.user.name || 'User'}</Text>
-        {!!item.user.username && <Text style={styles.lbUsername}>@{item.user.username}</Text>}
-      </View>
-      {isWinner && <Ionicons name="trophy" size={20} color="#FFC107" style={styles.lbTrophy} />}
-      <Text style={styles.lbScore}>{(item.averageRating || 0).toFixed(2)}</Text>
-    </Pressable>
-  );
-});
-
+function countryCodeToFlag(isoCode) {
+  if (!isoCode || isoCode.length !== 2) return '';
+  // Formula to convert a 2-letter country code to a flag emoji
+  return isoCode
+    .toUpperCase()
+    .replace(/./g, (char) => String.fromCodePoint(char.charCodeAt(0) + 127397));
+}
 
 export default function ContestDetailsScreen({ route, navigation }) {
-  const { contestId } = route.params;
-  const { user } = useAuthStore();
+  const { contestId, initialTab = 'entries' } = route.params;
+
+  const [activeTab, setActiveTab] = useState(initialTab); // 'entries' | 'leaderboard'
 
   const { fetchEntries, fetchLeaderboard } = useContestStore();
   const entriesBag = useContestStore((s) => s.entries[contestId]);
-  const { contest, leaderboard, leaderboardLoading } = useContestStore((s) => ({
+  const { contest } = useContestStore((s) => ({
     contest: s.contests.find((c) => c.id === contestId) || s.contestsById[contestId],
-    leaderboard: s.leaderboards[contestId],
-    leaderboardLoading: !s.leaderboards[contestId], // Simple loading check
   }));
 
-  // Contest meta
-  const contestData = contest || {};
+  const contestData = contest || {}
+
   const startMs = toMs(contestData.startAt);
   const endMs = toMs(contestData.endAt);
   const status = statusFromRange(startMs, endMs);
-  const range = rangeLabel(startMs, endMs);
+
   const host = contestData.host || 'Host';
-  // Use the new 'image' field for the banner
+
+  const countryDisplay = React.useMemo(() => {
+    if (!contestData.country) return 'N/A';
+    if (contestData.country === 'GLOBAL') return '🌐 Global';
+    return `${countryCodeToFlag(contestData.country)} ${contestData.country.toUpperCase()}`;
+  }, [contestData.country]);
+ 
   const bannerImage = contestData.image || contestData.bannerImage || null;
 
   useEffect(() => {
-    // Always fetch leaderboard for both ended and active contests (for the tab)
-    // Fetch top 10 as requested
-    fetchLeaderboard({ contestId, limit: 10, minVotes: 1 });
-
-    // Only fetch entries if the contest is not ended
-    if (status !== 'ended') {
-      fetchEntries({ contestId, reset: true });
-    }
+    fetchLeaderboard({ contestId, limit: 50, minVotes: 1 });
+    fetchEntries({ contestId, reset: true });
+ 
   }, [contestId, fetchEntries, fetchLeaderboard, status]);
 
   const entries = entriesBag?.items || [];
   const entriesLoading = entriesBag?.loading && (entries?.length ?? 0) === 0;
 
 
-  // hero animation
-  const fade = useRef(new Animated.Value(0)).current;
-  const rise = useRef(new Animated.Value(8)).current;
-  useEffect(() => {
-    Animated.parallel([
-      Animated.timing(fade, { toValue: 1, duration: 280, easing: Easing.out(Easing.quad), useNativeDriver: true }),
-      Animated.timing(rise, { toValue: 0, duration: 280, easing: Easing.out(Easing.quad), useNativeDriver: true }),
-    ]).start();
-  }, [fade, rise]);
+  const onParticipate = () => navigation.navigate('Upload', { contestId });
 
-  const onEnter = () => navigation.navigate('Upload', { contestId });
 
   const openEntryFlow = (item) => navigation.navigate('RateEntry', { item, mode: 'entry' });
 
-  const StatusDot = () => {
-    const style =
-      status === 'active' ? styles.statusGreen :
-      status === 'upcoming' ? styles.statusAmber :
-      styles.statusGray;
-    return <View style={[styles.statusDot, style]} />;
-  };
+  const InfoCard = ({ icon, label, value }) => (
+    <View style={styles.infoCard}>
+      <Ionicons name={icon} size={24} color="#8A63F8" style={styles.infoIcon} />
+      <View>
+        <Text style={styles.infoLabel}>{label}</Text>
+        <Text style={styles.infoValue}>{value}</Text>
+      </View>
+    </View>
+  );
 
-  const Header = (
-    <View>
-      {/* Host banner */}
-      {bannerImage ? (
-        <View style={styles.bannerWrap}>
+  const Header = () => (
+    <View style={styles.headerContainer}>
+      <Surface style={styles.mainCard} elevation={4}>
+        {/* Banner */}
+        {bannerImage && (
           <ExpoImage source={{ uri: bannerImage }} style={styles.bannerImg} contentFit="cover" />
-          <View style={styles.bannerOverlay} />
-        </View>
-      ) : null}
+        )}
 
-      {/* Meta + actions */}
-      <View style={styles.hero}>
-        <Text style={styles.title}>{contestData.title || 'Contest'}</Text>
-        {!!contestData.theme && <Text style={styles.theme}>{contestData.theme}</Text>}
-        <View style={styles.metaRow}>
-          <StatusDot />
-          <Text style={styles.metaStrong}>{status === 'active' ? 'Active' : status === 'upcoming' ? 'Upcoming' : 'Ended'}</Text>
-          <Text style={[styles.metaDim, { marginLeft: 6 }]}>• {range}</Text>
-          {!!contestData.country && <Text style={[styles.metaDim, { marginLeft: 6 }]}>• {contestData.country}</Text>}
-        </View>
-        <View style={styles.pillsRow}>
-          <View style={[styles.pill, { backgroundColor: '#EEF2FF' }]}><Text style={[styles.pillText, { color: '#3B82F6' }]}>Host: {host}</Text></View>
-          <View style={[styles.pill, { backgroundColor: '#F0FFF4' }]}><Text style={[styles.pillText, { color: '#10B981' }]}>Prize: {contestData.prize || '₹10,000 + Feature'}</Text></View>
-          <View style={[styles.pill, { backgroundColor: '#FFF7ED' }]}><Text style={[styles.pillText, { color: '#F97316' }]}>Entry: {contestData.entryFee && contestData.entryFee > 0 ? `₹${contestData.entryFee}` : 'Free'}</Text></View>
-        </View>
-        
-        {/* Conditionally render actions for active/upcoming contests */}
-        {status !== 'ended' && (
+        {/* Details */}
+        <View style={styles.detailsContainer}>
+          <Text style={styles.title}>{contestData.title || 'Contest'}</Text>
+          {!!contestData.theme && <Text style={styles.theme}>{contestData.theme}</Text>}
+          <View style={styles.infoGrid}>
+            <InfoCard icon="calendar-outline" label="Starts" value={formatDate(startMs)} />
+            <InfoCard icon="flag-outline" label="Ends" value={formatDate(endMs)} />
+            <InfoCard icon="person-outline" label="Host" value={host} />
+            <InfoCard icon="gift-outline" label="Prize" value={contestData.prize || 'Feature'} />
+            <InfoCard icon="globe-outline" label="Region" value={countryDisplay} />
+          </View>
+          
           <View style={styles.actionsRow}>
-            <TouchableOpacity onPress={onEnter} style={styles.primaryBtn} activeOpacity={0.85}>
-              <Ionicons name="cloud-upload-outline" size={22} color="#fff" />
-              <Text style={styles.primaryBtnText}>Submit Your Entry</Text>
+            <TouchableOpacity
+              onPress={onParticipate}
+              style={[styles.button, styles.primaryBtn, status !== 'active' && styles.disabledBtn]}
+              activeOpacity={0.8}
+              disabled={status !== 'active'}
+            >
+              <Ionicons name="add-circle-outline" size={20} color="#fff" />
+              <Text style={styles.primaryBtnText}>Participate</Text>
             </TouchableOpacity>
           </View>
-        )}
-      </View>
+        </View>
+      </Surface>
 
-      {/* Section Header */}
-      {entries.length > 0 && status !== 'ended' && (
-        <Text style={styles.sectionLabel}>Recent Entries</Text>
-      )}
-      {status === 'ended' && (
-        <Text style={[styles.sectionLabel, { textAlign: 'center' }]}>
-          Leaderboard
-        </Text>
-      )}
+     {/* Tabs */}
+     <View style={styles.tabContainer}>
+        <Pressable onPress={() => setActiveTab('entries')} style={[styles.tab, activeTab === 'entries' && styles.activeTab]}>
+          <Text style={[styles.tabText, activeTab === 'entries' && styles.activeTabText]}>Recent Entries</Text>
+        </Pressable>
+        <Pressable onPress={() => setActiveTab('leaderboard')} style={[styles.tab, activeTab === 'leaderboard' && styles.activeTab]}>
+          <Text style={[styles.tabText, activeTab === 'leaderboard' && styles.activeTabText]}>Leaderboard</Text>
+        </Pressable>
+      </View>
     </View>
   );
 
@@ -195,138 +164,104 @@ export default function ContestDetailsScreen({ route, navigation }) {
     />
   );
 
-  // If contest has ended, show only the leaderboard.
-  if (status === 'ended') {
-    return (
-      <FlatList
-        data={leaderboard || []}
-        keyExtractor={(item) => item.id}
-        ListHeaderComponent={Header}
-        renderItem={({ item, index }) => <LeaderboardRow item={item} rank={index + 1} navigation={navigation} />}
-        contentContainerStyle={{ paddingBottom: 24 }}
-        ItemSeparatorComponent={() => <View style={styles.lbSeparator} />}
-        ListEmptyComponent={
-          leaderboardLoading ? (
-            <ActivityIndicator style={{ marginVertical: 40 }} />
-          ) : (
-            <Text style={styles.emptyText}>Leaderboard not available.</Text>
-          )
-        }
-      />
-    );
-  }
-
-  // For active/upcoming contests, show entries.
+  
   return (
-    <View style={{ flex: 1, backgroundColor: '#fff' }}>
-      <FlatList
-        data={entries}
-        keyExtractor={(it) => String(it.id)}
-        ListHeaderComponent={Header}
-        renderItem={renderEntryCard}
-        contentContainerStyle={{ paddingBottom: 24 }}
-        onEndReachedThreshold={0.4}
-        onEndReached={() =>
-          !entriesBag?.loading && entriesBag?.hasMore && fetchEntries({ contestId })
-        }
-        ListFooterComponent={entriesBag?.loading ? (
-          <ActivityIndicator style={{ marginVertical: 16 }} />
-        ) : null}
-        ListEmptyComponent={!entriesLoading ? (
-          <Text style={{ textAlign: 'center', marginTop: 24, color: '#666' }}>Be the first to submit an entry!</Text>
-        ) : null}
-      />
+    <View style={styles.screen}>
+      {activeTab === 'entries' && (
+        <FlatList
+          data={entries}
+          keyExtractor={(it) => String(it.id)}
+          ListHeaderComponent={<Header />}
+          renderItem={renderEntryCard}
+          contentContainerStyle={{ paddingBottom: 24 }}
+          onEndReachedThreshold={0.4}
+          onEndReached={() => !entriesBag?.loading && entriesBag?.hasMore && fetchEntries({ contestId })}
+          ListFooterComponent={entriesBag?.loading ? <ActivityIndicator style={{ marginVertical: 16 }} /> : null}
+          ListEmptyComponent={!entriesLoading ? <Text style={styles.emptyText}>Be the first to submit an entry!</Text> : null}
+        />
+      )}
+      {activeTab === 'leaderboard' && (
+        <LeaderboardList contestId={contestId} ListHeaderComponent={<Header />} />
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  // Banner
-  bannerWrap: {
-    width: '100%',
-    aspectRatio: 4 / 3, // Taller banner for more impact
-    backgroundColor: '#EDEDF2',
+  screen: { flex: 1, backgroundColor: '#F8F8FA' },
+  headerContainer: { paddingVertical: 16, alignItems: 'center' },
+  mainCard: {
+    width: width - PADDING_H * 2,
+    borderRadius: 20,
+    backgroundColor: '#fff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    elevation: 8,
+    overflow: 'hidden', // Ensures banner corners are clipped
   },
-  bannerImg: { width: '100%', height: '100%' },
-  bannerOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.3)' },
-
-  // Hero/meta
-  hero: { paddingHorizontal: PADDING_H, paddingTop: 16, paddingBottom: 16 },
-  title: { fontSize: 28, fontWeight: '900', color: '#111827', letterSpacing: -0.5 },
-  theme: { fontSize: 16, color: '#4B5563', marginTop: 4, marginBottom: 12 },
-  metaRow: { flexDirection: 'row', alignItems: 'center' },
-  statusDot: { width: 10, height: 10, borderRadius: 5, marginRight: 8 },
-  statusGreen: { backgroundColor: '#10B981' },
-  statusAmber: { backgroundColor: '#F59E0B' },
-  statusGray: { backgroundColor: '#9CA3AF' },
-  metaStrong: { fontWeight: '900', color: '#111827' },
-  metaDim: { color: '#6B7280', fontWeight: '500' },
-  pillsRow: { flexDirection: 'row', gap: 8, marginTop: 10, flexWrap: 'wrap' },
-  pill: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12 },
-  pillText: { fontWeight: '800' },
-  actionsRow: { flexDirection: 'row', gap: 10, marginTop: 12 },
-  primaryBtn: {
+  bannerImg: { width: '100%', height: 180 },
+  detailsContainer: { padding: PADDING_H },
+  title: { fontSize: 24, fontWeight: '900', color: '#1A1A1A', letterSpacing: -0.5 },
+  theme: { fontSize: 14, color: '#555', marginTop: 4, marginBottom: 16, lineHeight: 21 },
+  infoGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    marginHorizontal: -4,
+  },
+  infoCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 12,
+    width: '48%',
+    marginBottom: 8,
+  },
+  infoIcon: { marginRight: 10 },
+  infoLabel: { fontSize: 12, color: '#666', fontWeight: '600' },
+  infoValue: { fontSize: 14, color: '#1A1A1A', fontWeight: '800', marginTop: 2 },
+ 
+  actionsRow: { flexDirection: 'row', marginTop: 16 },
+  button: {
     flex: 1,
-    backgroundColor: '#111827',
-    paddingVertical: 14,
-    borderRadius: 14,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'row',
     gap: 8,
   },
-  primaryBtnText: { color: '#fff', fontWeight: '900', fontSize: 16, letterSpacing: 0.2 },
-
-  sectionLabel: { marginTop: 16, marginBottom: 8, fontWeight: '900', color: '#111827', fontSize: 20, paddingHorizontal: PADDING_H },
-
-  // NEW Leaderboard styles
-  lbRow: {
+  primaryBtn: { backgroundColor: '#7A5AF8' },
+  disabledBtn: { backgroundColor: '#C5C5C5' },
+  primaryBtnText: { color: '#fff', fontWeight: '800', fontSize: 15 },
+  tabContainer: {
     flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 8,
     paddingHorizontal: PADDING_H,
   },
-  lbRank: {
-    fontWeight: '900',
-    fontSize: 16,
-    color: '#6B7280',
-    width: 30,
-    textAlign: 'center',
-    marginRight: 12,
-  },
-  lbRankWinner: {
-    color: '#D97706', // Amber color for winner
-  },
-  lbUser: {
+  tab: {
     flex: 1,
-    marginLeft: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
     justifyContent: 'center',
+    borderBottomWidth: 3,
+    borderBottomColor: 'transparent',
   },
-  lbName: {
-    fontWeight: 'bold',
-    color: '#1F2937',
+  activeTab: {
+    borderBottomColor: '#7A5AF8',
   },
-  lbUsername: {
-    color: '#6B7280',
-    fontSize: 12,
-    marginTop: 2,
+  tabText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#666',
   },
-  lbTrophy: {
-    marginLeft: 'auto',
+  activeTabText: {
+    color: '#7A5AF8',
   },
-  lbScore: {
-    fontWeight: '900',
-    fontSize: 16,
-    color: '#111827',
-    marginLeft: 16,
-    minWidth: 50,
-    textAlign: 'right',
-  },
-  lbSeparator: {
-    height: 1,
-    backgroundColor: '#F3F4F6',
-    marginHorizontal: PADDING_H,
-  },
+ 
   emptyText: {
     textAlign: 'center',
     marginTop: 24,

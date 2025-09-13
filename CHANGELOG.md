@@ -305,3 +305,41 @@ the homescreen when changed to dark we need to modify the the image container it
 contest screens are not reflecting theme colour
 
 future release change ..
+
+
+
+Scaling Plan
+Early stage (0–5k users) → Firebase + Cloudinary free tier is fine.
+Growth (10k–100k users) → Start moving heavy storage to AWS S3 + CloudFront.
+Scale-up (100k+ users) → Consider migrating Firestore to Postgres/MySQL with a backend (NestJS/Spring Boot).
+
+
+Your current functions are small and efficient, which is great! The main cost driver won't be the complexity of one function, but the sheer volume of them as users become more active.
+
+High-Frequency Functions (Your Biggest Cost Drivers):
+onLikeCreate / onLikeDelete: Likes are the most common interaction.
+onEntryRated: Rating contest entries will also be very frequent.
+Medium-Frequency Functions:
+onCommentCreate / onCommentDelete: Less frequent than likes, but still significant.
+onFollowCreate / onFollowDelete: Core social actions.
+onOutfitCreate / onOutfitDelete: The core "post" action.
+Low-Frequency Functions (Negligible Cost):
+onContestCreate / resolveContestWinner: These are admin/scheduled tasks that run infrequently.
+
+Core Assumptions for 10k Daily Users
+To make this estimate, we'll assume a "moderately active" user does the following each day:
+
+Views 50 outfits in their feed.
+Likes 20 outfits.
+Posts 1 comment.
+Follows 1 user.
+Uploads 1 outfit per week (average of ~0.15 per day).
+
+Estimated Monthly Bill Breakdown
+Service	Estimated Monthly Cost (INR)	Key Cost Driver
+Cloud Firestore (Database)	~ ₹2,150	Document Writes & Reads
+Cloud Functions (Backend Logic)	~ ₹180	Number of Invocations
+Cloudinary (Image Hosting)	~ ₹9,000	Image Viewing Bandwidth
+Total Estimated Cost	~ ₹11,330 / month	
+
+For a few thousand users, Firebase stays under ₹500–₹2,000/month. But with 100k+ users, costs can spike to ₹20k–₹50k/month, especially from Firestore reads/writes.

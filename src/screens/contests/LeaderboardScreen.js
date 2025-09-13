@@ -5,11 +5,13 @@
 // Usage 2 (embedded component): import and render <LeaderboardList contestId="..." />
 
 import React, { useCallback, useEffect } from 'react';
-import { ActivityIndicator, FlatList, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, FlatList, StyleSheet, Text, View, Pressable } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import useContestStore from '../../store/contestStore';
 import Avatar from '../../components/Avatar';
 
-export function LeaderboardList({ contestId, limit = 50, minVotes = 10 }) {
+export function LeaderboardList({ contestId, limit = 50, minVotes = 1, ListHeaderComponent }) {
+  const navigation = useNavigation();
   const rows = useContestStore((s) => s.leaderboards[contestId] || []);
   const fetchLeaderboard = useContestStore((s) => s.fetchLeaderboard);
   const loadingBag = useContestStore((s) => s.entries[contestId]); // used to show footer spinner if needed
@@ -25,21 +27,28 @@ export function LeaderboardList({ contestId, limit = 50, minVotes = 10 }) {
     fetchLeaderboard({ contestId, limit, minVotes });
   }, [contestId, limit, minVotes, fetchLeaderboard]);
 
-  const renderItem = ({ item, index }) => (
-    <View style={styles.row}>
-      <Text style={styles.rank}>{index + 1}</Text>
-      <Avatar uri={item.userPhoto} name={item.userName} size={40} />
-      <View style={{ flex: 1, marginLeft: 10 }}>
-        <Text style={styles.name} numberOfLines={1}>
-          {item.userName || `User ${String(item.userId || '').slice(0, 6)}`}
-        </Text>
-        <Text style={styles.sub}>
-          {item.ratingsCount ? `${item.ratingsCount} votes` : '—'}
-        </Text>
-      </View>
-      <Text style={styles.score}>{(item.averageRating || 0).toFixed(1)}</Text>
-    </View>
-  );
+  const renderItem = ({ item, index }) => {
+    const handlePress = () => {
+      if (item.userId) {
+        navigation.navigate('UserProfile', { userId: item.userId });
+      }
+    };
+    return (
+      <Pressable onPress={handlePress} style={({ pressed }) => [styles.row, pressed && { backgroundColor: '#f9f9f9' }]}>
+        <Text style={styles.rank}>{index + 1}</Text>
+        <Avatar uri={item.user?.profilePicture} name={item.user?.name} size={40} />
+        <View style={{ flex: 1, marginLeft: 10 }}>
+          <Text style={styles.name} numberOfLines={1}>
+            {item.user?.name || `User ${String(item.userId || '').slice(0, 6)}`}
+          </Text>
+          <Text style={styles.sub}>
+            {item.ratingsCount ? `${item.ratingsCount} votes` : '—'}
+          </Text>
+        </View>
+        <Text style={styles.score}>{(item.averageRating || 0).toFixed(1)}</Text>
+      </Pressable>
+    );
+  };
 
   return (
     <FlatList
@@ -48,10 +57,8 @@ export function LeaderboardList({ contestId, limit = 50, minVotes = 10 }) {
       renderItem={renderItem}
       onRefresh={onRefresh}
       refreshing={false}
-      contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24 }}
-      ListHeaderComponent={
-        <Text style={styles.title}>Leaderboard</Text>
-      }
+      contentContainerStyle={{ paddingBottom: 24 }}
+      ListHeaderComponent={ListHeaderComponent || <Text style={styles.title}>Leaderboard</Text>}
       ListEmptyComponent={
         !loading ? (
           <Text style={{ textAlign: 'center', color: '#666', marginTop: 24 }}>
@@ -84,13 +91,14 @@ export default function LeaderboardScreen({ route }) {
 }
 
 const styles = StyleSheet.create({
-  title: { fontSize: 22, fontWeight: '800', marginTop: 8, marginBottom: 8 },
+  title: { fontSize: 22, fontWeight: '800', marginTop: 8, marginBottom: 8, paddingHorizontal: 16 },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 12,
     borderBottomColor: '#eee',
     borderBottomWidth: 1,
+    paddingHorizontal: 16,
   },
   rank: { width: 28, textAlign: 'center', fontWeight: '800', color: '#555' },
   name: { fontSize: 16, fontWeight: '600' },

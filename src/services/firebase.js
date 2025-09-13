@@ -473,6 +473,13 @@ async function fbListContests({ limitCount = 20, startAfterDoc = null, status = 
     const now = new Date();
     let qy = collection(firestore, 'contests');
 
+    // IMPORTANT: If you use country filtering, you will need to create composite indexes in Firebase.
+    // The error message in your console will provide a direct link to create them.
+    // Example indexes needed: (country, endAt, asc), (country, startAt, asc), (country, endAt, desc)
+    if (country && country !== 'all') {
+      qy = query(qy, where('country', '==', country));
+    }
+
     // Apply status-specific filtering and ordering.
     // Each status needs its own orderBy clause to be compatible with the 'where' filter.
     if (status === 'active') {

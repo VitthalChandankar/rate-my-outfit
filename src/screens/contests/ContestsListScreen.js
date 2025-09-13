@@ -20,6 +20,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useIsFocused } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { Surface } from 'react-native-paper';
+import { Image as ExpoImage } from 'expo-image';
 import useContestStore from '../../store/contestStore';
 import useUserStore from '../../store/UserStore';
 
@@ -46,10 +47,18 @@ function statusFromRange(startMs, endMs, now = Date.now()) {
   return 'active';
 }
 function whenLabel(startMs, endMs, status) {
-  if (status === 'active' && endMs) return `Ends ${new Date(endMs).toLocaleDateString()}`;
-  if (status === 'ended' && endMs) return `Ended ${new Date(endMs).toLocaleDateString()}`;
-  if (status === 'upcoming' && startMs) return `Starts ${new Date(startMs).toLocaleDateString()}`;
+  const options = { month: 'short', day: 'numeric', year: 'numeric' };
+  if (status === 'active' && endMs) return `Ends ${new Date(endMs).toLocaleDateString('en-US', options)}`;
+  if (status === 'ended' && endMs) return `Ended ${new Date(endMs).toLocaleDateString('en-US', options)}`;
+  if (status === 'upcoming' && startMs) return `Starts ${new Date(startMs).toLocaleDateString('en-US', options)}`;
   return '—';
+}
+function countryCodeToFlag(isoCode) {
+  if (!isoCode || isoCode.length !== 2) return '';
+  // Formula to convert a 2-letter country code to a flag emoji
+  return isoCode
+    .toUpperCase()
+    .replace(/./g, (char) => String.fromCodePoint(char.charCodeAt(0) + 127397));
 }
 
 // ----- Segmented Control (glassy) -----
@@ -138,47 +147,62 @@ const ContestCard = memo(({ item, onPress }) => {
       : { bg: '#F3F4F6', fg: '#6B7280' };
 
   return (
-    <Animated.View style={{ opacity: fade, transform: [{ translateY: rise }] }}>
-      <Surface style={styles.card} elevation={2}>
-        {/* header row */}
-        <View style={styles.headerRow}>
-          <View style={[styles.badge, { backgroundColor: statusColors.bg }]}>
-            <Text style={[styles.badgeText, { color: statusColors.fg }]}>
-              {status === 'active' ? 'Active' : status === 'upcoming' ? 'Upcoming' : 'Ended'}
+    <TouchableOpacity onPress={onPress} activeOpacity={0.9} style={styles.cardTouch}>
+      <Animated.View style={{ opacity: fade, transform: [{ translateY: rise }] }}>
+        <Surface style={styles.card} elevation={2}>
+          {item.image && <ExpoImage source={{ uri: item.image }} style={styles.cardBanner} contentFit="cover" />}
+
+          <View style={styles.cardContent}>
+            {/* header row */}
+            <View style={styles.headerRow}>
+              <View style={[styles.badge, { backgroundColor: statusColors.bg }]}>
+                <Text style={[styles.badgeText, { color: statusColors.fg }]}>
+                  {status.charAt(0).toUpperCase() + status.slice(1)}
+                </Text>
+              </View>
+              {item.country === 'GLOBAL' ? (
+                <View style={styles.countryContainer}>
+                  <Text style={styles.countryFlag}>🌐</Text>
+                  <Text style={styles.country}>Global</Text>
+                </View>
+              ) : !!item.country && (
+                <View style={styles.countryContainer}>
+                  <Text style={styles.countryFlag}>{countryCodeToFlag(item.country)}</Text>
+                  <Text style={styles.country}>{item.country.toUpperCase()}</Text>
+                </View>
+              )}
+            </View>
+
+            {/* title + theme */}
+            <Text style={styles.title} numberOfLines={1}>
+              {item.title || 'Contest'}
             </Text>
-          </View>
-          {!!item.country && <Text style={styles.country}>{item.country}</Text>}
-        </View>
+            {!!item.theme && (
+              <Text style={styles.theme} numberOfLines={2}>
+                {item.theme}
+              </Text>
+            )}
 
-        {/* title + theme */}
-        <Text style={styles.title} numberOfLines={1}>
-          {item.title || 'Contest'}
-        </Text>
-        {!!item.theme && (
-          <Text style={styles.theme} numberOfLines={2}>
-            {item.theme}
-          </Text>
-        )}
-
-        {/* meta pills */}
-        <View style={styles.metaRow}>
-          <View style={styles.metaPill}>
-            <Text style={styles.metaPillText}>{whenText}</Text>
+            {/* meta pills */}
+            <View style={styles.metaRow}>
+              <View style={styles.metaPill}>
+                <Ionicons name="calendar-outline" size={14} color="#4B5563" style={{ marginRight: 4 }} />
+                <Text style={styles.metaPillText}>{whenText}</Text>
+              </View>
+              <View style={{ width: 8 }} />
+              {!!item.prize && (
+                <View style={[styles.metaPill, styles.metaPillGhost]}>
+                  <Ionicons name="gift-outline" size={14} color="#4B5563" style={{ marginRight: 4 }} />
+                  <Text style={[styles.metaPillText, { color: '#4B5563' }]}>
+                    {item.prize}
+                  </Text>
+                </View>
+              )}
+            </View>
           </View>
-          <View style={{ width: 8 }} />
-          <View style={[styles.metaPill, styles.metaPillGhost]}>
-            <Text style={[styles.metaPillText, { color: '#4B5563' }]}>
-              {item.entryFee && item.entryFee > 0 ? `Entry ₹${item.entryFee}` : 'Free'}
-            </Text>
-          </View>
-        </View>
-
-        {/* CTA */}
-        <TouchableOpacity onPress={onPress} activeOpacity={0.9} style={styles.ctaBtn}>
-          <Text style={styles.ctaText}>View details</Text>
-        </TouchableOpacity>
-      </Surface>
-    </Animated.View>
+        </Surface>
+      </Animated.View>
+    </TouchableOpacity>
   );
 });
 
@@ -326,27 +350,42 @@ const styles = StyleSheet.create({
   segmentText: { fontWeight: '700', color: '#6B7280' },
   segmentTextActive: { color: '#1F2937' },
 
-  // Card
-  card: {
-    borderRadius: 18,
-    padding: 14,
-    backgroundColor: '#FFFFFF',
+  // Card Touch Wrapper
+  cardTouch: {
     marginTop: 12,
     width: CARD_W,
     alignSelf: 'center',
   },
+  // Card
+  card: {
+    borderRadius: 18,
+    backgroundColor: '#FFFFFF',
+    overflow: 'hidden',
+  },
+  cardBanner: {
+    width: '100%',
+    height: 120,
+    backgroundColor: '#F0F0F0',
+  },
+  cardContent: {
+    padding: 14,
+  },
   headerRow: { flexDirection: 'row', alignItems: 'center' },
   badge: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12 },
   badgeText: { fontWeight: '800', fontSize: 12 },
-  country: { marginLeft: 'auto', color: '#6B7280', fontWeight: '700' },
+  countryContainer: { marginLeft: 'auto', flexDirection: 'row', alignItems: 'center', gap: 6 },
+  countryFlag: {
+    fontSize: 16,
+  },
+  country: { color: '#6B7280', fontWeight: '700', fontSize: 13 },
 
   title: { fontSize: 18, fontWeight: '900', marginTop: 10, color: '#111827', letterSpacing: -0.2 },
   theme: { marginTop: 6, color: '#4B5563' },
 
   metaRow: { flexDirection: 'row', alignItems: 'center', marginTop: 12 },
-  metaPill: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12, backgroundColor: '#F3F4F6' },
+  metaPill: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12, backgroundColor: '#F3F4F6' },
   metaPillGhost: { backgroundColor: '#F8FAFC' },
-  metaPillText: { fontWeight: '800', color: '#1F2937' },
+  metaPillText: { fontWeight: '700', color: '#1F2937', fontSize: 12 },
 
   ctaBtn: {
     marginTop: 16,
@@ -358,7 +397,11 @@ const styles = StyleSheet.create({
   ctaText: { color: '#fff', fontWeight: '900', letterSpacing: 0.2 },
 
   // Empty
-  emptyWrap: { alignItems: 'center', marginTop: 40 },
+  emptyWrap: {
+    alignItems: 'center',
+    marginTop: 40,
+    paddingHorizontal: PADDING_H,
+  },
   emptyTitle: { fontSize: 18, fontWeight: '900', color: '#1F2937' },
   emptySub: { marginTop: 6, color: '#6B7280' },
 

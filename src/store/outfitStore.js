@@ -52,12 +52,28 @@ const useOutfitStore = create((set, get) => ({
       const startAfterDoc = reset ? null : get().lastDoc;
       const res = await fbFetchFeed({ limitCount: limit, startAfterDoc });
       if (res.success) {
-        set((state) => ({
-          feed: reset ? res.items : [...state.feed, ...res.items],
-          lastDoc: res.last || state.lastDoc,
-          loading: false,
-          refreshing: false,
-        }));
+        set((state) => {
+          let finalFeed;
+          if (reset) {
+            const serverItems = res.items || [];
+            const serverItemIds = new Set(serverItems.map(item => item.id));
+            // Keep optimistic items from the current state if they haven't arrived from the server yet
+            const optimisticItemsToKeep = state.feed.filter(
+              item => item._isOptimistic && !serverItemIds.has(item.id)
+            );
+            const combined = [...optimisticItemsToKeep, ...serverItems];
+            // Deduplicate, preferring the optimistic one if an ID somehow clashes
+            finalFeed = Array.from(new Map(combined.map(item => [item.id, item])).values());
+          } else {
+            finalFeed = [...state.feed, ...(res.items || [])];
+          }
+          return {
+            feed: finalFeed,
+            lastDoc: res.last || (reset ? null : state.lastDoc),
+            loading: false,
+            refreshing: false,
+          };
+        });
       } else {
         set({ loading: false, refreshing: false });
       }
@@ -87,9 +103,9 @@ const useOutfitStore = create((set, get) => ({
       });
 
       if (create.success) {
-        // Optimistically prepend to feed only; profile list will refresh on demand
+        // Optimistically prepend to feed with a flag; profile list will refresh on demand
         set((state) => ({
-          feed: [{ id: create.id, ...create.data, imageUrl: up.url }, ...state.feed],
+          feed: [{ id: create.id, ...create.data, imageUrl: up.url, _isOptimistic: true }, ...state.feed],
         }));
       }
       return create;

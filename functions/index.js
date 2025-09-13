@@ -215,46 +215,52 @@ exports.onCommentDelete = onDocumentDeleted("comments/{commentId}", async (event
  * - Increments the like count on the associated outfit.
  * - Creates a notification for the post owner.
  */
-exports.onLikeCreate = onDocumentCreated("likes/{likeId}", async (event) => {
-  const snap = event.data;
-  if (!snap) return;
-  const likeData = snap.data();
-  const { outfitId, userId } = likeData;
+exports.onLikeCreate = onDocumentCreated(
+    {
+      document: "likes/{likeId}",
+      // Set concurrency to allow one instance to handle many requests
+      concurrency: 80,
+    },
+    async (event) => {
+      const snap = event.data;
+      if (!snap) return;
+      const likeData = snap.data();
+      const {outfitId, userId} = likeData;
 
-  if (!outfitId || !userId) {
-    console.error("Like is missing outfitId or userId", snap.id);
-    return;
-  }
+      if (!outfitId || !userId) {
+        console.error("Like is missing outfitId or userId", snap.id);
+        return;
+      }
 
-  const db = admin.firestore();
-  const outfitRef = db.doc(`outfits/${outfitId}`);
+      const db = admin.firestore();
+      const outfitRef = db.doc(`outfits/${outfitId}`);
 
-  try {
-    // 1. Increment outfit's likesCount
-    await outfitRef.update({ likesCount: admin.firestore.FieldValue.increment(1) });
+      try {
+        // 1. Increment outfit's likesCount
+        await outfitRef.update({likesCount: admin.firestore.FieldValue.increment(1)});
 
-    // 2. Create notification for post owner (if not self-like)
-    const outfitSnap = await outfitRef.get();
-    const outfitData = outfitSnap.data();
-    if (outfitData && outfitData.userId !== userId) {
-      const senderProfile = (await db.doc(`users/${userId}`).get()).data();
-      const notificationRef = db.collection("notifications").doc();
-      await notificationRef.set({
-        recipientId: outfitData.userId,
-        senderId: userId,
-        senderName: senderProfile?.name || "Someone",
-        senderAvatar: senderProfile?.profilePicture || null,
-        type: "like",
-        outfitId: outfitId,
-        outfitImage: outfitData.imageUrl,
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        read: false,
-      });
-    }
-  } catch (error) {
-    console.error(`Error in onLikeCreate for like ${snap.id}:`, error);
-  }
-});
+        // 2. Create notification for post owner (if not self-like)
+        const outfitSnap = await outfitRef.get();
+        const outfitData = outfitSnap.data();
+        if (outfitData && outfitData.userId !== userId) {
+          const senderProfile = (await db.doc(`users/${userId}`).get()).data();
+          const notificationRef = db.collection("notifications").doc();
+          await notificationRef.set({
+            recipientId: outfitData.userId,
+            senderId: userId,
+            senderName: senderProfile?.name || "Someone",
+            senderAvatar: senderProfile?.profilePicture || null,
+            type: "like",
+            outfitId: outfitId,
+            outfitImage: outfitData.imageUrl,
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            read: false,
+          });
+        }
+      } catch (error) {
+        console.error(`Error in onLikeCreate for like ${snap.id}:`, error);
+      }
+    });
 
 /**
  * Handles deleting a like.

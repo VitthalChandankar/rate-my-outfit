@@ -3,7 +3,7 @@
 // Normal posts: like/comment/share and caption below image.
 
 import React, { useMemo, memo } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View, Pressable } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View, Pressable, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Image as ExpoImage } from 'expo-image';
 import formatDate from '../utils/formatDate';
@@ -110,7 +110,15 @@ const OutfitCard = memo(({ item, onPress, onRate, onUserPress, onLike, isLiked, 
             style={styles.image}
             contentFit="cover"
             transition={250}
-            onError={(e) => console.warn(`OutfitCard failed to load image: ${transformedUrl}`, e.error)}
+            onError={(e) => {
+              // On Android, image requests are cancelled during fast scrolls, which is expected.
+              // This check prevents spamming the console with non-critical warnings.
+              const errorMessage = e?.error?.message || '';
+              if (Platform.OS === 'android' && errorMessage.includes('CANCEL')) {
+                return;
+              }
+              console.warn(`OutfitCard failed to load image: ${transformedUrl}`, e.error);
+            }}
           />
         ) : (
           <View style={[styles.image, styles.imagePlaceholder]} />

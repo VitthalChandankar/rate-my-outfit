@@ -13,7 +13,7 @@ function NotificationRow({ item, onNotificationPress }) {
 
   let iconName = 'ellipse';
   let iconColor = '#ccc';
-  let message = 'New activity';
+  let message = <Text style={styles.message}>New activity</Text>;
 
   if (item.type === 'like') {
     iconName = 'heart';

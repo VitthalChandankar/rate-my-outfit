@@ -142,17 +142,24 @@ export default function HomeScreen() {
     if (isContest) {
       const contest = contestsById[post.contestId];
       const now = new Date();
-      const contestIsActive = contest && contest.endAt && (contest.endAt.toDate ? contest.endAt.toDate() : new Date(contest.endAt)) > now;
+      const endMs = contest?.endAt?.toDate ? contest.endAt.toDate().getTime() : (contest?.endAt ? new Date(contest.endAt).getTime() : null);
+      const contestIsActive = contest && endMs && endMs > now.getTime();
 
       if (contestIsActive) {
         handleRate(post);
       } else {
-        navigation.navigate('ContestDetails', { contestId: post.contestId });
+        // If contest is not active, it's either ended or upcoming.
+        // If it has ended, default to the leaderboard tab.
+        const isEnded = endMs && endMs < now.getTime();
+        navigation.navigate('ContestDetails', {
+          contestId: post.contestId,
+          initialTab: isEnded ? 'leaderboard' : 'entries',
+        });
       }
     } else {
       navigation.navigate('OutfitDetails', { outfitId: post.id });
     }
-  }, [navigation, handleRate]);
+  }, [navigation, contestsById, handleRate]);
 
   const handleRate = useCallback((post) => {
     // Navigate to RateEntryScreen with normalized payload
