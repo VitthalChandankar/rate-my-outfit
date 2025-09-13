@@ -65,6 +65,12 @@ exports.sendPushNotification = onDocumentCreated("notifications/{notificationId}
     } else if (type === "follow") {
       title = "New Follower! 👋";
       body = `${senderName} started following you.`;
+    } else if (type === "achievement") {
+      title = notificationData.title || "Achievement Unlocked!";
+      body = notificationData.body || "You've earned a new badge!";
+    } else if (type === "contest_win") {
+      title = "You're a Winner! 🏆";
+      body = `Congratulations! You won the "${notificationData.contestTitle || "contest"}".`;
     } else {
       console.log(`Unknown notification type: ${type}`);
       return null;
@@ -80,6 +86,8 @@ exports.sendPushNotification = onDocumentCreated("notifications/{notificationId}
         // For 'follow', navigate to the sender's profile. For others, to the outfit.
         // For 'comment' or 'like', navigate to the outfit details.
         outfitId: notificationData.outfitId,
+        contestId: notificationData.contestId, // Add contestId for navigation
+        type: type, // Pass type to help client-side navigation
         senderId: notificationData.senderId, // Add senderId for navigation
       },
     }));
@@ -385,37 +393,42 @@ exports.onFollowDelete = onDocumentDeleted("follows/{followId}", async (event) =
 });
 
 /**
- * When an entry is rated, sync its rating stats to the corresponding outfit document for the main feed.
+ * When an entry is updated (e.g., rated, or declared a winner), sync relevant stats to the corresponding outfit document.
  */
-exports.onEntryRated = onDocumentUpdated("entries/{entryId}", async (event) => {
+exports.syncEntryToOutfit = onDocumentUpdated("entries/{entryId}", async (event) => {
   const before = event.data.before.data();
   const after = event.data.after.data();
 
-  // Check if rating stats have actually changed to avoid unnecessary writes
-  if (
-    before.averageRating === after.averageRating &&
-    before.ratingsCount === after.ratingsCount &&
-    before.aiFlagsCount === after.aiFlagsCount
-  ) {
-    console.log(`No rating change for entry ${event.params.entryId}, skipping sync.`);
+  const updates = {};
+
+  // Check for rating changes
+  if (before.averageRating !== after.averageRating) {
+    updates.averageRating = after.averageRating;
+  }
+  if (before.ratingsCount !== after.ratingsCount) {
+    updates.ratingsCount = after.ratingsCount;
+  }
+  // Check for winner status change
+  if (before.isWinner !== after.isWinner && after.isWinner === true) {
+    updates.isWinner = true;
+  }
+
+  if (Object.keys(updates).length === 0) {
+    console.log(`No relevant fields changed for entry ${event.params.entryId}, skipping sync.`);
     return null;
   }
 
   const { outfitId } = after;
   if (!outfitId) {
-    console.log(`Entry ${event.params.entryId} has no linked outfitId, skipping sync.`);
+    console.log(`Entry ${event.params.entryId} has no outfitId, skipping sync.`);
     return null;
   }
 
   const outfitRef = admin.firestore().doc(`outfits/${outfitId}`);
 
   try {
-    await outfitRef.update({
-      averageRating: after.averageRating,
-      ratingsCount: after.ratingsCount,
-      aiFlagsCount: after.aiFlagsCount,
-    });
-    console.log(`Successfully synced ratings from entry ${event.params.entryId} to outfit ${outfitId}.`);
+    await outfitRef.update(updates);
+    console.log(`Successfully synced updates from entry ${event.params.entryId} to outfit ${outfitId}.`, updates);
   } catch (error) {
     console.error(`Failed to sync ratings for outfit ${outfitId}:`, error);
   }
@@ -446,6 +459,7 @@ exports.onOutfitCreate = onDocumentCreated("outfits/{outfitId}", async (event) =
   const achievementRef = db.collection("achievements").doc(achievementId);
   const achievementDataSnap = await achievementRef.get();
 
+  // This check is important. If the achievement isn't defined, we can't award it.
   if (!achievementDataSnap.exists) {
     console.error(`Achievement definition for '${achievementId}' not found in Firestore.`);
     return null;
@@ -490,7 +504,7 @@ exports.onOutfitCreate = onDocumentCreated("outfits/{outfitId}", async (event) =
         transaction.set(notificationRef, {
           recipientId: userId,
           senderId: userId, // For achievement, sender is the system/user themselves
-          type: "achievement",
+          type: "achievement", // This will be handled by sendPushNotification
           title: "Achievement Unlocked!",
           body: `You've earned the "${FIRST_POST_ACHIEVEMENT.title}" badge!`,
           imageUrl: FIRST_POST_ACHIEVEMENT.imageUrl,
@@ -565,7 +579,7 @@ exports.resolveContestWinner = onTaskDispatched({taskQueue: "resolvecontestwinne
 
   console.log(`Processing end of contest ${contestId}.`);
   const db = admin.firestore();
-  const MIN_VOTES = 1; // Minimum votes an entry needs to be considered for winning.
+  const MIN_VOTES = 10; // Minimum votes an entry needs to be considered for winning.
 
   // 1. Fetch all entries for the contest.
   const entriesQuery = db.collection("entries").where("contestId", "==", contestId);
@@ -576,32 +590,74 @@ exports.resolveContestWinner = onTaskDispatched({taskQueue: "resolvecontestwinne
     return null;
   }
 
-  // 2. Find the entry with the highest average rating that meets the minimum vote count.
+  // 2. Find the winning entry using a fair, multi-level tie-breaking system.
   let winnerEntry = null;
-  let highestRating = -1;
 
-  entriesSnap.forEach((doc) => {
-    const entry = doc.data();
-    const rating = entry.averageRating || 0;
-    const votes = entry.ratingsCount || 0;
+  for (const doc of entriesSnap.docs) {
+    const entry = { id: doc.id, ...doc.data() };
 
-    if (votes >= MIN_VOTES && rating > highestRating) {
-      highestRating = rating;
-      winnerEntry = {id: doc.id, ...entry};
+    // Rule 1: Must meet minimum votes to be eligible.
+    if ((entry.ratingsCount || 0) < MIN_VOTES) {
+      continue;
     }
-  });
+
+    // If this is the first valid entry, it's the current winner.
+    if (!winnerEntry) {
+      winnerEntry = entry;
+      continue;
+    }
+
+    // Rule 2: Higher average rating wins.
+    const currentWinnerRating = winnerEntry.averageRating || 0;
+    const entryRating = entry.averageRating || 0;
+    if (entryRating > currentWinnerRating) {
+      winnerEntry = entry;
+    } else if (entryRating === currentWinnerRating) {
+      // Rule 3 (Tie-breaker 1): More votes wins.
+      const currentWinnerVotes = winnerEntry.ratingsCount || 0;
+      const entryVotes = entry.ratingsCount || 0;
+      if (entryVotes > currentWinnerVotes) {
+        winnerEntry = entry;
+      } else if (entryVotes === currentWinnerVotes) {
+        // Rule 4 (Tie-breaker 2): Earlier submission wins.
+        if ((entry.createdAt?.toMillis() || 0) < (winnerEntry.createdAt?.toMillis() || 0)) {
+          winnerEntry = entry;
+        }
+      }
+    }
+  }
 
   if (!winnerEntry) {
     console.log(`No entry in contest ${contestId} met the minimum of ${MIN_VOTES} votes.`);
     return null;
   }
 
+  // Fetch contest data to use in the notification
+  const contestRef = db.collection("contests").doc(contestId);
+  const contestSnap = await contestRef.get();
+  const contestData = contestSnap.exists ? contestSnap.data() : {};
+  const contestTitle = contestData.title || "a contest";
+
   // 3. Mark the winning entry as the winner.
-  // This will trigger the `onEntryUpdateAwardWinner` function to handle achievements and stats.
+  // This will trigger the `syncEntryToOutfit` function to handle achievements and stats.
   const winnerRef = db.collection("entries").doc(winnerEntry.id);
   try {
     await winnerRef.update({isWinner: true});
     console.log(`Declared user ${winnerEntry.userId} as the winner of contest ${contestId} with entry ${winnerEntry.id}.`);
+
+    // 4. Create a notification for the winner
+    const notificationRef = db.collection("notifications").doc();
+    await notificationRef.set({
+      recipientId: winnerEntry.userId,
+      senderId: "system", // System-generated notification
+      type: "contest_win",
+      contestTitle: contestTitle,
+      contestId: contestId,
+      outfitImage: winnerEntry.imageUrl, // For thumbnail in notification list
+      read: false,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    console.log(`Created contest win notification for user ${winnerEntry.userId}.`);
   } catch (error) {
     console.error(`Failed to update winner status for entry ${winnerEntry.id}:`, error);
   }

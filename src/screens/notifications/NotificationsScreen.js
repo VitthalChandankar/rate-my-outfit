@@ -27,6 +27,14 @@ function NotificationRow({ item, onNotificationPress }) {
     iconName = 'person-add';
     iconColor = '#34C759';
     message = <Text style={styles.message}><Text style={styles.senderName}>{item.senderName}</Text> started following you.</Text>;
+  } else if (item.type === 'contest_win') {
+    iconName = 'trophy';
+    iconColor = '#F59E0B'; // Gold
+    message = <Text style={styles.message}>Congratulations! You won the <Text style={styles.senderName}>"{item.contestTitle || 'contest'}"</Text>.</Text>;
+  } else if (item.type === 'achievement') {
+    iconName = 'shield-checkmark';
+    iconColor = '#5856D6'; // Indigo
+    message = <Text style={styles.message}>Achievement unlocked: <Text style={styles.senderName}>{item.body || 'New Badge'}</Text></Text>;
   }
 
   return (
@@ -79,8 +87,12 @@ export default function NotificationsScreen() {
   const handleNotificationPress = (notification) => {
     if (notification.type === 'follow') {
       navigation.navigate('UserProfile', { userId: notification.senderId });
+    } else if (notification.type === 'contest_win' && notification.contestId) {
+      navigation.navigate('ContestDetails', { contestId: notification.contestId, initialTab: 'leaderboard' });
     } else if (notification.outfitId) {
       navigation.navigate('OutfitDetails', { outfitId: notification.outfitId });
+    } else if (notification.type === 'achievement') {
+      navigation.navigate('Profile', { initialTab: 'achievements' });
     }
   };
 

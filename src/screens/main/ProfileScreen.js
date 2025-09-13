@@ -56,7 +56,7 @@ function dedupeById(items) {
   return Array.from(map.values());
 }
 
-export default function ProfileScreen({ navigation }) {
+export default function ProfileScreen({ navigation, route }) {
   const isFocused = useIsFocused();
   const { user, logout } = useAuthStore();
   const uid = user?.uid || user?.user?.uid || null;
@@ -73,6 +73,15 @@ export default function ProfileScreen({ navigation }) {
 
   useEffect(() => {
     if (isFocused) {
+      // When focused, check for initialTab param and set it.
+      // This allows other screens to navigate here and open a specific tab.
+      if (route.params?.initialTab) {
+        setTab(route.params.initialTab);
+        // Optional: clear the param so it doesn't re-trigger on next focus
+        // This is useful if the user navigates away and back to the profile tab manually.
+        // For robustness, let's clear it.
+        navigation.setParams({ initialTab: null });
+      }
       // Always fetch posts when the screen is focused
       fetchMyOutfits({ reset: true }); 
       if (uid) loadMyProfile(uid);
@@ -150,31 +159,13 @@ export default function ProfileScreen({ navigation }) {
     if (!post?.id) return;
     const isContest = post.type === 'contest' || !!post.contestId;
     if (isContest) {
-      const contest = contestsById[post.contestId];
-      const now = new Date();
-      const contestIsActive = contest && contest.endAt && (contest.endAt.toDate ? contest.endAt.toDate() : new Date(contest.endAt)) > now;
-
-      if (contestIsActive) {
-        const target = {
-          id: post.id,
-          userId: post.userId || post.user?.uid || '',
-          userName: post.user?.name || 'Creator',
-          userPhoto: post.user?.profilePicture || null,
-          imageUrl: post.imageUrl || null,
-          caption: post.caption || '',
-          createdAt: post.createdAt || null,
-          contestId: post.contestId || null,
-          averageRating: Number(post.averageRating ?? 0) || 0,
-          ratingsCount: Number(post.ratingsCount ?? 0) || 0,
-        };
-        navigation.navigate('RateEntry', { item: target, mode: 'entry' });
-      } else {
-        navigation.navigate('ContestDetails', { contestId: post.contestId });
-      }
+      // When viewing your own profile, tapping a contest entry should go to the contest details page.
+      navigation.navigate('ContestDetails', { contestId: post.contestId });
     } else {
+      // For normal posts, go to the outfit details page.
       navigation.navigate('OutfitDetails', { outfitId: post.id });
     }
-  }, [navigation, contestsById]);
+  }, [navigation]);
 
   const onRefresh = useCallback(() => fetchMyOutfits({ reset: true }), [fetchMyOutfits]);
 
