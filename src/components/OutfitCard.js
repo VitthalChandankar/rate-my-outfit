@@ -2,12 +2,15 @@
 // Instagram-like full-bleed card with contest ribbon and Rate CTA for contest posts.
 // Normal posts: like/comment/share and caption below image.
 
-import React, { useMemo, memo } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View, Pressable, Platform } from 'react-native';
+import React, { useMemo, memo, useRef, useEffect } from 'react';
+import { StyleSheet, Text, TouchableOpacity, View, Pressable, Platform, Animated, Easing, Dimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Image as ExpoImage } from 'expo-image';
+import { LinearGradient } from 'expo-linear-gradient';
 import formatDate from '../utils/formatDate';
 import { withCloudinaryTransforms, IMG_FEED } from '../utils/cloudinaryUrl';
+
+const { width } = Dimensions.get('window');
 
 function AvatarCircle({ uri, name }) {
   const initial = (name || 'U').trim().charAt(0).toUpperCase();
@@ -58,6 +61,23 @@ const OutfitCard = memo(({ item, onPress, onRate, onUserPress, onLike, isLiked, 
     () => (imageUrl ? withCloudinaryTransforms(imageUrl, IMG_FEED) : null),
     [imageUrl]
   );
+
+  const flowAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (isContest) {
+      Animated.loop(
+        Animated.timing(flowAnim, {
+          toValue: 1,
+          duration: 4000, // A moderate speed for a smooth flow
+          easing: Easing.linear, // Constant speed for a continuous flow
+          useNativeDriver: true,
+        })
+      ).start();
+    }
+  }, [isContest, flowAnim]);
+
+  const flowTranslateX = flowAnim.interpolate({ inputRange: [0, 1], outputRange: [0, -width] });
 
   const handleOpen = () => { if (typeof onPress === 'function') onPress({ ...raw, id }); };
   const handleRate = () => { if (typeof onRate === 'function') onRate(raw); };
@@ -134,13 +154,23 @@ const OutfitCard = memo(({ item, onPress, onRate, onUserPress, onLike, isLiked, 
         )}
       </TouchableOpacity>
 
-      {/* Ribbon/CTA row (clickable) */}
-      {isContest ? (
-        <Pressable style={styles.ctaBar} onPress={handleRate}>
-          <Text style={styles.ctaText}>Rate the Fit</Text>
-          <Text style={styles.ctaBtnText}>›</Text>
+      {/* NEW: Flowing Gradient Bar CTA */}
+      {isContest && (
+        <Pressable onPress={handleRate} style={styles.ctaContainer}>
+          <View style={styles.ctaBar}>
+            <Animated.View style={{ ...StyleSheet.absoluteFillObject, width: width * 2, transform: [{ translateX: flowTranslateX }] }}>
+              <LinearGradient
+                colors={['#6D28D9', '#A78BFA', '#4C1D95', '#A78BFA', '#6D28D9']}
+                start={{ x: 0, y: 0.5 }}
+                end={{ x: 1, y: 0.5 }}
+                style={{ flex: 1 }}
+              />
+            </Animated.View>
+            <Text style={styles.ctaText}>Rate the fit</Text>
+            <Ionicons name="chevron-forward-outline" size={22} color="#fff" />
+          </View>
         </Pressable>
-      ) : null}
+      )}
 
       {/* Footer actions */}
       <View style={styles.footer}>
@@ -223,17 +253,27 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 
-  // Ribbon bar
+  ctaContainer: {
+    // This wrapper can be used for shadow if needed
+  },
   ctaBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    backgroundColor: '#A43B76',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    overflow: 'hidden',
+    position: 'relative',
   },
-  ctaText: { fontWeight: '800', color: '#FFFFFF' },
-  ctaBtnText: { color: '#FFFFFF', fontWeight: '900', fontSize: 18 },
+  ctaText: {
+    fontWeight: '900',
+    color: '#FFFFFF',
+    fontSize: 16,
+    letterSpacing: 0.5,
+    textShadowColor: 'rgba(0, 0, 0, 0.25)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+  },
 
   footer: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 10, gap: 16 },
   actionsLeft: { flexDirection: 'row', gap: 14 },
