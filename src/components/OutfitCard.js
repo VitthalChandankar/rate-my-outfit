@@ -33,7 +33,7 @@ function formatCount(num) {
 
 // Custom hook for the countdown timer logic
 const useCountdown = (endTime) => {
-  const [timeLeft, setTimeLeft] = useState('');
+  const [timeLeft, setTimeLeft] = useState(''); // Will be in HH:MM:SS format
   const [show, setShow] = useState(false);
 
   useEffect(() => {
@@ -61,7 +61,8 @@ const useCountdown = (endTime) => {
       if (shouldShow) {
         const hours = Math.floor(difference / (1000 * 60 * 60));
         const minutes = Math.floor((difference / 1000 / 60) % 60);
-        setTimeLeft(`${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`);
+        const seconds = Math.floor((difference / 1000) % 60);
+        setTimeLeft(`${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`);
       }
     }, 1000);
 
@@ -156,12 +157,20 @@ const OutfitCard = memo(({ item, onPress, onRate, onUserPress, onLike, isLiked, 
             {!!timeText && <Text style={styles.time}>{timeText}</Text>}
           </View>
         </Pressable>
-        {isContest ? (
-          <Pressable onPress={handleContestTap} style={styles.contestLink}>
-            <Ionicons name="trophy-outline" size={16} color="#7A5AF8" />
-            <Text style={styles.contestLinkText}>View Contest</Text>
-          </Pressable>
-        ) : null}
+        <View style={styles.headerRightActions}>
+          {isContest && countdown.show && (
+            <View style={styles.headerCountdownContainer}>
+              <Ionicons name="hourglass-outline" size={16} color="#FF5C5C" />
+              <Text style={styles.headerCountdownText}>{countdown.timeLeft}</Text>
+            </View>
+          )}
+          {isContest ? (
+            <Pressable onPress={handleContestTap} style={styles.contestLink}>
+              <Ionicons name="trophy-outline" size={16} color="#7A5AF8" />
+              <Text style={styles.contestLinkText}>View Contest</Text>
+            </Pressable>
+          ) : null}
+        </View>
       </View>
 
       {/* Media */}
@@ -195,13 +204,6 @@ const OutfitCard = memo(({ item, onPress, onRate, onUserPress, onLike, isLiked, 
           </View>
         )}
 
-        {/* NEW: Countdown Timer */}
-        {isContest && countdown.show && (
-          <View style={styles.countdownContainer}>
-            <Ionicons name="hourglass-outline" size={14} color="#FF5C5C" />
-            <Text style={styles.countdownText}>{countdown.timeLeft}</Text>
-          </View>
-        )}
       </TouchableOpacity>
 
       {/* NEW: Flowing Gradient Bar CTA */}
@@ -264,6 +266,11 @@ const styles = StyleSheet.create({
   headerUserInfo: { flexDirection: 'row', alignItems: 'center', flex: 1, marginRight: 8 },
   userName: { fontWeight: '700' },
   time: { color: '#888', fontSize: 12 },
+  headerRightActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   contestLink: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -309,26 +316,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 
-  countdownContainer: {
-    position: 'absolute',
-    top: 12,
-    left: 12,
-    backgroundColor: 'rgba(0, 0, 0, 0.65)',
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 20,
-  },
-  countdownText: {
-    color: '#FF5C5C',
-    fontWeight: 'bold',
-    fontSize: 14,
-    marginLeft: 6,
-    textShadowColor: 'rgba(255, 0, 0, 0.6)',
-    textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 8,
-  },
   ctaContainer: {
     // This wrapper can be used for shadow if needed
   },
@@ -355,6 +342,21 @@ const styles = StyleSheet.create({
   actionsLeft: { flexDirection: 'row', gap: 14 },
   action: { paddingHorizontal: 6, paddingVertical: 4 },
   footerRight: { marginLeft: 'auto', flexDirection: 'row', alignItems: 'center', gap: 16 },
+  headerCountdownContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 92, 92, 0.1)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 14,
+  },
+  headerCountdownText: {
+    color: '#FF5C5C',
+    fontWeight: 'bold',
+    fontSize: 12,
+    marginLeft: 4,
+    fontVariant: ['tabular-nums'], // Ensures numbers have a fixed width to prevent jitter
+  },
   avgRating: { fontWeight: '900', color: '#111' },
   footerCountText: { color: '#6B7280', fontWeight: '600', fontSize: 13 },
   likesText: { fontWeight: '800', color: '#111', marginBottom: 4 },
