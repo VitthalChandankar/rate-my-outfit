@@ -2,7 +2,7 @@
 // Instagram-like full-bleed card with contest ribbon and Rate CTA for contest posts.
 // Normal posts: like/comment/share and caption below image.
 
-import React, { useMemo, memo, useRef, useEffect } from 'react';
+import React, { useMemo, memo, useRef, useEffect, useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View, Pressable, Platform, Animated, Easing, Dimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Image as ExpoImage } from 'expo-image';
@@ -31,6 +31,46 @@ function formatCount(num) {
   return num.toString();
 }
 
+// Custom hook for the countdown timer logic
+const useCountdown = (endTime) => {
+  const [timeLeft, setTimeLeft] = useState('');
+  const [show, setShow] = useState(false);
+
+  useEffect(() => {
+    if (!endTime) {
+      setShow(false);
+      return;
+    }
+
+    const end = endTime?.toDate ? endTime.toDate() : new Date(endTime);
+
+    const interval = setInterval(() => {
+      const now = new Date();
+      const difference = end.getTime() - now.getTime();
+
+      if (difference <= 0) {
+        setShow(false);
+        setTimeLeft('');
+        clearInterval(interval);
+        return;
+      }
+
+      const shouldShow = difference < 24 * 60 * 60 * 1000;
+      setShow(shouldShow);
+
+      if (shouldShow) {
+        const hours = Math.floor(difference / (1000 * 60 * 60));
+        const minutes = Math.floor((difference / 1000 / 60) % 60);
+        setTimeLeft(`${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`);
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [endTime]);
+
+  return { timeLeft, show };
+};
+
 const OutfitCard = memo(({ item, onPress, onRate, onUserPress, onLike, isLiked, isSaved, onPressSave, onPressLikes, onPressComments, onPressContest, onPressShare }) => {
   const raw = item || null;
   if (!raw) return null;
@@ -39,6 +79,7 @@ const OutfitCard = memo(({ item, onPress, onRate, onUserPress, onLike, isLiked, 
   const imageUrl = raw.imageUrl || raw.image || null;
 
   const type = raw.type || (raw.contestId ? 'contest' : 'normal');
+  const contestData = raw.contestData || null;
   const isContest = type === 'contest';
   const averageRating = Number(raw.averageRating ?? 0) || 0;
   const commentsCount = Number(raw.commentsCount ?? 0) || 0;
@@ -61,6 +102,8 @@ const OutfitCard = memo(({ item, onPress, onRate, onUserPress, onLike, isLiked, 
     () => (imageUrl ? withCloudinaryTransforms(imageUrl, IMG_FEED) : null),
     [imageUrl]
   );
+
+  const countdown = useCountdown(contestData?.endAt);
 
   const flowAnim = useRef(new Animated.Value(0)).current;
 
@@ -114,10 +157,9 @@ const OutfitCard = memo(({ item, onPress, onRate, onUserPress, onLike, isLiked, 
           </View>
         </Pressable>
         {isContest ? (
-          <Pressable onPress={handleContestTap}>
-            <View style={styles.sponsoredBadge}>
-              <Text style={styles.sponsoredText}>Contest Entry</Text>
-            </View>
+          <Pressable onPress={handleContestTap} style={styles.contestLink}>
+            <Ionicons name="trophy-outline" size={16} color="#7A5AF8" />
+            <Text style={styles.contestLinkText}>View Contest</Text>
           </Pressable>
         ) : null}
       </View>
@@ -152,6 +194,14 @@ const OutfitCard = memo(({ item, onPress, onRate, onUserPress, onLike, isLiked, 
             <Text style={styles.ratingCountText}>{formatCount(ratingsCount)}</Text>
           </View>
         )}
+
+        {/* NEW: Countdown Timer */}
+        {isContest && countdown.show && (
+          <View style={styles.countdownContainer}>
+            <Ionicons name="hourglass-outline" size={14} color="#FF5C5C" />
+            <Text style={styles.countdownText}>{countdown.timeLeft}</Text>
+          </View>
+        )}
       </TouchableOpacity>
 
       {/* NEW: Flowing Gradient Bar CTA */}
@@ -166,7 +216,7 @@ const OutfitCard = memo(({ item, onPress, onRate, onUserPress, onLike, isLiked, 
                 style={{ flex: 1 }}
               />
             </Animated.View>
-            <Text style={styles.ctaText}>Rate the fit</Text>
+            <Text style={styles.ctaText}>Rate Now</Text>
             <Ionicons name="chevron-forward-outline" size={22} color="#fff" />
           </View>
         </Pressable>
@@ -176,9 +226,9 @@ const OutfitCard = memo(({ item, onPress, onRate, onUserPress, onLike, isLiked, 
       <View style={styles.footer}>
         <View style={styles.actionsLeft}>
           {!isContest && likesCount >= 0 && (
-            <TouchableOpacity style={styles.action} onPress={handleLike}>
-              <Ionicons name={isLiked ? 'heart' : 'heart-outline'} size={26} color={isLiked ? '#FF3B30' : '#111'} />
-            </TouchableOpacity>
+          <TouchableOpacity style={styles.action} onPress={handleLike}>
+            <Ionicons name={isLiked ? 'heart' : 'heart-outline'} size={26} color={isLiked ? '#FF3B30' : '#111'} />
+          </TouchableOpacity>
           )}
           <TouchableOpacity style={styles.action} onPress={handleCommentsPress}>
             <Ionicons name="chatbubble-outline" size={24} color="#111" />
@@ -214,9 +264,15 @@ const styles = StyleSheet.create({
   headerUserInfo: { flexDirection: 'row', alignItems: 'center', flex: 1, marginRight: 8 },
   userName: { fontWeight: '700' },
   time: { color: '#888', fontSize: 12 },
-
-  sponsoredBadge: { backgroundColor: '#A43B76', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 14 },
-  sponsoredText: { color: '#FFFFFF', fontWeight: '800', fontSize: 12 },
+  contestLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(122, 90, 248, 0.1)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 14,
+  },
+  contestLinkText: { color: '#7A5AF8', fontWeight: 'bold', fontSize: 12, marginLeft: 4 },
 
   image: { width: '100%', height: 420, backgroundColor: '#F4F4F4' },
   imagePlaceholder: { backgroundColor: '#EEE' },
@@ -253,6 +309,26 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 
+  countdownContainer: {
+    position: 'absolute',
+    top: 12,
+    left: 12,
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 20,
+  },
+  countdownText: {
+    color: '#FF5C5C',
+    fontWeight: 'bold',
+    fontSize: 14,
+    marginLeft: 6,
+    textShadowColor: 'rgba(255, 0, 0, 0.6)',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 8,
+  },
   ctaContainer: {
     // This wrapper can be used for shadow if needed
   },

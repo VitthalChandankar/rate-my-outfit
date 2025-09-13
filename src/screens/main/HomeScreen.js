@@ -205,22 +205,25 @@ export default function HomeScreen() {
       ref={listRef}
       data={data}
       keyExtractor={keyExtractor}
-      renderItem={({ item }) => (
-        <OutfitCard
-          item={item}
-          onPress={handleOpen}
-          onRate={handleRate}
-          onLike={handleLike}
-          onUserPress={handleUserPress}
-          onPressLikes={handleLikesPress}
-          onPressComments={handleCommentsPress}
-          onPressContest={handleContestPress}
-          onPressShare={handleSharePress}
-          isLiked={myLikedIds.has(item.id)}
-          isSaved={mySavedIds.has(item.id)}
-          onPressSave={handleSave}
-        />
-      )}
+      renderItem={({ item }) => {
+        const contestData = item.contestId ? contestsById[item.contestId] : null;
+        return (
+          <OutfitCard
+            item={{ ...item, contestData }}
+            onPress={handleOpen}
+            onRate={handleRate}
+            onLike={handleLike}
+            onUserPress={handleUserPress}
+            onPressLikes={handleLikesPress}
+            onPressComments={handleCommentsPress}
+            onPressContest={handleContestPress}
+            onPressShare={handleSharePress}
+            isLiked={myLikedIds.has(item.id)}
+            isSaved={mySavedIds.has(item.id)}
+            onPressSave={handleSave}
+          />
+        );
+      }}
       refreshControl={<RefreshControl refreshing={!!refreshing} onRefresh={onRefresh} />}
       onEndReached={loadMore}
       onEndReachedThreshold={0.5}

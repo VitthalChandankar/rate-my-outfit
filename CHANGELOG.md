@@ -343,3 +343,10 @@ Cloudinary (Image Hosting)	~ ₹9,000	Image Viewing Bandwidth
 Total Estimated Cost	~ ₹11,330 / month	
 
 For a few thousand users, Firebase stays under ₹500–₹2,000/month. But with 100k+ users, costs can spike to ₹20k–₹50k/month, especially from Firestore reads/writes.
+
+
+
+tested :-
+
+the ended contest will not allow to participate and also will not allow to rate the contest entry. this is working finethe buttons are 
+grayed out
