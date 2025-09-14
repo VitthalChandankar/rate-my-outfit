@@ -464,6 +464,36 @@ async function createOrUpdateAchievement({ id, title, description, imageUri }) {
   }
 }
 
+async function fbFetchContestsByIds(contestIds = []) {
+  if (!contestIds || contestIds.length === 0) {
+    return { success: true, items: [] };
+  }
+
+  // Firestore 'in' queries are limited to 30 items. We must chunk the requests.
+  const chunks = [];
+  for (let i = 0; i < contestIds.length; i += 30) {
+    chunks.push(contestIds.slice(i, i + 30));
+  }
+
+  try {
+    const chunkPromises = chunks.map(chunk => {
+      const q = query(collection(firestore, 'contests'), where(documentId(), 'in', chunk));
+      return getDocs(q);
+    });
+
+    const chunkSnapshots = await Promise.all(chunkPromises);
+    const items = [];
+    chunkSnapshots.forEach(snap => {
+      snap.docs.forEach(d => items.push({ id: d.id, ...d.data() }));
+    });
+
+    return { success: true, items };
+  } catch (error) {
+    console.error("fbFetchContestsByIds error:", error);
+    return { success: false, error };
+  }
+}
+
 // --- Contests utilities ---
 // Keep your existing implementations below; unchanged parts omitted for brevity.
 // Ensure function names/exports stay identical to maintain compatibility.
@@ -1030,7 +1060,7 @@ async function markNotificationsAsRead(userId) {
 export {
   addComment, auth, createUser, createOutfitDocument,
   deleteComment, deleteOutfit, fetchCommentsForOutfit, fetchFeed, fetchOutfitDetails, fetchUserOutfits, firestore, loginWithEmail, fbCreateContest,
-  logout, onAuthChange, sendResetEmail, signupWithEmail, uploadImage,
+  logout, onAuthChange, sendResetEmail, signupWithEmail, uploadImage, fbFetchContestsByIds,
   toggleLikePost, fetchMyLikedOutfitIds, fetchLikersForOutfit, fbListContests, fbFetchContestEntries, fbCreateEntry, fbRateEntry, fbFetchContestLeaderboard, updateUserPushToken,
   getUserProfile, updateUserProfile, setUserAvatar, ensureUsernameUnique,
   followUser, unfollowUser, isFollowing, listFollowers, listFollowing,

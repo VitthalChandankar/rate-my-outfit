@@ -10,6 +10,7 @@ import {
   fbFetchContestLeaderboard,
   firestore,
   fbCreateContest,
+  fbFetchContestsByIds,
   uploadImage,
 } from "../services/firebase";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
@@ -101,9 +102,14 @@ const useContestStore = create((set, get) => ({
         return acc;
       }, {});
 
+      const combinedItems = reset ? finalItems : [...state.contests, ...finalItems];
+      const itemMap = new Map();
+      combinedItems.forEach(item => itemMap.set(item.id, item));
+      const uniqueItems = Array.from(itemMap.values());
+
       set((state) => ({
-        contests: reset ? finalItems : [...state.contests, ...finalItems],
-        contestsById: { ...state.contestsById, ...newContestsById },
+        contests: uniqueItems,
+        contestsById: { ...state.contestsById, ...newContestsById }, // This is still correct, it merges new data
         contestsLast: res.last, // Use the last doc from the unfiltered server response for pagination
         contestsLoading: false,
         contestsRefreshing: false,
@@ -113,6 +119,28 @@ const useContestStore = create((set, get) => ({
       set({ contestsLoading: false, contestsRefreshing: false });
     }
     return res;
+  },
+
+  // NEW: Fetch specific contests by their IDs to populate the cache
+  fetchContestsByIds: async (ids) => {
+    if (!ids || ids.length === 0) return;
+
+    // Filter out IDs that are already in the cache to avoid redundant fetches
+    const existingIds = new Set(Object.keys(get().contestsById));
+    const idsToFetch = ids.filter(id => !existingIds.has(id));
+
+    if (idsToFetch.length === 0) return;
+
+    const res = await fbFetchContestsByIds(idsToFetch);
+    if (res.success) {
+      const newContestsById = res.items.reduce((acc, contest) => {
+        acc[contest.id] = contest;
+        return acc;
+      }, {});
+      set(state => ({
+        contestsById: { ...state.contestsById, ...newContestsById },
+      }));
+    }
   },
 
   // Fetch entries for a contest (paginated)

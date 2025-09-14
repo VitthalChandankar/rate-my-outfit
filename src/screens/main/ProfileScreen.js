@@ -70,6 +70,7 @@ export default function ProfileScreen({ navigation, route }) {
   const { contestsById } = useContestStore();
 
   const [tab, setTab] = useState('posts'); // posts | achievements | saved
+  const [initialLoadComplete, setInitialLoadComplete] = useState(false);
 
   useEffect(() => {
     if (isFocused) {
@@ -83,10 +84,10 @@ export default function ProfileScreen({ navigation, route }) {
         navigation.setParams({ initialTab: null });
       }
       // Always fetch posts when the screen is focused
-      fetchMyOutfits({ reset: true }); 
+      fetchMyOutfits({ reset: true }).finally(() => setInitialLoadComplete(true));
       if (uid) loadMyProfile(uid);
     }
-  }, [isFocused, fetchMyOutfits, uid, loadMyProfile]);
+  }, [isFocused, fetchMyOutfits, uid, loadMyProfile, navigation, route.params?.initialTab]);
 
   useEffect(() => {
     if (isFocused && tab === 'saved') fetchSavedOutfits(uid);
@@ -268,8 +269,8 @@ export default function ProfileScreen({ navigation, route }) {
   const listData = tab === 'posts' ? data : tab === 'saved' ? savedOutfits : myAchievements;
   const listEmpty =
     tab === 'posts'
-      ? (!loading && !refreshing ? <Text style={styles.empty}>No uploads yet — be the first to upload!</Text> : null)
-      : tab === 'achievements'
+    ? (initialLoadComplete && !loading && !refreshing ? <Text style={styles.empty}>No uploads yet — be the first to upload!</Text> : null) //TODO : add cute image that no post yet and encourage the user to post
+    : tab === 'achievements'
       ? <AchievementsEmpty />
       : <SavedEmpty />;
 

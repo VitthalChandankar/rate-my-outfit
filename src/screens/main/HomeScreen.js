@@ -44,7 +44,6 @@ export default function HomeScreen() {
   const lastDoc = useOutfitStore((s) => s.lastDoc);
 
   const contestsById = useContestStore((s) => s.contestsById);
-  const listContests = useContestStore((s) => s.listContests);
 
   const unreadCount = useNotificationsStore((s) => s.unreadCount);
 
@@ -52,10 +51,21 @@ export default function HomeScreen() {
 
   useEffect(() => {
     if (isFocused) {
-      listContests({ status: 'all', reset: true }); // Fetch all contests to populate cache
+      // We no longer fetch all contests. Instead, we fetch them on-demand based on the feed.
       fetchFeed({ limit: 12, reset: true }).finally(() => setInitialLoaded(true));
     }
   }, [isFocused, fetchFeed]);
+
+  // This new effect will run whenever the feed is updated.
+  useEffect(() => {
+    if (!feed || feed.length === 0) return;
+
+    const contestIdsInFeed = [...new Set(feed.map(post => post.contestId).filter(Boolean))];
+
+    if (contestIdsInFeed.length > 0) {
+      useContestStore.getState().fetchContestsByIds(contestIdsInFeed);
+    }
+  }, [feed]); // Dependency on the feed from the store
 
   // Set up header with notifications button
   useEffect(() => {
@@ -94,9 +104,18 @@ export default function HomeScreen() {
   }, [isFocused, navigation]);
 
   const data = useMemo(() => {
+    // This is a critical performance optimization.
+    // By pre-calculating the data for the list here, we ensure that the `item` prop
+    // passed to each OutfitCard is stable between re-renders of the HomeScreen.
+    // This allows React.memo on OutfitCard to work correctly, preventing
+    // unnecessary re-renders of every visible card when the screen's state changes.
     const withKeys = (feed || []).map(ensureKey);
-    return dedupeById(withKeys);
-  }, [feed]);
+    const deduped = dedupeById(withKeys);
+    return deduped.map(item => ({
+      ...item,
+      contestData: item.contestId ? contestsById[item.contestId] : null,
+    }));
+  }, [feed, contestsById]);
 
   const keyExtractor = useCallback((item) => String(item?.id || item?._localKey), []);
 
@@ -200,35 +219,34 @@ export default function HomeScreen() {
   // Approximate row height: header ~56 + image 420 + CTA ~44 + footer ~44 + caption/margins ~30 => ~594
   const ROW_HEIGHT = 594;
 
+  const renderItem = useCallback(({ item }) => (
+    <OutfitCard
+      item={item} // item now includes contestData
+      onPress={handleOpen}
+      onRate={handleRate}
+      onLike={handleLike}
+      onUserPress={handleUserPress}
+      onPressLikes={handleLikesPress}
+      onPressComments={handleCommentsPress}
+      onPressContest={handleContestPress}
+      onPressShare={handleSharePress}
+      isLiked={myLikedIds.has(item.id)}
+      isSaved={mySavedIds.has(item.id)}
+      onPressSave={handleSave}
+    />
+  ), [handleOpen, handleRate, handleLike, handleUserPress, handleLikesPress, handleCommentsPress, handleContestPress, handleSharePress, myLikedIds, mySavedIds, handleSave]);
+
   return (
     <FlatList
       ref={listRef}
       data={data}
       keyExtractor={keyExtractor}
-      renderItem={({ item }) => {
-        const contestData = item.contestId ? contestsById[item.contestId] : null;
-        return (
-          <OutfitCard
-            item={{ ...item, contestData }}
-            onPress={handleOpen}
-            onRate={handleRate}
-            onLike={handleLike}
-            onUserPress={handleUserPress}
-            onPressLikes={handleLikesPress}
-            onPressComments={handleCommentsPress}
-            onPressContest={handleContestPress}
-            onPressShare={handleSharePress}
-            isLiked={myLikedIds.has(item.id)}
-            isSaved={mySavedIds.has(item.id)}
-            onPressSave={handleSave}
-          />
-        );
-      }}
+      renderItem={renderItem}
       refreshControl={<RefreshControl refreshing={!!refreshing} onRefresh={onRefresh} />}
       onEndReached={loadMore}
       onEndReachedThreshold={0.5}
       contentContainerStyle={styles.container}
-      ListEmptyComponent={!loading ? <Text style={styles.empty}>No outfits yet — be the first to upload!</Text> : null}
+      ListEmptyComponent={initialLoaded && !loading ? <Text style={styles.empty}>No outfits yet — be the first to upload!</Text> : null}
       ListFooterComponent={loading ? <ActivityIndicator style={{ marginVertical: 16 }} /> : null}
       // Performance tuning
       initialNumToRender={6}

@@ -289,14 +289,7 @@ export default function ContestsListScreen({ navigation }) {
           ) : null
         }
         ListFooterComponent={
-          loading ? (
-            <View style={{ paddingVertical: 16 }}>
-              <ActivityIndicator />
-              <View style={{ height: 12 }} />
-              <CardSkeleton />
-              <CardSkeleton />
-            </View>
-          ) : null
+          loading && !refreshing ? <ActivityIndicator style={{ marginVertical: 20 }} /> : null
         }
       />
     </SafeAreaView>

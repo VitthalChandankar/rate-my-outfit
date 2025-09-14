@@ -158,12 +158,6 @@ const OutfitCard = memo(({ item, onPress, onRate, onUserPress, onLike, isLiked, 
           </View>
         </Pressable>
         <View style={styles.headerRightActions}>
-          {isContest && countdown.show && (
-            <View style={styles.headerCountdownContainer}>
-              <Ionicons name="hourglass-outline" size={16} color="#FF5C5C" />
-              <Text style={styles.headerCountdownText}>{countdown.timeLeft}</Text>
-            </View>
-          )}
           {isContest ? (
             <Pressable onPress={handleContestTap} style={styles.contestLink}>
               <Ionicons name="trophy-outline" size={16} color="#7A5AF8" />
@@ -202,6 +196,19 @@ const OutfitCard = memo(({ item, onPress, onRate, onUserPress, onLike, isLiked, 
             <View style={styles.separator} />
             <Text style={styles.ratingCountText}>{formatCount(ratingsCount)}</Text>
           </View>
+        )}
+
+        {/* NEW: Promotional Countdown Ribbon */}
+        {isContest && countdown.show && (
+          <LinearGradient
+            colors={['#8E2DE2', '#4A00E0']}
+            start={{ x: 0, y: 0.5 }}
+            end={{ x: 1, y: 0.5 }}
+            style={styles.promoRibbon}
+          >
+            <Ionicons name="hourglass-outline" size={14} color="rgba(255,255,255,0.9)" />
+            <Text style={styles.promoRibbonText}>{countdown.timeLeft}</Text>
+          </LinearGradient>
         )}
 
       </TouchableOpacity>
@@ -342,20 +349,27 @@ const styles = StyleSheet.create({
   actionsLeft: { flexDirection: 'row', gap: 14 },
   action: { paddingHorizontal: 6, paddingVertical: 4 },
   footerRight: { marginLeft: 'auto', flexDirection: 'row', alignItems: 'center', gap: 16 },
-  headerCountdownContainer: {
+  promoRibbon: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 92, 92, 0.1)',
     paddingHorizontal: 10,
     paddingVertical: 6,
-    borderRadius: 14,
+    borderRadius: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
   },
-  headerCountdownText: {
-    color: '#FF5C5C',
+  promoRibbonText: {
+    color: '#fff',
     fontWeight: 'bold',
     fontSize: 12,
     marginLeft: 4,
-    fontVariant: ['tabular-nums'], // Ensures numbers have a fixed width to prevent jitter
+    fontVariant: ['tabular-nums'],
   },
   avgRating: { fontWeight: '900', color: '#111' },
   footerCountText: { color: '#6B7280', fontWeight: '600', fontSize: 13 },
