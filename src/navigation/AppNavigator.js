@@ -173,8 +173,28 @@ function MainAppStack() {
       {/* Profile additions */}
       <Stack.Screen name="EditProfile" component={EditProfileScreen} />
       <Stack.Screen name="UserProfile" component={UserProfileScreen} />
-      <Stack.Screen name="Followers" component={FollowersScreen} />
-      <Stack.Screen name="Following" component={FollowingScreen} />
+      <Stack.Screen
+        name="Followers"
+        component={FollowersScreen}
+        options={{
+          headerShown: true,
+          title: 'Followers',
+          headerStyle: { backgroundColor: '#fff' },
+          headerTintColor: '#111',
+          headerTitleStyle: { fontWeight: 'bold' },
+        }}
+      />
+      <Stack.Screen
+        name="Following"
+        component={FollowingScreen}
+        options={{
+          headerShown: true,
+          title: 'Following',
+          headerStyle: { backgroundColor: '#fff' },
+          headerTintColor: '#111',
+          headerTitleStyle: { fontWeight: 'bold' },
+        }}
+      />
 
       {/* Notifications Screen */}
       <Stack.Screen
