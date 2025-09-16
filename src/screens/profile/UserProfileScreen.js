@@ -151,9 +151,11 @@ export default function UserProfileScreen({ route, navigation }) {
     Haptics.selectionAsync();
   };
 
+  const showRatingsToOthers = profile?.preferences?.showRatingsToOthers ?? true;
+
   const renderPostItem = useCallback(({ item }) => (
-    <ProfileGridItem item={item} onPress={handlePostPress} />
-  ), [handlePostPress]);
+    <ProfileGridItem item={item} onPress={handlePostPress} showRating={showRatingsToOthers} />
+  ), [handlePostPress, showRatingsToOthers]);
 
   const renderAchievementItem = useCallback(({ item }) => (
     <AchievementBadge item={item} />

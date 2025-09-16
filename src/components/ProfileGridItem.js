@@ -14,7 +14,7 @@ function formatCount(num) {
   return num.toString();
 }
 
-const ProfileGridItem = memo(({ item, onPress, onLongPress }) => {
+const ProfileGridItem = memo(({ item, onPress, onLongPress, showRating = true }) => {
   if (!item?.imageUrl) {
     return <View style={styles.container} />;
   }
@@ -65,7 +65,7 @@ const ProfileGridItem = memo(({ item, onPress, onLongPress }) => {
           transition={200}
           onError={(e) => console.warn(`ProfileGridItem failed to load image: ${transformedUrl}`, e.error)}
         />
-        {isContest && ratingsCount > 0 && (
+        {showRating && isContest && ratingsCount > 0 && (
           <View style={styles.ratingOverlay}>
             <Text style={styles.ratingText}>{averageRating.toFixed(1)}</Text>
             <Ionicons name="star" size={11} color="#111" style={{ marginHorizontal: 2 }} />

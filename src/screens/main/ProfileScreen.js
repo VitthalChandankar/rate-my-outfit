@@ -179,9 +179,11 @@ export default function ProfileScreen({ navigation, route }) {
     Animated.timing(fadeIn, { toValue: 1, duration: 300, easing: Easing.out(Easing.quad), useNativeDriver: true }).start();
   }, [fadeIn]);
 
+  const showRatingsOnMyProfile = myProfile?.preferences?.showRatingsOnMyProfile ?? true;
+
   const renderItem = useCallback(({ item }) => (
-    <ProfileGridItem item={item} onPress={handlePostPress} onLongPress={handlePostLongPress} />
-  ), [handlePostPress, handlePostLongPress]);
+    <ProfileGridItem item={item} onPress={handlePostPress} onLongPress={handlePostLongPress} showRating={showRatingsOnMyProfile} />
+  ), [handlePostPress, handlePostLongPress, showRatingsOnMyProfile]);
 
   const renderAchievementItem = useCallback(({ item }) => (
     <AchievementBadge item={item} onReveal={markAchievementAsSeen} />

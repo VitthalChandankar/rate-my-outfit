@@ -66,7 +66,12 @@ async function createUser(uid, email, name, phone = null) {
     createdAt: serverTimestamp(),
     bio: '',
     stats: { followersCount: 0, followingCount: 0, postsCount: 0, contestWins: 0, averageRating: 0, achievementsCount: 0 },
-    preferences: { privacyLevel: 'public', notificationsEnabled: true },
+    preferences: {
+      privacyLevel: 'public',
+      notificationsEnabled: true,
+      showRatingsOnMyProfile: true,
+      showRatingsToOthers: true,
+    },
     profileCompleted: false, // Add this flag for the new auth flow
   };
   await setDoc(doc(firestore, 'users', uid), userDoc);

@@ -1,8 +1,10 @@
 // src/screens/settings/SettingsScreen.js
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { ScrollView, View, Text, StyleSheet, TouchableOpacity, Alert, Linking } from 'react-native';
+import { Switch } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
 import useAuthStore from '../../store/authStore';
+import useUserStore from '../../store/UserStore';
 import i18n from '../../config/i18n';
 import * as Application from 'expo-application';
 
@@ -25,6 +27,27 @@ const SettingsSection = ({ title, children }) => (
 
 export default function SettingsScreen({ navigation }) {
   const { logout } = useAuthStore();
+  const { user } = useAuthStore();
+  const { myProfile, updateProfile } = useUserStore();
+
+  // Local state for optimistic UI updates to prevent toggle flicker.
+  const [localPreferences, setLocalPreferences] = useState(myProfile?.preferences || {});
+
+  // Sync local state if the profile is updated from the server (e.g., on initial load).
+  useEffect(() => {
+    if (myProfile?.preferences) {
+      setLocalPreferences(myProfile.preferences);
+    }
+  }, [myProfile?.preferences]);
+
+  const handleToggle = (key, value) => {
+    if (!user?.uid || !myProfile) return;
+
+    // Update local state immediately for a smooth UI.
+    const newPrefs = { ...localPreferences, [key]: value };
+    setLocalPreferences(newPrefs);
+    updateProfile(user.uid, { preferences: newPrefs });
+  };
 
   const handleLogout = () => {
     Alert.alert('Logout', 'Are you sure you want to log out?', [
@@ -58,6 +81,26 @@ export default function SettingsScreen({ navigation }) {
       <SettingsSection title={i18n.t('settings.preferences')}>
         <SettingsRow icon="notifications-outline" label={i18n.t('settings.notifications')} onPress={() => navigation.navigate('NotificationSettings')} />
         <SettingsRow icon="language-outline" label={i18n.t('settings.language')} onPress={() => navigation.navigate('Language')} />
+      </SettingsSection>
+
+      <SettingsSection title="Privacy">
+        <View style={styles.sectionBody}>
+          <View style={styles.switchRow}>
+            <Text style={styles.rowLabel}>Show ratings on my profile</Text>
+            <Switch
+              value={localPreferences.showRatingsOnMyProfile ?? true}
+              onValueChange={(val) => handleToggle('showRatingsOnMyProfile', val)}
+            />
+          </View>
+          <View style={styles.switchRow}>
+            <Text style={styles.rowLabel}>Show ratings to other users</Text>
+            <Switch
+              value={localPreferences.showRatingsToOthers ?? true}
+              onValueChange={(val) => handleToggle('showRatingsToOthers', val)}
+            />
+          </View>
+        </View>
+        <Text style={styles.helperText}>Controls visibility of average ratings on your contest posts on profile</Text>
      </SettingsSection>
 
      <SettingsSection title={i18n.t('settings.support')}>
@@ -124,5 +167,22 @@ const styles = StyleSheet.create({
   versionText: {
     fontSize: 16,
     color: '#6B7280',
+  },
+  switchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 8, // Reduced padding for switch rows
+    backgroundColor: '#fff',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderColor: '#E5E7EB',
+  },
+  helperText: {
+    paddingHorizontal: 16,
+    marginTop: 8,
+    color: '#6B7280',
+    fontSize: 13,
+    lineHeight: 18,
   },
 });
