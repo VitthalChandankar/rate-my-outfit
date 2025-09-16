@@ -1,11 +1,12 @@
 // src/screens/profile/FollowersScreen.js
-// Instagram-like list: avatar, name, username, and Follow/Following button.
+
 
 import React, { useEffect, useState, useCallback, memo } from 'react';
-import { FlatList, Pressable, StyleSheet, Text, View, ActivityIndicator } from 'react-native';
+import { FlatList, Pressable, StyleSheet, Text, View, ActivityIndicator, TextInput } from 'react-native';
 import useUserStore from '../../store/UserStore';
 import useAuthStore from '../../store/authStore';
 import Avatar from '../../components/Avatar';
+import { Ionicons } from '@expo/vector-icons';
 
 const UserRow = memo(({ item, onToggle, isSelf, following, onNavigate }) => {
   const display = {
@@ -54,6 +55,7 @@ export default function FollowersScreen({ route, navigation }) {
 
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
   const relIdOf = (followerId, followingId) => `${followerId}_${followingId}`;
 
   // Load initial rows
@@ -97,6 +99,20 @@ export default function FollowersScreen({ route, navigation }) {
     });
   }, [authedId, rows, relCache, isFollowing]);
 
+const filteredRows = React.useMemo(() => {
+    if (!searchQuery.trim()) {
+      return rows;
+    }
+    const lowercasedQuery = searchQuery.toLowerCase();
+    return rows.filter(row => {
+      const targetId = row.followerId;
+      const cached = profilesById[targetId];
+      const name = row.followerName || cached?.name || cached?.displayName || '';
+      const username = cached?.username || '';
+      return name.toLowerCase().includes(lowercasedQuery) || username.toLowerCase().includes(lowercasedQuery);
+    });
+  }, [rows, searchQuery, profilesById]);
+
   const ListEmpty = () => (
     <View style={styles.emptyContainer}>
       <Text style={styles.emptyText}>No followers yet.</Text>
@@ -126,8 +142,23 @@ export default function FollowersScreen({ route, navigation }) {
   }
 
   return (
+    <View style={styles.screenContainer}>
+    {route.params?.searchVisible && (
+      <View style={styles.searchContainer}>
+        <Ionicons name="search" size={20} color="#999" style={styles.searchIcon} />
+        <TextInput
+          placeholder="Search followers..."
+          placeholderTextColor="#999"
+          style={styles.searchInput}
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          autoFocus
+          clearButtonMode="while-editing"
+        />
+      </View>
+    )}
     <FlatList
-      data={rows}
+      data={filteredRows}
       keyExtractor={(it) => it.id}
       contentContainerStyle={{ padding: 12 }}
       ListEmptyComponent={ListEmpty}
@@ -135,10 +166,12 @@ export default function FollowersScreen({ route, navigation }) {
       ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
       onEndReachedThreshold={0.5}
     />
+  </View>
   );
 }
 
 const styles = StyleSheet.create({
+  screenContainer: { flex: 1, backgroundColor: '#fff' },
   row: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8 },
   name: { fontWeight: '700', color: '#111' },
   sub: { color: '#777', marginTop: 2, fontSize: 12 },
@@ -167,5 +200,23 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F0F0F0',
+    borderRadius: 10,
+    marginHorizontal: 12,
+    marginTop: 8,
+    marginBottom: 4,
+    paddingHorizontal: 10,
+  },
+  searchIcon: {
+    marginRight: 8,
+  },
+  searchInput: {
+    flex: 1,
+    height: 40,
+    fontSize: 16,
   },
 });

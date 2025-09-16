@@ -1,6 +1,6 @@
 // src/navigation/AppNavigator.js
 import React, { useEffect } from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import { ActivityIndicator, View, TouchableOpacity } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -176,24 +176,34 @@ function MainAppStack() {
       <Stack.Screen
         name="Followers"
         component={FollowersScreen}
-        options={{
+        options={({ navigation, route }) => ({
           headerShown: true,
           title: 'Followers',
           headerStyle: { backgroundColor: '#fff' },
           headerTintColor: '#111',
           headerTitleStyle: { fontWeight: 'bold' },
-        }}
+          headerRight: () => (
+            <TouchableOpacity onPress={() => navigation.setParams({ searchVisible: !route.params?.searchVisible })} style={{ marginRight: 15 }}>
+              <Ionicons name="search" size={24} color="#111" />
+            </TouchableOpacity>
+          ),
+        })}
       />
       <Stack.Screen
         name="Following"
         component={FollowingScreen}
-        options={{
+        options={({ navigation, route }) => ({
           headerShown: true,
           title: 'Following',
           headerStyle: { backgroundColor: '#fff' },
           headerTintColor: '#111',
           headerTitleStyle: { fontWeight: 'bold' },
-        }}
+          headerRight: () => (
+            <TouchableOpacity onPress={() => navigation.setParams({ searchVisible: !route.params?.searchVisible })} style={{ marginRight: 15 }}>
+              <Ionicons name="search" size={24} color="#111" />
+            </TouchableOpacity>
+          ),
+        })}
       />
 
       {/* Notifications Screen */}
