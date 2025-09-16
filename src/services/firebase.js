@@ -806,6 +806,53 @@ async function listBlockedUsers(userId) {
   return { success: true, users };
 }
 
+async function createProblemReport(reportData) {
+  try {
+    const payload = {
+      ...reportData,
+      status: 'new',
+      createdAt: serverTimestamp(),
+    };
+    await addDoc(collection(firestore, 'problemReports'), payload);
+    return { success: true };
+  } catch (error) {
+    console.error('createProblemReport error:', error);
+    return { success: false, error };
+  }
+}
+
+async function listProblemReports({ limitCount = 30, startAfterDoc = null } = {}) {
+  try {
+    let q = query(
+      collection(firestore, 'problemReports'),
+      orderBy('createdAt', 'desc'),
+      limit(limitCount)
+    );
+    if (startAfterDoc) {
+      q = query(q, startAfter(startAfterDoc));
+    }
+    const snap = await getDocs(q);
+    const items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const last = snap.docs[snap.docs.length - 1] || null;
+    return { success: true, items, last };
+  } catch (error) {
+    console.error('listProblemReports error:', error);
+    return { success: false, error };
+  }
+}
+
+async function updateProblemReportStatus(reportId, status) {
+  if (!reportId || !status) return { success: false, error: 'Missing reportId or status' };
+  try {
+    const reportRef = doc(firestore, 'problemReports', reportId);
+    await updateDoc(reportRef, { status });
+    return { success: true };
+  } catch (error) {
+    console.error('updateProblemReportStatus error:', error);
+    return { success: false, error };
+  }
+}
+
 // --- Profile & social helpers ---
 async function getUserProfile(uid) {
   try {
@@ -1157,7 +1204,7 @@ export {
   deleteComment, deleteOutfit, fetchCommentsForOutfit, fetchFeed, fetchOutfitDetails, fetchUserOutfits, firestore, loginWithEmail, fbCreateContest,
   logout, onAuthChange, sendResetEmail, signupWithEmail, uploadImage, fbFetchContestsByIds,
   toggleLikePost, fetchMyLikedOutfitIds, fetchLikersForOutfit, fbListContests, fbFetchContestEntries, fbCreateEntry, fbRateEntry, fbFetchContestLeaderboard, updateUserPushToken,
-  getUserProfile, updateUserProfile, setUserAvatar, ensureUsernameUnique, blockUser, unblockUser, listBlockedUsers, fetchMyBlockedIds, fetchMyBlockerIds,
+  getUserProfile, updateUserProfile, setUserAvatar, ensureUsernameUnique, blockUser, unblockUser, listBlockedUsers, fetchMyBlockedIds, fetchMyBlockerIds, createProblemReport, listProblemReports, updateProblemReportStatus,
   followUser, unfollowUser, isFollowing, listFollowers, listFollowing,
   fetchNotifications, markNotificationsAsRead, subscribeToUnreadNotifications,
   fbSharePost, fbFetchShares, fbReactToShare, toggleSavePost, fetchMySavedOutfitIds, fetchOutfitsByIds, fetchUserAchievements, listAchievements, createOrUpdateAchievement

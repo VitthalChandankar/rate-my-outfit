@@ -263,12 +263,26 @@ const useUserStore = create((set, get) => ({
     const currentBlocked = get().myBlockedIds;
     set({ myBlockedIds: new Set(currentBlocked).add(blockedId) });
 
+    // NEW: Optimistically add to the blockedUsers list for instant UI update on that screen.
+    const profileToBlock = get().profilesById[blockedId];
+    if (profileToBlock) {
+      set(state => ({
+        blockedUsers: [...state.blockedUsers, profileToBlock],
+      }));
+    }
+
     const res = await fbBlockUser({ blockerId, blockedId });
     if (!res.success) {
       // Revert on failure
       const revertedBlocked = get().myBlockedIds;
       revertedBlocked.delete(blockedId);
       set({ myBlockedIds: new Set(revertedBlocked) });
+      // NEW: Revert the blockedUsers list as well.
+      if (profileToBlock) {
+        set(state => ({
+          blockedUsers: state.blockedUsers.filter(u => u.id !== blockedId),
+        }));
+      }
     }
     return res;
   },

@@ -57,19 +57,6 @@ export default function SettingsScreen({ navigation }) {
     ]);
   };
 
-  const openLink = async (url) => {
-    try {
-      const supported = await Linking.canOpenURL(url);
-      if (supported) {
-        await Linking.openURL(url);
-      } else {
-        showAlert(`Can't Open Link`, `Your device doesn't know how to open this URL: ${url}`);
-      }
-    } catch (error) {
-      showAlert('Error', 'Could not open the link.');
-    }
-  };
-
   const appVersion = Application.nativeApplicationVersion || '1.0.0';
 
   return (
@@ -106,13 +93,13 @@ export default function SettingsScreen({ navigation }) {
      </SettingsSection>
 
      <SettingsSection title={i18n.t('settings.support')}>
-        <SettingsRow icon="help-circle-outline" label={i18n.t('settings.helpCenter')} onPress={() => openLink('https://your-website.com/help')} />
+        <SettingsRow icon="help-circle-outline" label={i18n.t('settings.helpCenter')} onPress={() => navigation.navigate('HelpCenter')} />
         <SettingsRow icon="chatbubble-ellipses-outline" label={i18n.t('settings.contactUs')} onPress={() => Linking.openURL('mailto:support@yourapp.com?subject=App Support')} />
         </SettingsSection>
 
         <SettingsSection title={i18n.t('settings.about')}>
-        <SettingsRow icon="shield-checkmark-outline" label={i18n.t('settings.privacyPolicy')} onPress={() => openLink('https://your-website.com/privacy')} />
-        <SettingsRow icon="document-text-outline" label={i18n.t('settings.termsOfService')} onPress={() => openLink('https://your-website.com/terms')} />
+        <SettingsRow icon="shield-checkmark-outline" label={i18n.t('settings.privacyPolicy')} onPress={() => navigation.navigate('PrivacyPolicy')} />
+        <SettingsRow icon="document-text-outline" label={i18n.t('settings.termsOfService')} onPress={() => navigation.navigate('TermsOfService')} />
         <View style={styles.row}>
           <Ionicons name="information-circle-outline" size={22} color="#333" style={styles.rowIcon} />
           <Text style={styles.rowLabel}>{i18n.t('settings.appVersion')}</Text>

@@ -19,6 +19,12 @@ export default function AdminDashboardScreen({ navigation }) {
           left={props => <List.Icon {...props} icon="shield-star" />}
           onPress={() => navigation.navigate('ManageAchievements')}
         />
+        <List.Item
+          title="Problem Reports"
+          description="View user-submitted issues and feedback"
+          left={props => <List.Icon {...props} icon="bug" />}
+          onPress={() => navigation.navigate('ManageReports')}
+        />
       </List.Section>
     </ScrollView>
   );

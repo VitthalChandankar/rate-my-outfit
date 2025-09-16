@@ -107,7 +107,7 @@ service cloud.firestore {
         && followerId() != followingId()
         && request.resource.data.followerId == followerId()
         && request.resource.data.followingId == followingId();
-      allow delete: if isSignedIn() && request.auth.uid == followerId();
+      allow delete: if isSignedIn() && (request.auth.uid == followerId() || request.auth.uid == followingId());
       allow update: if false;
     }
 
@@ -163,6 +163,12 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    // problemReports: Users can create, admins can read/update.
+    match /problemReports/{reportId} {
+      allow create: if isSignedIn() && request.resource.data.reporterId == request.auth.uid;
+      allow read, update, delete: if isAdmin();
+    }
+
     // ratings: Public read. Owner can create/update their own rating.
     match /ratings/{ratingId} {
       allow read: if true;
@@ -186,5 +192,10 @@ service cloud.firestore {
       // Users can delete shares they've received.
       allow delete: if isSignedIn() && request.auth.uid == resource.data.recipientId;
     }
+
+    match /problemReports/{reportId} {
+  allow create: if isSignedIn() && request.resource.data.reporterId == request.auth.uid;
+  allow read, update, delete: if isAdmin(); // This line already permits the update.
+   }
   }
 }

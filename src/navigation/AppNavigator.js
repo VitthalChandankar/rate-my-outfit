@@ -50,6 +50,10 @@ import SettingsScreen from '../screens/settings/SettingsScreen';
 import NotificationSettingsScreen from '../screens/settings/NotificationSettingsScreen';
 import BlockedUsersScreen from '../screens/settings/BlockedUsersScreen';
 import LanguageScreen from '../screens/settings/LanguageScreen';
+import HelpCenterScreen from '../screens/settings/HelpCenterScreen';
+import PrivacyPolicyScreen from '../screens/settings/PrivacyPolicyScreen';
+import ReportProblemScreen from '../screens/settings/ReportProblemScreen';
+import TermsOfServiceScreen from '../screens/settings/TermsOfServiceScreen';
 
 import InboxScreen from '../screens/sharing/InboxScreen';
 import SharePostScreen from '../screens/sharing/SharePostScreen';
@@ -58,6 +62,9 @@ import SharePostScreen from '../screens/sharing/SharePostScreen';
 import AdminDashboardScreen from '../screens/admin/AdminDashboardScreen';
 import ManageAchievementsScreen from '../screens/admin/ManageAchievementsScreen';
 import CreateAchievementScreen from '../screens/admin/CreateAchievementScreen';
+import ManageReportsScreen from '../screens/admin/ManageReportsScreen';
+import ReportDetailsScreen from '../screens/admin/ReportDetailsScreen';
+
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -287,6 +294,16 @@ function MainAppStack() {
         component={CreateAchievementScreen}
         options={{ headerShown: true, title: 'Create/Edit Achievement' }}
       />
+       <Stack.Screen
+        name="ManageReports"
+        component={ManageReportsScreen}
+        options={{ headerShown: true, title: 'Problem Reports' }}
+        />
+      <Stack.Screen
+        name="ReportDetails"
+        component={ReportDetailsScreen}
+        options={{ headerShown: true }} // Title will be set dynamically
+      />
 
       {/* Settings flow */}
       <Stack.Screen
@@ -328,6 +345,50 @@ function MainAppStack() {
         options={{
           headerShown: true,
           title: 'Select Language',
+          headerStyle: { backgroundColor: '#fff' },
+          headerTintColor: '#111',
+          headerTitleStyle: { fontWeight: 'bold' },
+        }}
+      />
+      <Stack.Screen
+        name="HelpCenter"
+        component={HelpCenterScreen}
+        options={{
+          headerShown: true,
+          title: 'Help Center',
+          headerStyle: { backgroundColor: '#fff' },
+          headerTintColor: '#111',
+          headerTitleStyle: { fontWeight: 'bold' },
+        }}
+      />
+      <Stack.Screen
+        name="PrivacyPolicy"
+        component={PrivacyPolicyScreen}
+        options={{
+          headerShown: true,
+          title: 'Privacy Policy',
+          headerStyle: { backgroundColor: '#fff' },
+          headerTintColor: '#111',
+          headerTitleStyle: { fontWeight: 'bold' },
+        }}
+      />
+      <Stack.Screen
+        name="TermsOfService"
+        component={TermsOfServiceScreen}
+        options={{
+          headerShown: true,
+          title: 'Terms of Service',
+          headerStyle: { backgroundColor: '#fff' },
+          headerTintColor: '#111',
+          headerTitleStyle: { fontWeight: 'bold' },
+        }}
+      />
+      <Stack.Screen
+        name="ReportProblem"
+        component={ReportProblemScreen}
+        options={{
+          headerShown: true,
+          title: 'Report a Problem',
           headerStyle: { backgroundColor: '#fff' },
           headerTintColor: '#111',
           headerTitleStyle: { fontWeight: 'bold' },
