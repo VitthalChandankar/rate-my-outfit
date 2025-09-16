@@ -11,12 +11,12 @@ import {
   View,
   ScrollView,
   ActivityIndicator,
-  TouchableOpacity, 
-  Alert,
+  TouchableOpacity,
   Pressable,
 } from 'react-native';
 import { Image as ExpoImage } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
+import showAlert from '../../utils/showAlert';
 import useOutfitStore from '../../store/outfitStore';
 import useUserStore from "../../store/UserStore";
 import useAuthStore from "../../store/authStore";
@@ -52,7 +52,7 @@ export default function OutfitDetailsScreen({ route, navigation }) {
 
   const handleDelete = useCallback(() => {
     if (!isOwner || !outfit) return;
-    Alert.alert(
+    showAlert(
       "Delete Post",
       "Are you sure you want to delete this post? This action cannot be undone.",
       [
@@ -66,7 +66,7 @@ export default function OutfitDetailsScreen({ route, navigation }) {
             if (res.success) {
               navigation.goBack();
             } else {
-              Alert.alert("Error", "Could not delete the post. Please try again.");
+              showAlert("Error", "Could not delete the post. Please try again.");
               setDeleting(false);
             }
           },

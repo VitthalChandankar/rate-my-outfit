@@ -1,7 +1,8 @@
 // src/screens/settings/NotificationSettingsScreen.js
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Switch, Alert } from 'react-native';
+import { View, Text, StyleSheet, Switch } from 'react-native';
 import useUserStore from '../../store/UserStore';
+import showAlert from '../../utils/showAlert';
 import useAuthStore from '../../store/authStore';
 
 const SettingsRow = ({ label, value, onValueChange, disabled }) => (
@@ -44,7 +45,7 @@ export default function NotificationSettingsScreen() {
     }
 
     if (!res.success) {
-      Alert.alert('Error', 'Could not update your notification settings. Please try again.');
+      showAlert('Error', 'Could not update your notification settings. Please try again.');
       // On failure, revert the UI state.
       setIsEnabled(!newValue);
     }

@@ -3,10 +3,11 @@
 // independent saves for name/bio. Save disabled if not self.
 
 import React, { useRef, useState, useEffect } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { Button, TextInput, Text, HelperText, Chip } from 'react-native-paper';
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
+import showAlert from '../../utils/showAlert';
 import * as Haptics from 'expo-haptics';
 
 import useAuthStore from '../../store/authStore';
@@ -63,10 +64,10 @@ export default function EditProfileScreen({ navigation }) {
 
   const pickAvatar = async () => {
     try {
-      if (!isSelf) return Alert.alert('Not allowed', 'Cannot change another user’s avatar.');
+      if (!isSelf) return showAlert('Not allowed', 'Cannot change another user’s avatar.');
       const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!perm.granted) {
-        Alert.alert('Permission required', 'Please allow Photos permission to select an image.');
+        showAlert('Permission required', 'Please allow Photos permission to select an image.');
         return;
       }
       const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsMultipleSelection: false, quality: 1 });
@@ -87,14 +88,14 @@ export default function EditProfileScreen({ navigation }) {
       await setAvatar(authedUid, up.url);
       Haptics.selectionAsync();
     } catch (e) {
-      Alert.alert('Avatar', e?.message || 'Failed to set avatar');
+      showAlert('Avatar', e?.message || 'Failed to set avatar');
     }
   };
 
   const onSave = async () => {
-    if (!authedUid || !isSelf) return Alert.alert('Not allowed', 'Cannot edit another user.');
+    if (!authedUid || !isSelf) return showAlert('Not allowed', 'Cannot edit another user.');
     const userProvidedUsername = (username || '').length > 0;
-    if (userProvidedUsername && username.length < 3) return Alert.alert('Username', 'Min 3 chars');
+    if (userProvidedUsername && username.length < 3) return showAlert('Username', 'Min 3 chars');
 
     setSaving(true);
     const payload = {
@@ -105,7 +106,7 @@ export default function EditProfileScreen({ navigation }) {
 
     const res = await updateProfile(authedUid, payload);
     setSaving(false);
-    if (!res?.success) Alert.alert('Save failed', res?.error?.toString?.() || 'Try again');
+    if (!res?.success) showAlert('Save failed', res?.error?.toString?.() || 'Try again');
     else {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       navigation.goBack?.();

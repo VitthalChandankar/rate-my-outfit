@@ -11,6 +11,7 @@ import theme from './src/theme/theme';
 import AppNavigator from './src/navigation/AppNavigator';
 import useAuthStore from './src/store/authStore';
 import i18n from './src/config/i18n';
+import GlobalAlert from './src/components/GlobalAlert';
 import useNotificationsStore from './src/store/notificationsStore';
 
 export default function App() {
@@ -69,6 +70,7 @@ export default function App() {
           <>
             <StatusBar style="light" />
             <AppNavigator navigationRef={navigationRef} />
+            <GlobalAlert />
           </>
         </ActionSheetProvider>
       </PaperProvider>

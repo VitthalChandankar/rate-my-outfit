@@ -1,10 +1,11 @@
 // src/screens/details/CommentsScreen.js
 
 import React, { useEffect, useState, useCallback, useRef,useMemo,memo } from 'react';
-import { View, Text, FlatList, StyleSheet, ActivityIndicator, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, Alert } from 'react-native';
+import { View, Text, FlatList, StyleSheet, ActivityIndicator, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Image as ExpoImage } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
+import showAlert from '../../utils/showAlert';
 
 import useOutfitStore from '../../store/outfitStore';
 import useAuthStore from '../../store/authStore';
@@ -65,7 +66,7 @@ export default function CommentsScreen({ route }) {
 
   const handlePostComment = async () => {
     if (!commentText.trim() || isSubmitting || profileLoading) {
-      if (!myProfile?.uid && !profileLoading) Alert.alert("Can't Post", 'Could not find your profile. Please try again.');
+      if (!myProfile?.uid && !profileLoading) showAlert("Can't Post", 'Could not find your profile. Please try again.');
       return;
     }
     setIsSubmitting(true);
@@ -96,7 +97,7 @@ export default function CommentsScreen({ route }) {
   };
 
   const handleDelete = (comment) => {
-    Alert.alert('Delete Comment', 'Are you sure you want to delete this comment?', [
+    showAlert('Delete Comment', 'Are you sure you want to delete this comment?', [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Delete',

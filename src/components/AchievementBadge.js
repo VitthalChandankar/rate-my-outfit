@@ -1,8 +1,9 @@
 // src/components/AchievementBadge.js
 import React, { useRef, useEffect, memo } from 'react';
-import { View, Text, StyleSheet, Pressable, Animated, Alert } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Animated } from 'react-native';
 import { Image as ExpoImage } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
+import showAlert from '../utils/showAlert';
 
 const AchievementBadge = ({ item, onReveal }) => {
   const isUnlocked = !!item.unlockedAt;
@@ -26,9 +27,9 @@ const AchievementBadge = ({ item, onReveal }) => {
 
   const handlePress = () => {
     if (isUnlocked) {
-      Alert.alert(item.title, item.description);
+      showAlert(item.title, item.description);
     } else {
-      Alert.alert('Locked Achievement', item.description);
+      showAlert('Locked Achievement', item.description);
     }
   };
 

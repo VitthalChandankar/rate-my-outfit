@@ -1,10 +1,11 @@
 // src/screens/admin/CreateAchievementScreen.js
 import React, { useState } from 'react';
-import { View, StyleSheet, ScrollView, Alert, TouchableOpacity, Platform } from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity, Platform } from 'react-native';
 import { TextInput, Button, Text } from 'react-native-paper';
 import * as ImagePicker from 'expo-image-picker';
 import { Image as ExpoImage } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
+import showAlert from '../../utils/showAlert';
 import * as FileSystem from 'expo-file-system';
 import { createOrUpdateAchievement } from '../../services/firebase';
 
@@ -18,7 +19,7 @@ const resolveAssetUri = async (uri) => {
       return cacheUri;
     } catch (e) {
       console.error('Failed to copy content URI to cache:', e);
-      Alert.alert('Image Error', 'Could not process the selected image.');
+      showAlert('Image Error', 'Could not process the selected image.');
       return null;
     }
   }
@@ -38,7 +39,7 @@ export default function CreateAchievementScreen({ route, navigation }) {
     try {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('Permission Denied', 'Sorry, we need camera roll permissions to make this work!');
+        showAlert('Permission Denied', 'Sorry, we need camera roll permissions to make this work!');
         return;
       }
 
@@ -55,7 +56,7 @@ export default function CreateAchievementScreen({ route, navigation }) {
 
       const asset = result.assets?.[0];
       if (!asset?.uri) {
-        Alert.alert('Error', 'Could not get the image. Please try again.');
+        showAlert('Error', 'Could not get the image. Please try again.');
         return;
       }
 
@@ -66,13 +67,13 @@ export default function CreateAchievementScreen({ route, navigation }) {
       }
     } catch (error) {
       console.error('Image picking failed:', error);
-      Alert.alert('Error', 'An unexpected error occurred while picking the image.');
+      showAlert('Error', 'An unexpected error occurred while picking the image.');
     }
   };
 
   const handleSave = async () => {
     if (!id || !title || !description || !imageUri) {
-      Alert.alert('Missing Fields', 'Please fill out all fields and select an image.');
+      showAlert('Missing Fields', 'Please fill out all fields and select an image.');
       return;
     }
     setLoading(true);
@@ -85,11 +86,11 @@ export default function CreateAchievementScreen({ route, navigation }) {
     setLoading(false);
 
     if (res.success) {
-      Alert.alert('Success', 'Achievement saved successfully!', [
+      showAlert('Success', 'Achievement saved successfully!', [
         { text: 'OK', onPress: () => navigation.goBack() },
       ]);
     } else {
-      Alert.alert('Error', res.error?.message || 'Failed to save achievement.');
+      showAlert('Error', res.error?.message || 'Failed to save achievement.');
     }
   };
 

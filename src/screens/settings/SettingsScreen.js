@@ -1,8 +1,9 @@
 // src/screens/settings/SettingsScreen.js
 import React, { useState, useEffect } from 'react';
-import { ScrollView, View, Text, StyleSheet, TouchableOpacity, Alert, Linking } from 'react-native';
+import { ScrollView, View, Text, StyleSheet, TouchableOpacity, Linking } from 'react-native';
 import { Switch } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
+import showAlert from '../../utils/showAlert';
 import useAuthStore from '../../store/authStore';
 import useUserStore from '../../store/UserStore';
 import i18n from '../../config/i18n';
@@ -50,7 +51,7 @@ export default function SettingsScreen({ navigation }) {
   };
 
   const handleLogout = () => {
-    Alert.alert('Logout', 'Are you sure you want to log out?', [
+    showAlert('Logout', 'Are you sure you want to log out?', [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Logout', style: 'destructive', onPress: () => logout() },
     ]);
@@ -62,10 +63,10 @@ export default function SettingsScreen({ navigation }) {
       if (supported) {
         await Linking.openURL(url);
       } else {
-        Alert.alert(`Don't know how to open this URL: ${url}`);
+        showAlert(`Can't Open Link`, `Your device doesn't know how to open this URL: ${url}`);
       }
     } catch (error) {
-      Alert.alert('Error', 'Could not open the link.');
+      showAlert('Error', 'Could not open the link.');
     }
   };
 
@@ -76,7 +77,7 @@ export default function SettingsScreen({ navigation }) {
      <SettingsSection title={i18n.t('settings.account')}>
         <SettingsRow icon="person-outline" label={i18n.t('settings.editProfile')} onPress={() => navigation.navigate('EditProfile')} />
         <SettingsRow icon="hand-left-outline" label="Blocked Accounts" onPress={() => navigation.navigate('BlockedUsers')} />
-        <SettingsRow icon="lock-closed-outline" label={i18n.t('settings.changePassword')} onPress={() => Alert.alert('Coming Soon', 'This feature is not yet implemented.')} />
+        <SettingsRow icon="lock-closed-outline" label={i18n.t('settings.changePassword')} onPress={() => showAlert('Coming Soon', 'This feature is not yet implemented.')} />
       </SettingsSection>
 
       <SettingsSection title={i18n.t('settings.preferences')}>

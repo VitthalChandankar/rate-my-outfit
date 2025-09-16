@@ -3,7 +3,6 @@
 
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
-  Alert,
   StyleSheet,
   Text,
   View,
@@ -20,6 +19,7 @@ import { Image as ExpoImage } from 'expo-image';
 import { useActionSheet } from '@expo/react-native-action-sheet';
 import { doc, getDoc } from 'firebase/firestore';
 import { Ionicons } from '@expo/vector-icons';
+import showAlert from '../../utils/showAlert';
 import { firestore } from '../../services/firebase';
 import * as Haptics from 'expo-haptics';
 
@@ -180,7 +180,7 @@ export default function UserProfileScreen({ route, navigation }) {
   }, [navigation, contestsById]);
 
   const onToggleFollow = async () => {
-    if (!authedId) return Alert.alert('Sign in', 'Please sign in to follow');
+    if (!authedId) return showAlert('Sign in', 'Please sign in to follow');
     if (authedId === userId) return;
 
     // The store handles the optimistic update of `relCache`.
@@ -211,7 +211,7 @@ export default function UserProfileScreen({ route, navigation }) {
         if (selectedIndex === 0) { // Block/Unblock
           const action = isBlockedByMe ? unblockUser : blockUser;
           const actionName = isBlockedByMe ? 'Unblock' : 'Block';
-          Alert.alert(
+          showAlert(
             `${actionName} ${profile?.name || 'user'}?`,
             isBlockedByMe ? 'They will be able to see your posts and follow you again.' : 'They will no longer be able to see your posts or follow you. They will not be notified.',
             [
@@ -220,7 +220,7 @@ export default function UserProfileScreen({ route, navigation }) {
             ]
           );
         } else if (selectedIndex === 1) { // Report
-          Alert.alert('Report User', 'This functionality is coming soon.');
+          showAlert('Report User', 'This functionality is coming soon.');
         }
       }
     );

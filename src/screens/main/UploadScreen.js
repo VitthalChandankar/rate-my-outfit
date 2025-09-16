@@ -6,7 +6,6 @@
 
 import React, { useMemo, useRef, useState, useEffect } from 'react';
 import {
-  Alert,
   Keyboard,
   Platform,
   StyleSheet,
@@ -32,6 +31,7 @@ import * as Haptics from 'expo-haptics';
 import * as ImageManipulator from 'expo-image-manipulator';
 import * as FileSystem from 'expo-file-system';
 import { Image as ExpoImage } from 'expo-image';
+import showAlert from '../../utils/showAlert';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import useAuthStore from '../../store/authStore';
@@ -90,7 +90,7 @@ export default function UploadScreen({ navigation, route }) {
     const { granted, canAskAgain } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (granted) return true;
     if (canAskAgain) showSnack('Please allow Photos/Media permission to select an image.');
-    else Alert.alert('Permission blocked', 'Open Settings and enable Photos/Media for this app.');
+    else showAlert('Permission blocked', 'Open Settings and enable Photos/Media for this app.');
     return false;
   };
 
@@ -98,7 +98,7 @@ export default function UploadScreen({ navigation, route }) {
     const { granted, canAskAgain } = await ImagePicker.requestCameraPermissionsAsync();
     if (granted) return true;
     if (canAskAgain) showSnack('Please allow Camera permission to take a photo.');
-    else Alert.alert('Permission blocked', 'Open Settings and enable Camera for this app.');
+    else showAlert('Permission blocked', 'Open Settings and enable Camera for this app.');
     return false;
   };
 
@@ -180,7 +180,7 @@ export default function UploadScreen({ navigation, route }) {
       } else showSnack('No image returned from picker.');
     } catch (e) {
       console.error('pickFromLibrary error:', e);
-      Alert.alert('Picker error', e?.message || 'Failed to open image library.');
+      showAlert('Picker error', e?.message || 'Failed to open image library.');
     }
   };
 
@@ -198,7 +198,7 @@ export default function UploadScreen({ navigation, route }) {
       } else showSnack('No image captured.');
     } catch (e) {
       console.error('takePhoto error:', e);
-      Alert.alert('Camera error', e?.message || 'Failed to open camera.');
+      showAlert('Camera error', e?.message || 'Failed to open camera.');
     }
   };
 
@@ -223,9 +223,10 @@ export default function UploadScreen({ navigation, route }) {
 
   const handleUpload = async () => {
     Keyboard.dismiss();
-    if (!selectedUri) return Alert.alert('No image', 'Please choose or capture an image first.');
-    if (caption.trim().length === 0) return Alert.alert('Add a caption', 'Please enter a caption before uploading.');
-    if (!user?.uid) return Alert.alert('Not signed in', 'Please sign in before uploading.');
+    if (!selectedUri) return showAlert('No image', 'Please choose or capture an image first.');
+    if (caption.trim().length === 0) return showAlert('Add a caption', 'Please enter a caption before uploading.');
+    if (!user?.uid) return showAlert('Not signed in', 'Please sign in before uploading.');
+
 
     setUploading(true);
     const stopProgram = startProgressProgram();
@@ -290,7 +291,8 @@ export default function UploadScreen({ navigation, route }) {
       setPhase('error');
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       console.error('upload error:', e);
-      Alert.alert('Upload failed', e?.message || 'Please try again later.');
+      showAlert('Upload failed', e?.message || 'Please try again later.');
+   
     } finally {
       setUploading(false);
       setTimeout(() => setProgress(0), 500);

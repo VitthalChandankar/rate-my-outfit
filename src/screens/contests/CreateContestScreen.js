@@ -1,10 +1,11 @@
 // src/screens/contests/CreateContestScreen.js
 import React, { useState } from 'react';
-import { View, ScrollView, StyleSheet, TouchableOpacity, Alert, Platform } from 'react-native';
+import { View, ScrollView, StyleSheet, TouchableOpacity, Platform } from 'react-native';
 import { TextInput, Button, Text, ActivityIndicator } from 'react-native-paper';
 import * as ImagePicker from 'expo-image-picker';
 import { Image as ExpoImage } from 'expo-image';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import showAlert from '../../utils/showAlert';
 import useContestStore from '../../store/contestStore';
 import { Ionicons } from '@expo/vector-icons';
 import * as FileSystem from 'expo-file-system';
@@ -19,7 +20,7 @@ const resolveAssetUri = async (uri) => {
       return cacheUri;
     } catch (e) {
       console.error('Failed to copy content URI to cache:', e);
-      Alert.alert('Image Error', 'Could not process the selected image.');
+      showAlert('Image Error', 'Could not process the selected image.');
       return null;
     }
   }
@@ -45,7 +46,7 @@ export default function CreateContestScreen({ navigation }) {
     try {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('Permission Denied', 'Sorry, we need camera roll permissions to make this work!');
+        showAlert('Permission Denied', 'Sorry, we need camera roll permissions to make this work!');
         return;
       }
 
@@ -62,7 +63,7 @@ export default function CreateContestScreen({ navigation }) {
 
       const asset = result.assets?.[0];
       if (!asset?.uri) {
-        Alert.alert('Error', 'Could not get the image. Please try again.');
+        showAlert('Error', 'Could not get the image. Please try again.');
         return;
       }
 
@@ -73,7 +74,7 @@ export default function CreateContestScreen({ navigation }) {
       }
     } catch (error) {
       console.error('Image picking failed:', error);
-      Alert.alert('Error', 'An unexpected error occurred while picking the image.');
+      showAlert('Error', 'An unexpected error occurred while picking the image.');
     }
   };
 
@@ -89,11 +90,11 @@ export default function CreateContestScreen({ navigation }) {
 
   const handleSave = async () => {
     if (!title || !theme || !prize || !host || !country || !imageUri) {
-      Alert.alert('Missing Fields', 'Please fill out all fields and select a banner image.');
+      showAlert('Missing Fields', 'Please fill out all fields and select a banner image.');
       return;
     }
     if (endAt <= startAt) {
-      Alert.alert('Invalid Dates', 'The end date must be after the start date.');
+      showAlert('Invalid Dates', 'The end date must be after the start date.');
       return;
     }
 
@@ -111,11 +112,11 @@ export default function CreateContestScreen({ navigation }) {
     setLoading(false);
 
     if (res.success) {
-      Alert.alert('Success', 'Contest created successfully!', [
+      showAlert('Success', 'Contest created successfully!', [
         { text: 'OK', onPress: () => navigation.goBack() },
       ]);
     } else {
-      Alert.alert('Error', res.error?.message || 'Failed to create contest.');
+      showAlert('Error', res.error?.message || 'Failed to create contest.');
     }
   };
 
