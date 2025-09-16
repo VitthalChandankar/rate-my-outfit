@@ -78,6 +78,7 @@ export default function CommentsScreen({ route }) {
 
     await postComment({
       outfitId,
+      postOwnerId,
       text: commentText,
       userMeta,
       parentId: replyingTo?.id || null,

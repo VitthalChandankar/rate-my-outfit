@@ -3,6 +3,7 @@ import { Provider as PaperProvider } from 'react-native-paper';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useEffect } from 'react';
 import { useNavigationContainerRef } from '@react-navigation/native';
+import { ActionSheetProvider } from '@expo/react-native-action-sheet';
 import * as Notifications from 'expo-notifications';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -64,8 +65,12 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <PaperProvider theme={theme}>
-        <StatusBar style="light" />
-        <AppNavigator navigationRef={navigationRef} />
+        <ActionSheetProvider>
+          <>
+            <StatusBar style="light" />
+            <AppNavigator navigationRef={navigationRef} />
+          </>
+        </ActionSheetProvider>
       </PaperProvider>
     </SafeAreaProvider>
   );

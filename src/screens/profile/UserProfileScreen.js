@@ -17,6 +17,10 @@ import {
   Platform,
 } from 'react-native';
 import { Image as ExpoImage } from 'expo-image';
+import { useActionSheet } from '@expo/react-native-action-sheet';
+import { doc, getDoc } from 'firebase/firestore';
+import { Ionicons } from '@expo/vector-icons';
+import { firestore } from '../../services/firebase';
 import * as Haptics from 'expo-haptics';
 
 import useAuthStore from '../../store/authStore';
@@ -34,8 +38,9 @@ export default function UserProfileScreen({ route, navigation }) {
   const { userId } = route.params || {};
   const { user } = useAuthStore();
   const authedId = user?.uid || user?.user?.uid || null;
+  const { showActionSheetWithOptions } = useActionSheet();
 
-  const { loadUserProfile, profilesById, isFollowing, follow, unfollow, relCache } = useUserStore();
+  const { loadUserProfile, profilesById, isFollowing, follow, unfollow, relCache, myBlockedIds, blockUser, unblockUser } = useUserStore();
   const { contestsById, listContests } = useContestStore();
   const profile = profilesById[userId];
 
@@ -43,10 +48,13 @@ export default function UserProfileScreen({ route, navigation }) {
   const relIdOf = (followerId, followingId) => `${followerId}_${followingId}`;
   // Get the following status reactively from the store's cache
   const rel = relCache[relIdOf(authedId, userId)];
+  const isBlockedByMe = myBlockedIds.has(userId);
 
   const [posts, setPosts] = useState([]);
   const [achievements, setAchievements] = useState([]);
   const [tab, setTab] = useState('posts'); // 'posts' | 'achievements'
+  const [viewerIsBlocked, setViewerIsBlocked] = useState(false);
+  const [checkingBlock, setCheckingBlock] = useState(true);
 
   const [achievementsLoading, setAchievementsLoading] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -55,11 +63,47 @@ export default function UserProfileScreen({ route, navigation }) {
   const [hasMore, setHasMore] = useState(true);
 
   useEffect(() => {
+    const checkReverseBlock = async () => {
+      if (!authedId || !userId || authedId === userId) {
+        setCheckingBlock(false);
+        return;
+      }
+      setCheckingBlock(true);
+      try {
+        // Check if the profile owner (userId) has blocked the viewer (authedId).
+        const blockRef = doc(firestore, 'blocks', `${userId}_${authedId}`);
+        const blockSnap = await getDoc(blockRef);
+        setViewerIsBlocked(blockSnap.exists());
+      } catch (error) {
+        console.error("Error checking block status:", error);
+        setViewerIsBlocked(false); // Fail open for safety
+      } finally {
+        setCheckingBlock(false);
+      }
+    };
+    checkReverseBlock();
+
     if (userId) {
       loadUserProfile(userId);
       listContests({ status: 'all', reset: true });
+
+      navigation.setOptions({
+        headerShown: true,
+        title: '',
+        headerTransparent: true,
+        headerRight: () => (
+          <Pressable onPress={openUserMenu} style={{ padding: 8, marginRight: 8 }}>
+            <Ionicons name="ellipsis-horizontal" size={24} color="#fff" />
+          </Pressable>
+        ),
+        headerLeft: () => (
+          <Pressable onPress={() => navigation.goBack()} style={{ padding: 8, marginLeft: 8 }}>
+            <Ionicons name="arrow-back" size={24} color="#fff" />
+          </Pressable>
+        ),
+      });
     }
-  }, [userId, loadUserProfile, listContests]);
+  }, [userId, authedId, loadUserProfile, listContests, navigation, isBlockedByMe]);
 
   const loadPosts = useCallback(async (isReset = false) => {
     if (loading || refreshing) return;
@@ -149,6 +193,37 @@ export default function UserProfileScreen({ route, navigation }) {
       if (res.success) loadUserProfile(userId); // Re-fetch profile to update counts
     }
     Haptics.selectionAsync();
+  };
+
+  const openUserMenu = () => {
+    const options = [isBlockedByMe ? 'Unblock' : 'Block', 'Report', 'Cancel'];
+    const destructiveButtonIndex = 0;
+    const cancelButtonIndex = 2;
+
+    showActionSheetWithOptions(
+      {
+        options,
+        cancelButtonIndex,
+        destructiveButtonIndex: isBlockedByMe ? undefined : destructiveButtonIndex,
+        title: profile?.name || 'User Actions',
+      },
+      (selectedIndex) => {
+        if (selectedIndex === 0) { // Block/Unblock
+          const action = isBlockedByMe ? unblockUser : blockUser;
+          const actionName = isBlockedByMe ? 'Unblock' : 'Block';
+          Alert.alert(
+            `${actionName} ${profile?.name || 'user'}?`,
+            isBlockedByMe ? 'They will be able to see your posts and follow you again.' : 'They will no longer be able to see your posts or follow you. They will not be notified.',
+            [
+              { text: 'Cancel', style: 'cancel' },
+              { text: actionName, style: 'destructive', onPress: () => action(userId) },
+            ]
+          );
+        } else if (selectedIndex === 1) { // Report
+          Alert.alert('Report User', 'This functionality is coming soon.');
+        }
+      }
+    );
   };
 
   const showRatingsToOthers = profile?.preferences?.showRatingsToOthers ?? true;
@@ -245,6 +320,36 @@ export default function UserProfileScreen({ route, navigation }) {
     </Text>
   ) : null;
 
+  if (checkingBlock) {
+    return (
+      <View style={styles.center}>
+        <ActivityIndicator />
+      </View>
+    );
+  }
+
+  if (viewerIsBlocked) {
+    return (
+      <View style={styles.center}>
+        <Ionicons name="eye-off-outline" size={48} color="#9CA3AF" />
+        <Text style={styles.unavailableTitle}>Profile Unavailable</Text>
+        <Text style={styles.unavailableSubtext}>You can't view this profile.</Text>
+      </View>
+    );
+  }
+
+  // If user is blocked, show a different UI
+  if (isBlockedByMe) {
+    return (
+      <View style={styles.center}>
+        <Text style={styles.blockedText}>You have blocked this user.</Text>
+        <Pressable onPress={() => unblockUser(userId)} style={[styles.actionMain, { width: '60%' }]}>
+          <Text style={styles.actionMainText}>Unblock</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
   return (
     <FlatList
       key={tab}
@@ -265,6 +370,10 @@ export default function UserProfileScreen({ route, navigation }) {
 }
 
 const styles = StyleSheet.create({
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff' },
+  unavailableTitle: { fontSize: 18, color: '#333', marginTop: 12, fontWeight: '600' },
+  unavailableSubtext: { fontSize: 14, color: '#6B7280', marginTop: 4 },
+  blockedText: { fontSize: 18, color: '#333', marginBottom: 20 },
   header: { backgroundColor: '#FFFFFF', paddingBottom: 8 },
   coverPhotoContainer: { width: '100%', height: 180, backgroundColor: '#EAEAEA' },
   coverPhoto: { width: '100%', height: '100%' },

@@ -18,11 +18,13 @@ const UserRow = memo(({ item, onToggle, isSelf, following, onNavigate }) => {
   return (
     <View style={styles.row}>
       <Pressable onPress={onNavigate} style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
-        <Avatar uri={display.picture} size={44} ring />
-        <View style={{ marginLeft: 10, flex: 1 }}>
-          <Text style={styles.name}>{display.name}</Text>
-          {!!display.username && <Text style={styles.sub}>@{display.username}</Text>}
-        </View>
+        <>
+          <Avatar uri={display.picture} size={44} ring />
+          <View style={{ marginLeft: 10, flex: 1 }}>
+            <Text style={styles.name}>{display.name}</Text>
+            {!!display.username && <Text style={styles.sub}>@{display.username}</Text>}
+          </View>
+        </>
       </Pressable>
       {!isSelf && (
         <Pressable
@@ -50,6 +52,7 @@ export default function FollowersScreen({ route, navigation }) {
     isFollowing,
     follow,
     unfollow,
+    myBlockedIds,
     relCache,
   } = useUserStore();
 
@@ -100,18 +103,22 @@ export default function FollowersScreen({ route, navigation }) {
   }, [authedId, rows, relCache, isFollowing]);
 
 const filteredRows = React.useMemo(() => {
+    // First, filter out any users that the logged-in user has blocked.
+    const unblockedRows = rows.filter(row => !myBlockedIds.has(row.followerId));
+
     if (!searchQuery.trim()) {
-      return rows;
+      return unblockedRows;
     }
+
     const lowercasedQuery = searchQuery.toLowerCase();
-    return rows.filter(row => {
+    return unblockedRows.filter(row => {
       const targetId = row.followerId;
       const cached = profilesById[targetId];
       const name = row.followerName || cached?.name || cached?.displayName || '';
       const username = cached?.username || '';
       return name.toLowerCase().includes(lowercasedQuery) || username.toLowerCase().includes(lowercasedQuery);
     });
-  }, [rows, searchQuery, profilesById]);
+  }, [rows, searchQuery, profilesById, myBlockedIds]);
 
   const ListEmpty = () => (
     <View style={styles.emptyContainer}>

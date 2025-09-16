@@ -13,6 +13,12 @@ service cloud.firestore {
       return isSignedIn() && (request.auth.uid in ["S3YNVH6Tn8RCauiQrj2oy6e37FI3","QURZGWBt6sTa0Zv8dn0qj4tldh12","X6QLjRFs5vf38H7hoG7zcmiDZhy2"]);
     }
 
+    // Helper function to check for a two-way block.
+    function isBlocked(userId1, userId2) {
+      return exists(/databases/$(database)/documents/blocks/$(userId1 + '_' + userId2)) ||
+             exists(/databases/$(database)/documents/blocks/$(userId2 + '_' + userId1));
+    }
+
     // --- Collections ---
 
     // users: Public read, only owner can write.
@@ -56,8 +62,9 @@ service cloud.firestore {
       allow create: if isSignedIn()
         && request.resource.data.userId == request.auth.uid
         && request.resource.data.outfitId is string
-        && request.resource.data.text is string
-        && (!('parentId' in request.resource.data) || request.resource.data.parentId is string || request.resource.data.parentId == null);
+        && request.resource.data.text is string && request.resource.data.text.size() > 0
+        && (!('parentId' in request.resource.data) || request.resource.data.parentId is string || request.resource.data.parentId == null)
+        && !isBlocked(request.auth.uid, request.resource.data.postOwnerId);
 
       allow update: if isSignedIn() && request.auth.uid == resource.data.userId;
       allow delete: if isSignedIn() && (
@@ -72,7 +79,8 @@ service cloud.firestore {
       allow read: if isSignedIn();
       allow create: if isSignedIn()
         && request.auth.uid == request.resource.data.userId
-        && likeId == request.resource.data.outfitId + '_' + request.auth.uid;
+        && likeId == request.resource.data.outfitId + '_' + request.auth.uid
+        && !isBlocked(request.auth.uid, get(/databases/$(database)/documents/outfits/$(request.resource.data.outfitId)).data.userId);
       allow delete: if isSignedIn() && request.auth.uid == resource.data.userId;
       allow update: if false;
     }
@@ -100,6 +108,20 @@ service cloud.firestore {
         && request.resource.data.followerId == followerId()
         && request.resource.data.followingId == followingId();
       allow delete: if isSignedIn() && request.auth.uid == followerId();
+      allow update: if false;
+    }
+
+    // blocks: A user can create/delete their own block records.
+    match /blocks/{blockId} {
+      function blockerId() { return blockId.split('_')[0]; }
+      function blockedId() { return blockId.split('_')[1]; }
+
+      allow read: if isSignedIn() && (request.auth.uid == blockerId() || request.auth.uid == blockedId());
+      allow create: if isSignedIn()
+        && request.auth.uid == blockerId()
+        && request.resource.data.blockerId == blockerId()
+        && request.resource.data.blockedId == blockedId();
+      allow delete: if isSignedIn() && request.auth.uid == blockerId();
       allow update: if false;
     }
 

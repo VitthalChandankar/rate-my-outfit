@@ -37,8 +37,9 @@ export default function HomeScreen() {
   const feed = useOutfitStore((s) => s.feed);
   const toggleLike = useOutfitStore((s) => s.toggleLike);
   const { toggleSave } = useOutfitStore();
-  const { myLikedIds, mySavedIds } = useUserStore((s) => ({ myLikedIds: s.myLikedIds, mySavedIds: s.mySavedIds }));
   const fetchFeed = useOutfitStore((s) => s.fetchFeed);
+  const { myLikedIds, mySavedIds, myBlockerIds } = useUserStore((s) => ({ myLikedIds: s.myLikedIds, mySavedIds: s.mySavedIds, myBlockerIds: s.myBlockerIds }));
+  const myBlockedIds = useUserStore((s) => s.myBlockedIds);
   const loading = useOutfitStore((s) => s.loading);
   const refreshing = useOutfitStore((s) => s.refreshing);
   const lastDoc = useOutfitStore((s) => s.lastDoc);
@@ -111,11 +112,13 @@ export default function HomeScreen() {
     // unnecessary re-renders of every visible card when the screen's state changes.
     const withKeys = (feed || []).map(ensureKey);
     const deduped = dedupeById(withKeys);
-    return deduped.map(item => ({
+    const filtered = deduped.filter(item => !myBlockedIds.has(item.userId) && !myBlockerIds.has(item.userId));
+
+    return filtered.map(item => ({
       ...item,
       contestData: item.contestId ? contestsById[item.contestId] : null,
     }));
-  }, [feed, contestsById]);
+  }, [feed, contestsById, myBlockedIds, myBlockerIds]);
 
   const keyExtractor = useCallback((item) => String(item?.id || item?._localKey), []);
 

@@ -23,6 +23,11 @@ import {
   fetchMyLikedOutfitIds,
   fetchMySavedOutfitIds,
   updateUserPushToken,
+  blockUser as fbBlockUser,
+  unblockUser as fbUnblockUser,
+  fetchMyBlockedIds,
+  fetchMyBlockerIds,
+  listBlockedUsers,
   fetchUserAchievements,
   uploadImage,
   listFollowing,
@@ -54,6 +59,12 @@ const useUserStore = create((set, get) => ({
   // Set of outfit IDs the user has liked
   myLikedIds: new Set(),
   mySavedIds: new Set(),
+  myBlockedIds: new Set(), // NEW: for users the current user has blocked
+  myBlockerIds: new Set(), // NEW: for users who have blocked the current user
+
+  // For the blocked users list screen
+  blockedUsers: [],
+  blockedUsersLoading: false,
 
   // Achievements
   myAchievements: [],
@@ -67,7 +78,7 @@ const useUserStore = create((set, get) => ({
     if (typeof prev === 'function') {
       try { prev(); } catch {}
     }
-    if (!uid) return;
+    if (!uid) return () => {};
 
     const unsub = onSnapshot(
       doc(firestore, 'users', uid),
@@ -180,6 +191,22 @@ const useUserStore = create((set, get) => ({
     }
   },
 
+  hydrateMyBlocks: async (uid) => {
+    if (!uid) return;
+    const res = await fetchMyBlockedIds(uid);
+    if (res.success) {
+      set({ myBlockedIds: new Set(res.ids) });
+    }
+  },
+
+  hydrateMyBlockers: async (uid) => {
+    if (!uid) return;
+    const res = await fetchMyBlockerIds(uid);
+    if (res.success) {
+      set({ myBlockerIds: new Set(res.ids) });
+    }
+  },
+
   // Client-side toggle for immediate UI feedback
   toggleLikedId: (outfitId) => {
     const current = get().myLikedIds;
@@ -225,6 +252,53 @@ const useUserStore = create((set, get) => ({
     const res = await svcIsFollowing({ followerId, followingId });
     if (res.success) set({ relCache: { ...get().relCache, [key]: res.following } });
     return res;
+  },
+
+  // Block/Unblock
+  blockUser: async (blockedId) => {
+    const blockerId = get().myProfile?.uid;
+    if (!blockerId || !blockedId) return { success: false, error: 'Invalid block operation' };
+
+    // Optimistic update
+    const currentBlocked = get().myBlockedIds;
+    set({ myBlockedIds: new Set(currentBlocked).add(blockedId) });
+
+    const res = await fbBlockUser({ blockerId, blockedId });
+    if (!res.success) {
+      // Revert on failure
+      const revertedBlocked = get().myBlockedIds;
+      revertedBlocked.delete(blockedId);
+      set({ myBlockedIds: new Set(revertedBlocked) });
+    }
+    return res;
+  },
+
+  unblockUser: async (blockedId) => {
+    const blockerId = get().myProfile?.uid;
+    if (!blockerId || !blockedId) return { success: false, error: 'Invalid unblock operation' };
+
+    // Optimistic update
+    const currentBlocked = get().myBlockedIds;
+    currentBlocked.delete(blockedId);
+    set({ myBlockedIds: new Set(currentBlocked) });
+
+    const res = await fbUnblockUser({ blockerId, blockedId });
+    if (!res.success) {
+      // Revert on failure
+      set({ myBlockedIds: new Set(get().myBlockedIds).add(blockedId) });
+    }
+    // Also update the list of blocked user profiles
+    set(state => ({ blockedUsers: state.blockedUsers.filter(u => u.id !== blockedId) }));
+    return res;
+  },
+
+  fetchBlockedUsers: async () => {
+    const uid = get().myProfile?.uid;
+    if (!uid) return;
+    set({ blockedUsersLoading: true });
+    const res = await listBlockedUsers(uid);
+    if (res.success) set({ blockedUsers: res.users });
+    set({ blockedUsersLoading: false });
   },
 
   // FOLLOW: with corrected transaction and optimistic local state update
@@ -336,6 +410,8 @@ const useUserStore = create((set, get) => ({
       followingHasMore: true,
       myLikedIds: new Set(),
       mySavedIds: new Set(),
+      myBlockerIds: new Set(),
+      myBlockedIds: new Set(),
       myAchievements: [],
       myAchievementsLoading: false,
       seenAchievements: new Set(),

@@ -48,6 +48,7 @@ import CommentsScreen from '../screens/details/CommentsScreen';
 
 import SettingsScreen from '../screens/settings/SettingsScreen';
 import NotificationSettingsScreen from '../screens/settings/NotificationSettingsScreen';
+import BlockedUsersScreen from '../screens/settings/BlockedUsersScreen';
 import LanguageScreen from '../screens/settings/LanguageScreen';
 
 import InboxScreen from '../screens/sharing/InboxScreen';
@@ -294,6 +295,17 @@ function MainAppStack() {
         options={{
           headerShown: true,
           title: 'Settings',
+          headerStyle: { backgroundColor: '#fff' },
+          headerTintColor: '#111',
+          headerTitleStyle: { fontWeight: 'bold' },
+        }}
+      />
+      <Stack.Screen
+        name="BlockedUsers"
+        component={BlockedUsersScreen}
+        options={{
+          headerShown: true,
+          title: 'Blocked Accounts',
           headerStyle: { backgroundColor: '#fff' },
           headerTintColor: '#111',
           headerTitleStyle: { fontWeight: 'bold' },

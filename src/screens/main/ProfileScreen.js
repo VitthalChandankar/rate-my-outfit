@@ -233,13 +233,17 @@ export default function ProfileScreen({ navigation, route }) {
     const postsCount = Math.max(0, myProfile?.stats?.postsCount ?? 0);
     return (
       <View style={styles.header}>
-        <TouchableOpacity activeOpacity={0.9} onPress={handleCoverPhotoChange} style={styles.coverPhotoContainer}>
-          <ExpoImage source={{ uri: myProfile?.coverPhoto }} style={styles.coverPhoto} contentFit="cover" />
-          <View style={styles.coverOverlay} />
+        <View style={styles.coverPhotoContainer}>
+          <TouchableOpacity activeOpacity={0.9} onPress={handleCoverPhotoChange} style={StyleSheet.absoluteFill}>
+            <>
+              <ExpoImage source={{ uri: myProfile?.coverPhoto }} style={styles.coverPhoto} contentFit="cover" />
+              <View style={styles.coverOverlay} />
+            </>
+          </TouchableOpacity>
           <TouchableOpacity style={styles.settingsButton} onPress={() => navigation.navigate('Settings')}>
             <Ionicons name="settings-outline" size={24} color="#fff" />
           </TouchableOpacity>
-        </TouchableOpacity>
+        </View>
 
         <View style={styles.profileDetails}>
           <Avatar uri={myProfile?.profilePicture} size={88} ring ringColor="#fff" />

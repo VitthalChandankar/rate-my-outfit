@@ -280,7 +280,7 @@ const useOutfitStore = create((set, get) => ({
   },
 
   // Post a new comment
-  postComment: async ({ outfitId, text, userMeta, parentId = null }) => {
+  postComment: async ({ outfitId, postOwnerId, text, userMeta, parentId = null }) => {
     const { user } = useAuthStore.getState();
     if (!user?.uid) return { success: false, error: 'Not authenticated' };
 
@@ -290,7 +290,7 @@ const useOutfitStore = create((set, get) => ({
     const bag = get().comments[outfitId] || { items: [], loading: false };
     set({ comments: { ...get().comments, [outfitId]: { ...bag, items: [...bag.items, optimisticComment] } } });
 
-    const res = await addComment({ outfitId, userId: user.uid, text, userMeta, parentId });
+    const res = await addComment({ outfitId, postOwnerId, userId: user.uid, text, userMeta, parentId });
 
     // Replace temp comment with real one from server
     if (res.success) {

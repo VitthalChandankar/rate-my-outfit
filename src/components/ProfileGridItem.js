@@ -58,21 +58,23 @@ const ProfileGridItem = memo(({ item, onPress, onLongPress, showRating = true })
         onLongPress={() => onLongPress && onLongPress(item)}
         activeOpacity={0.8}
       >
-        <ExpoImage
-          source={{ uri: transformedUrl }}
-          style={styles.image}
-          contentFit="cover"
-          transition={200}
-          onError={(e) => console.warn(`ProfileGridItem failed to load image: ${transformedUrl}`, e.error)}
-        />
-        {showRating && isContest && ratingsCount > 0 && (
-          <View style={styles.ratingOverlay}>
-            <Text style={styles.ratingText}>{averageRating.toFixed(1)}</Text>
-            <Ionicons name="star" size={11} color="#111" style={{ marginHorizontal: 2 }} />
-            <View style={styles.separator} />
-            <Text style={styles.ratingCountText}>{formatCount(ratingsCount)}</Text>
-          </View>
-        )}
+        <>
+          <ExpoImage
+            source={{ uri: transformedUrl }}
+            style={styles.image}
+            contentFit="cover"
+            transition={200}
+            onError={(e) => console.warn(`ProfileGridItem failed to load image: ${transformedUrl}`, e.error)}
+          />
+          {showRating && isContest && ratingsCount > 0 && (
+            <View style={styles.ratingOverlay}>
+              <Text style={styles.ratingText}>{averageRating.toFixed(1)}</Text>
+              <Ionicons name="star" size={11} color="#111" style={{ marginHorizontal: 2 }} />
+              <View style={styles.separator} />
+              <Text style={styles.ratingCountText}>{formatCount(ratingsCount)}</Text>
+            </View>
+          )}
+        </>
       </TouchableOpacity>
       {isWinner && (
         <Animated.View style={[styles.winnerRibbon, ribbonStyle]}>

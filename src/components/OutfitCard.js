@@ -151,11 +151,13 @@ const OutfitCard = memo(({ item, onPress, onRate, onUserPress, onLike, isLiked, 
       {/* Header row (avatar + name/time are clickable to open user's profile) */}
       <View style={styles.header}>
         <Pressable style={styles.headerUserInfo} onPress={handleUserTap}>
-          <AvatarCircle uri={userPhoto} name={userName} />
-          <View style={{ marginLeft: 10, flex: 1 }}>
-            <Text style={styles.userName}>{userName}</Text>
-            {!!timeText && <Text style={styles.time}>{timeText}</Text>}
-          </View>
+          <>
+            <AvatarCircle uri={userPhoto} name={userName} />
+            <View style={{ marginLeft: 10, flex: 1 }}>
+              <Text style={styles.userName}>{userName}</Text>
+              {!!timeText && <Text style={styles.time}>{timeText}</Text>}
+            </View>
+          </>
         </Pressable>
         <View style={styles.headerRightActions}>
           {isContest ? (
@@ -169,48 +171,49 @@ const OutfitCard = memo(({ item, onPress, onRate, onUserPress, onLike, isLiked, 
 
       {/* Media */}
       <TouchableOpacity activeOpacity={0.9} onPress={handleOpen}>
-        {transformedUrl ? (
-          <ExpoImage
-            source={{ uri: transformedUrl }}
-            style={styles.image}
-            contentFit="cover"
-            transition={250}
-            onError={(e) => {
-              // On Android, image requests are cancelled during fast scrolls, which is expected.
-              // This check prevents spamming the console with non-critical warnings.
-              const errorMessage = e?.error?.message || '';
-              if (Platform.OS === 'android' && errorMessage.includes('CANCEL')) {
-                return;
-              }
-              console.warn(`OutfitCard failed to load image: ${transformedUrl}`, e.error);
-            }}
-          />
-        ) : (
-          <View style={[styles.image, styles.imagePlaceholder]} />
-        )}
+        <>
+          {transformedUrl ? (
+            <ExpoImage
+              source={{ uri: transformedUrl }}
+              style={styles.image}
+              contentFit="cover"
+              transition={250}
+              onError={(e) => {
+                // On Android, image requests are cancelled during fast scrolls, which is expected.
+                // This check prevents spamming the console with non-critical warnings.
+                const errorMessage = e?.error?.message || '';
+                if (Platform.OS === 'android' && errorMessage.includes('CANCEL')) {
+                  return;
+                }
+                console.warn(`OutfitCard failed to load image: ${transformedUrl}`, e.error);
+              }}
+            />
+          ) : (
+            <View style={[styles.image, styles.imagePlaceholder]} />
+          )}
 
-        {isContest && ratingsCount > 0 && (
-          <View style={styles.ratingOverlay}>
-            <Text style={styles.ratingText}>{averageRating.toFixed(1)}</Text>
-            <Ionicons name="star" size={12} color="#111" style={{ marginHorizontal: 2 }} />
-            <View style={styles.separator} />
-            <Text style={styles.ratingCountText}>{formatCount(ratingsCount)}</Text>
-          </View>
-        )}
+          {isContest && ratingsCount > 0 && (
+            <View style={styles.ratingOverlay}>
+              <Text style={styles.ratingText}>{averageRating.toFixed(1)}</Text>
+              <Ionicons name="star" size={12} color="#111" style={{ marginHorizontal: 2 }} />
+              <View style={styles.separator} />
+              <Text style={styles.ratingCountText}>{formatCount(ratingsCount)}</Text>
+            </View>
+          )}
 
-        {/* NEW: Promotional Countdown Ribbon */}
-        {isContest && countdown.show && (
-          <LinearGradient
-            colors={['#8E2DE2', '#4A00E0']}
-            start={{ x: 0, y: 0.5 }}
-            end={{ x: 1, y: 0.5 }}
-            style={styles.promoRibbon}
-          >
-            <Ionicons name="hourglass-outline" size={14} color="rgba(255,255,255,0.9)" />
-            <Text style={styles.promoRibbonText}>{countdown.timeLeft}</Text>
-          </LinearGradient>
-        )}
-
+          {/* NEW: Promotional Countdown Ribbon */}
+          {isContest && countdown.show && (
+            <LinearGradient
+              colors={['#8E2DE2', '#4A00E0']}
+              start={{ x: 0, y: 0.5 }}
+              end={{ x: 1, y: 0.5 }}
+              style={styles.promoRibbon}
+            >
+              <Ionicons name="hourglass-outline" size={14} color="rgba(255,255,255,0.9)" />
+              <Text style={styles.promoRibbonText}>{countdown.timeLeft}</Text>
+            </LinearGradient>
+          )}
+        </>
       </TouchableOpacity>
 
       {/* NEW: Flowing Gradient Bar CTA */}

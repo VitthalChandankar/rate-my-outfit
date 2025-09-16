@@ -50,6 +50,7 @@ export default function FollowingScreen({ route, navigation }) {
     isFollowing,
     follow,
     unfollow,
+    myBlockedIds,
     relCache,
   } = useUserStore();
 
@@ -99,18 +100,22 @@ export default function FollowingScreen({ route, navigation }) {
   }, [authedId, rows, relCache, isFollowing]);
 
   const filteredRows = React.useMemo(() => {
+    // First, filter out any users that the logged-in user has blocked.
+    const unblockedRows = rows.filter(row => !myBlockedIds.has(row.followingId));
+
     if (!searchQuery.trim()) {
-      return rows;
+      return unblockedRows;
     }
+
     const lowercasedQuery = searchQuery.toLowerCase();
-    return rows.filter(row => {
+    return unblockedRows.filter(row => {
       const targetId = row.followingId;
       const cached = profilesById[targetId];
       const name = row.followingName || cached?.name || cached?.displayName || '';
       const username = cached?.username || '';
       return name.toLowerCase().includes(lowercasedQuery) || username.toLowerCase().includes(lowercasedQuery);
     });
-  }, [rows, searchQuery, profilesById]);
+  }, [rows, searchQuery, profilesById, myBlockedIds]);
 
   const ListEmpty = () => (
     <View style={styles.emptyContainer}>

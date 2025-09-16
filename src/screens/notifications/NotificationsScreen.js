@@ -39,16 +39,18 @@ function NotificationRow({ item, onNotificationPress }) {
 
   return (
     <TouchableOpacity style={[styles.row, !item.read && styles.unreadRow]} onPress={() => onNotificationPress(item)}>
-      <View style={[styles.iconContainer, { backgroundColor: iconColor }]}>
-        <Ionicons name={iconName} size={20} color="#fff" />
-      </View>
-      <View style={styles.textContainer}>
-        {message}
-        <Text style={styles.timestamp}>{formatDate(item.createdAt)}</Text>
-      </View>
-      {item.outfitImage && (
-        <ExpoImage source={{ uri: item.outfitImage }} style={styles.thumbnail} contentFit="cover" />
-      )}
+      <>
+        <View style={[styles.iconContainer, { backgroundColor: iconColor }]}>
+          <Ionicons name={iconName} size={20} color="#fff" />
+        </View>
+        <View style={styles.textContainer}>
+          {message}
+          <Text style={styles.timestamp}>{formatDate(item.createdAt)}</Text>
+        </View>
+        {item.outfitImage && (
+          <ExpoImage source={{ uri: item.outfitImage }} style={styles.thumbnail} contentFit="cover" />
+        )}
+      </>
     </TouchableOpacity>
   );
 }

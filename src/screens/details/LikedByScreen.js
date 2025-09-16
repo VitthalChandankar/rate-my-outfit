@@ -7,6 +7,7 @@ import { Image as ExpoImage } from 'expo-image';
 
 import useOutfitStore from '../../store/outfitStore';
 import useAuthStore from '../../store/authStore';
+import useUserStore from '../../store/UserStore';
 
 // A simple reusable user row component
 function UserRow({ user, onUserPress }) {
@@ -15,15 +16,17 @@ function UserRow({ user, onUserPress }) {
 
   return (
     <TouchableOpacity style={styles.userRow} onPress={() => onUserPress(user.id)}>
-      {user.profilePicture ? (
-        <ExpoImage source={{ uri: user.profilePicture }} style={styles.avatar} />
-      ) : (
-        <View style={styles.avatarFallback}><Text style={styles.avatarInitial}>{initial}</Text></View>
-      )}
-      <View>
-        <Text style={styles.userName}>{user.name || 'User'}</Text>
-        {!!user.username && <Text style={styles.userHandle}>@{user.username}</Text>}
-      </View>
+      <>
+        {user.profilePicture ? (
+          <ExpoImage source={{ uri: user.profilePicture }} style={styles.avatar} />
+        ) : (
+          <View style={styles.avatarFallback}><Text style={styles.avatarInitial}>{initial}</Text></View>
+        )}
+        <View>
+          <Text style={styles.userName}>{user.name || 'User'}</Text>
+          {!!user.username && <Text style={styles.userHandle}>@{user.username}</Text>}
+        </View>
+      </>
     </TouchableOpacity>
   );
 }
@@ -33,8 +36,10 @@ export default function LikedByScreen({ route }) {
   const navigation = useNavigation();
   const { user: authedUser } = useAuthStore();
 
+  const myBlockedIds = useUserStore((s) => s.myBlockedIds);
   const { fetchLikers, likers } = useOutfitStore();
   const likersBag = likers[outfitId] || { users: [], loading: true, hasMore: true };
+  const filteredUsers = likersBag.users.filter(u => !myBlockedIds.has(u.id));
 
   useEffect(() => {
     if (outfitId) {
@@ -66,7 +71,7 @@ export default function LikedByScreen({ route }) {
 
   return (
     <FlatList
-      data={likersBag.users}
+      data={filteredUsers}
       keyExtractor={(item) => item.id}
       renderItem={({ item }) => <UserRow user={item} onUserPress={handleUserPress} />}
       contentContainerStyle={styles.container}
@@ -110,4 +115,3 @@ const styles = StyleSheet.create({
   userName: { fontWeight: 'bold', fontSize: 16 },
   userHandle: { color: '#666', marginTop: 2 },
 });
-

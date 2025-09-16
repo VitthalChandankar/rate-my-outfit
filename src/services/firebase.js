@@ -271,11 +271,13 @@ async function fetchOutfitDetails(outfitId) {
   }
 }
 
-async function addComment({ outfitId, userId, text, userMeta, parentId = null }) {
+async function addComment({ outfitId, postOwnerId, userId, text, userMeta, parentId = null }) {
   // Cloud Function 'onCommentCreate' will handle counter increments and notifications.
   try {
+    // The block check is now handled by Firestore Security Rules.
     const docRef = await addDoc(collection(firestore, 'comments'), {
       outfitId,
+      postOwnerId,
       userId,
       user: userMeta,
       text,
@@ -287,6 +289,9 @@ async function addComment({ outfitId, userId, text, userMeta, parentId = null })
     return { success: true, id: newCommentSnap.id, data: newCommentSnap.data() };
   } catch (error) {
     console.error('addComment error:', error);
+    if (error.code === 'permission-denied') {
+      return { success: false, error: { message: 'You are not allowed to comment on this post.' } };
+    }
     return { success: false, error };
   }
 }
@@ -329,13 +334,16 @@ async function toggleLikePost({ outfitId, userId, postOwnerId }) {
       await deleteDoc(likeRef);
       isLiked = false;
     } else {
-      // It's not liked, so we are liking it.
+      // The block check is now handled by Firestore Security Rules.
       await setDoc(likeRef, { outfitId, userId, createdAt: serverTimestamp() });
       isLiked = true;
     }
     return { success: true, isLiked };
   } catch (error) {
     console.error('toggleLikePost error:', error);
+    if (error.code === 'permission-denied') {
+      return { success: false, error: { message: 'You are not allowed to like this post.' } };
+    }
     return { success: false, error };
   }
 }
@@ -722,6 +730,82 @@ async function fbFetchContestLeaderboard({ contestId, limitCount = 50, minVotes 
   }
 }
 
+async function blockUser({ blockerId, blockedId }) {
+  if (!blockerId || !blockedId || blockerId === blockedId) {
+    return { success: false, error: 'Invalid block operation' };
+  }
+  const blockRef = doc(firestore, 'blocks', `${blockerId}_${blockedId}`);
+  const batch = writeBatch(firestore);
+
+  // 1. Create the block record
+  batch.set(blockRef, {
+    blockerId,
+    blockedId,
+    createdAt: serverTimestamp(),
+  });
+
+  // 2. Force unfollow in both directions. Cloud Functions will handle counter updates.
+  const followRef1 = doc(firestore, 'follows', `${blockerId}_${blockedId}`);
+  const followRef2 = doc(firestore, 'follows', `${blockedId}_${blockerId}`);
+  batch.delete(followRef1);
+  batch.delete(followRef2);
+
+  try {
+    await batch.commit();
+    return { success: true };
+  } catch (error) {
+    console.error('blockUser error:', error);
+    return { success: false, error };
+  }
+}
+
+async function unblockUser({ blockerId, blockedId }) {
+  if (!blockerId || !blockedId) {
+    return { success: false, error: 'Invalid unblock operation' };
+  }
+  const blockRef = doc(firestore, 'blocks', `${blockerId}_${blockedId}`);
+  try {
+    await deleteDoc(blockRef);
+    return { success: true };
+  } catch (error) {
+    console.error('unblockUser error:', error);
+    return { success: false, error };
+  }
+}
+
+async function fetchMyBlockedIds(userId) {
+  if (!userId) return { success: false, ids: [] };
+  try {
+    const q = query(collection(firestore, 'blocks'), where('blockerId', '==', userId));
+    const snap = await getDocs(q);
+    const ids = snap.docs.map(d => d.data().blockedId);
+    return { success: true, ids };
+  } catch (error) {
+    return { success: false, error, ids: [] };
+  }
+}
+
+async function fetchMyBlockerIds(userId) {
+  if (!userId) return { success: false, ids: [] };
+  try {
+    // Find all documents where the current user is the 'blockedId'
+    const q = query(collection(firestore, 'blocks'), where('blockedId', '==', userId));
+    const snap = await getDocs(q);
+    const ids = snap.docs.map(d => d.data().blockerId); // The IDs of the people who blocked the user
+    return { success: true, ids };
+  } catch (error) {
+    return { success: false, error, ids: [] };
+  }
+}
+
+async function listBlockedUsers(userId) {
+  const { ids } = await fetchMyBlockedIds(userId);
+  if (!ids || ids.length === 0) return { success: true, users: [] };
+  const userSnaps = await Promise.all(ids.map(id => getDoc(doc(firestore, 'users', id))));
+  const users = userSnaps.map(snap => snap.exists() ? { id: snap.id, ...snap.data() } : null).filter(Boolean);
+  return { success: true, users };
+}
+
 // --- Profile & social helpers ---
 async function getUserProfile(uid) {
   try {
@@ -826,14 +910,20 @@ async function followUser({ followerId, followingId }) {
   const relRef = doc(firestore, 'follows', `${followerId}_${followingId}`);
   const followerUserRef = doc(firestore, 'users', followerId);
   const followingUserRef = doc(firestore, 'users', followingId);
+  const blockCheck1 = doc(firestore, 'blocks', `${followerId}_${followingId}`);
+  const blockCheck2 = doc(firestore, 'blocks', `${followingId}_${followerId}`);
+
   try {
     await runTransaction(firestore, async (tx) => {
-      const [rel, followerSnap, followingSnap] = await Promise.all([
+      const [blockSnap1, blockSnap2, rel, followerSnap, followingSnap] = await Promise.all([
+        tx.get(blockCheck1),
+        tx.get(blockCheck2),
         tx.get(relRef),
         tx.get(followerUserRef),
         tx.get(followingUserRef),
       ]);
 
+      if (blockSnap1.exists() || blockSnap2.exists()) throw new Error('This user cannot be followed.');
       if (rel.exists()) return;
       if (!followerSnap.exists() || !followingSnap.exists()) throw new Error('User not found');
 
@@ -1067,7 +1157,7 @@ export {
   deleteComment, deleteOutfit, fetchCommentsForOutfit, fetchFeed, fetchOutfitDetails, fetchUserOutfits, firestore, loginWithEmail, fbCreateContest,
   logout, onAuthChange, sendResetEmail, signupWithEmail, uploadImage, fbFetchContestsByIds,
   toggleLikePost, fetchMyLikedOutfitIds, fetchLikersForOutfit, fbListContests, fbFetchContestEntries, fbCreateEntry, fbRateEntry, fbFetchContestLeaderboard, updateUserPushToken,
-  getUserProfile, updateUserProfile, setUserAvatar, ensureUsernameUnique,
+  getUserProfile, updateUserProfile, setUserAvatar, ensureUsernameUnique, blockUser, unblockUser, listBlockedUsers, fetchMyBlockedIds, fetchMyBlockerIds,
   followUser, unfollowUser, isFollowing, listFollowers, listFollowing,
   fetchNotifications, markNotificationsAsRead, subscribeToUnreadNotifications,
   fbSharePost, fbFetchShares, fbReactToShare, toggleSavePost, fetchMySavedOutfitIds, fetchOutfitsByIds, fetchUserAchievements, listAchievements, createOrUpdateAchievement

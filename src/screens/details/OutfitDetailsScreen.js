@@ -145,11 +145,13 @@ export default function OutfitDetailsScreen({ route, navigation }) {
     <ScrollView style={styles.container}>
       {/* Header */}
       <Pressable onPress={handleUserPress} style={styles.header}>
-        <Avatar uri={outfit.user?.profilePicture} size={40} />
-        <View style={{ marginLeft: 12 }}>
-          <Text style={styles.userName}>{outfit.user?.name || 'User'}</Text>
-          <Text style={styles.time}>{formatDate(outfit.createdAt)}</Text>
-        </View>
+        <>
+          <Avatar uri={outfit.user?.profilePicture} size={40} />
+          <View style={{ marginLeft: 12 }}>
+            <Text style={styles.userName}>{outfit.user?.name || 'User'}</Text>
+            <Text style={styles.time}>{formatDate(outfit.createdAt)}</Text>
+          </View>
+        </>
       </Pressable>
       {/* Image */}
       <ExpoImage
