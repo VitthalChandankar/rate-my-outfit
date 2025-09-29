@@ -96,8 +96,11 @@ function MainTabs() {
 
 export default function AppNavigator({ navigationRef }) {
   const { loading: authLoading, user, onboardingJustCompleted } = useAuthStore();
-  const { myProfile, loading: profileLoading } = useUserStore();
 
+  // Use granular selectors to prevent AppNavigator from re-rendering unnecessarily
+  // when unrelated parts of the user store change (like loading another user's profile).
+  const myProfile = useUserStore(state => state.myProfile);
+  const profileLoading = useUserStore(state => state.loading);
   // Show a loading spinner while we determine the user's auth state and profile status.
   const isAppLoading = authLoading || (user && !myProfile && profileLoading);
   if (isAppLoading) {

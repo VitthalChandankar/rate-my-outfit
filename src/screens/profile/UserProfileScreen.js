@@ -33,6 +33,7 @@ import AchievementBadge from '../../components/AchievementBadge';
 
 const { width } = Dimensions.get('window');
 const OUTER_PAD = 16;
+const SAFE_H = Platform.select({ ios: 44, android: 0, default: 0 });
 
 export default function UserProfileScreen({ route, navigation }) {
   const { userId } = route.params || {};
@@ -87,23 +88,10 @@ export default function UserProfileScreen({ route, navigation }) {
       loadUserProfile(userId);
       listContests({ status: 'all', reset: true });
 
-      navigation.setOptions({
-        headerShown: true,
-        title: '',
-        headerTransparent: true,
-        headerRight: () => (
-          <Pressable onPress={openUserMenu} style={{ padding: 8, marginRight: 8 }}>
-            <Ionicons name="ellipsis-horizontal" size={24} color="#fff" />
-          </Pressable>
-        ),
-        headerLeft: () => (
-          <Pressable onPress={() => navigation.goBack()} style={{ padding: 8, marginLeft: 8 }}>
-            <Ionicons name="arrow-back" size={24} color="#fff" />
-          </Pressable>
-        ),
-      });
+      // Hide the default navigation header. We will render our own buttons inside the component.
+      navigation.setOptions({ headerShown: false });
     }
-  }, [userId, authedId, loadUserProfile, listContests, navigation, isBlockedByMe]);
+  }, [userId, authedId, loadUserProfile, listContests, navigation]);
 
   const loadPosts = useCallback(async (isReset = false) => {
     if (loading || refreshing) return;
@@ -282,6 +270,15 @@ export default function UserProfileScreen({ route, navigation }) {
         <View style={styles.coverPhotoContainer}>
           <ExpoImage source={{ uri: profile?.coverPhoto }} style={styles.coverPhoto} contentFit="cover" />
           <View style={styles.coverOverlay} />
+
+          {/* Custom Header Buttons, mimicking ProfileScreen for stability */}
+          <Pressable onPress={() => navigation.goBack()} style={styles.headerButtonLeft}>
+            <Ionicons name="arrow-back" size={24} color="#fff" style={styles.iconShadow} />
+          </Pressable>
+          <Pressable onPress={openUserMenu} style={styles.headerButtonRight}>
+            <Ionicons name="ellipsis-horizontal" size={24} color="#fff" style={styles.iconShadow} />
+          </Pressable>
+
         </View>
 
         <View style={styles.profileDetails}>
@@ -378,6 +375,23 @@ const styles = StyleSheet.create({
   coverPhotoContainer: { width: '100%', height: 180, backgroundColor: '#EAEAEA' },
   coverPhoto: { width: '100%', height: '100%' },
   coverOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.2)' },
+  headerButtonLeft: {
+    position: 'absolute',
+    top: SAFE_H > 0 ? SAFE_H + 8 : 24,
+    left: 16,
+    padding: 8, // Keep a good touch area
+  },
+  headerButtonRight: {
+    position: 'absolute',
+    top: SAFE_H > 0 ? SAFE_H + 8 : 24,
+    right: 16,
+    padding: 8, // Keep a good touch area
+  },
+  iconShadow: {
+    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
+  },
   profileDetails: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: OUTER_PAD, marginTop: -20 },
   infoContainer: { marginTop: 20, flex: 1, marginLeft: 40 },
   nameContainer: {},
