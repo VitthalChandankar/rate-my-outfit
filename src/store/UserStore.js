@@ -13,6 +13,7 @@ import {
   setDoc, // Keep setDoc
   deleteDoc, // Import deleteDoc
 } from 'firebase/firestore';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { firestore } from '../services/firebase';
 import {
   getUserProfile,
@@ -35,6 +36,8 @@ import {
 
 // Helper: follow doc id
 const relIdOf = (followerId, followingId) => `${followerId}_${followingId}`;
+
+const SEEN_ACHIEVEMENTS_KEY = '@seen_achievements';
 
 const useUserStore = create((set, get) => ({
   myProfile: null,
@@ -237,11 +240,59 @@ const useUserStore = create((set, get) => ({
     set({ myAchievementsLoading: false });
   },
 
-  markAchievementAsSeen: (achievementId) => {
-    set(state => ({
-      seenAchievements: new Set(state.seenAchievements).add(achievementId),
-      myAchievements: state.myAchievements.map(a => a.id === achievementId ? { ...a, isNew: false } : a),
+  hydrateSeenAchievements: async () => {
+    try {
+      const seenJson = await AsyncStorage.getItem(SEEN_ACHIEVEMENTS_KEY);
+      if (seenJson) {
+        const seenArray = JSON.parse(seenJson);
+        set({ seenAchievements: new Set(seenArray) });
+      }
+    } catch (e) {
+      console.error("Failed to load seen achievements from storage.", e);
+    }
+  },
+
+  markAchievementAsSeen: async (achievementId) => {
+    const newSeenSet = new Set(get().seenAchievements).add(achievementId);
+    set((state) => ({
+      seenAchievements: newSeenSet,
+      // Also update the in-memory list to remove the 'isNew' flag immediately
+      myAchievements: state.myAchievements.map((a) =>
+        a.id === achievementId ? { ...a, isNew: false } : a
+      ),
     }));
+
+    // Persist to AsyncStorage
+    try {
+      await AsyncStorage.setItem(SEEN_ACHIEVEMENTS_KEY, JSON.stringify(Array.from(newSeenSet)));
+    } catch (e) {
+      console.error("Failed to save seen achievements to storage.", e);
+    }
+  },
+  
+  resetSeenAchievements: async () => {
+    try {
+      await AsyncStorage.removeItem(SEEN_ACHIEVEMENTS_KEY);
+
+      // Also, immediately update the in-memory achievements to mark them as new again.
+      // This ensures the UI updates instantly without needing a re-fetch.
+      const currentAchievements = get().myAchievements;
+      const resetAchievements = currentAchievements.map(a => ({
+        ...a,
+        isNew: !!a.unlockedAt, // If it's unlocked, it's now "new" again for testing.
+      }));
+
+      set({
+        seenAchievements: new Set(),
+        myAchievements: resetAchievements,
+      });
+
+      console.log('Seen achievements have been reset for testing.');
+      return { success: true };
+    } catch (e) {
+      console.error("Failed to reset seen achievements.", e);
+      return { success: false, error: e };
+    }
   },
 
   // Relationship check with cache
@@ -408,10 +459,15 @@ const useUserStore = create((set, get) => ({
   },
 
   // Optional: clear state on logout
-  clearMyProfile: () => {
+  clearMyProfile: async () => {
     const prev = get()._unsubProfile;
     if (typeof prev === 'function') {
       try { prev(); } catch {}
+    }
+    try {
+      await AsyncStorage.removeItem(SEEN_ACHIEVEMENTS_KEY);
+    } catch (e) {
+      console.error("Failed to clear seen achievements from storage.", e);
     }
     set({
       myProfile: null,

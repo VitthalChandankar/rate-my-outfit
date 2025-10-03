@@ -30,6 +30,7 @@ import { fetchUserOutfits, fetchUserAchievements } from '../../services/firebase
 import Avatar from '../../components/Avatar';
 import ProfileGridItem from '../../components/ProfileGridItem';
 import AchievementBadge from '../../components/AchievementBadge';
+import VerificationBadge from '../../components/VerificationBadge';
 
 const { width } = Dimensions.get('window');
 const OUTER_PAD = 16;
@@ -285,7 +286,10 @@ export default function UserProfileScreen({ route, navigation }) {
           <Avatar uri={profile?.profilePicture} size={88} ring ringColor="#fff" />
           <View style={styles.infoContainer}>
             <View style={styles.nameContainer}>
-              <Text style={styles.name}>{profile?.name || profile?.displayName || 'User'}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Text style={styles.name}>{profile?.name || profile?.displayName || 'User'}</Text>
+                <VerificationBadge level={profile?.verification?.level} size={22} />
+              </View>
               {!!profile?.username && <Text style={styles.username}>@{profile.username}</Text>}
             </View>
             <View style={styles.statsRow}>

@@ -34,7 +34,7 @@ function NotificationRow({ item, onNotificationPress }) {
   } else if (item.type === 'achievement') {
     iconName = 'shield-checkmark';
     iconColor = '#5856D6'; // Indigo
-    message = <Text style={styles.message}>Achievement unlocked: <Text style={styles.senderName}>{item.body || 'New Badge'}</Text></Text>;
+      message = <Text style={styles.message}>Achievement unlocked: <Text style={styles.senderName}>{item.body || 'New Badge'}</Text></Text>; // To mark achievement as seen only when the user click on profile button it shoudl not call when the user clicks to notification for achivement
   }
 
   return (

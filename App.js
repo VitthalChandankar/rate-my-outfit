@@ -10,6 +10,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import theme from './src/theme/theme';
 import AppNavigator from './src/navigation/AppNavigator';
 import useAuthStore from './src/store/authStore';
+import useUserStore from './src/store/UserStore';
 import i18n from './src/config/i18n';
 import GlobalAlert from './src/components/GlobalAlert';
 import useNotificationsStore from './src/store/notificationsStore';
@@ -17,6 +18,7 @@ import useNotificationsStore from './src/store/notificationsStore';
 export default function App() {
   const { initializeAuth, user } = useAuthStore();
   const navigationRef = useNavigationContainerRef();
+  const { hydrateSeenAchievements } = useUserStore();
 
   // Effect for loading saved language preference
   useEffect(() => {
@@ -31,7 +33,8 @@ export default function App() {
 
   useEffect(() => {
     initializeAuth(); // listen to firebase auth changes on app start
-  }, [initializeAuth]);
+    hydrateSeenAchievements(); // Load seen achievements from storage on app start
+  }, [initializeAuth, hydrateSeenAchievements]);
 
    // Effect for handling notification taps
    useEffect(() => {

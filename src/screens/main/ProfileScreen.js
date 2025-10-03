@@ -33,6 +33,7 @@ import useContestStore from '../../store/contestStore';
 import Avatar from '../../components/Avatar';
 import ProfileGridItem from '../../components/ProfileGridItem';
 import AchievementBadge from '../../components/AchievementBadge';
+import VerificationBadge from '../../components/VerificationBadge';
 
 const { width } = Dimensions.get('window');
 const SAFE_H = Platform.select({ ios: 44, android: 0, default: 0 });
@@ -61,12 +62,44 @@ export default function ProfileScreen({ navigation, route }) {
   const { user, logout } = useAuthStore();
   const uid = user?.uid || user?.user?.uid || null;
 
-  const { myProfile, loadMyProfile } = useUserStore();
-  const isAdmin = myProfile?.isAdmin;
+  // Use granular selectors for state from Zustand. This ensures the component
+  // re-renders correctly when only specific parts of the store change,
+  // which is crucial for the achievement reset feature to work reliably.
+  const myProfile = useUserStore(s => s.myProfile);
+  const loadMyProfile = useUserStore(s => s.loadMyProfile);
+  const setCoverPhoto = useUserStore(s => s.setCoverPhoto);
+  const myAchievements = useUserStore(s => s.myAchievements);
+  const myAchievementsLoading = useUserStore(s => s.myAchievementsLoading);
+  const fetchMyAchievements = useUserStore(s => s.fetchMyAchievements);
+  const markAchievementAsSeen = useUserStore(s => s.markAchievementAsSeen);
   const mySavedIds = useUserStore((s) => s.mySavedIds);
-  const { setCoverPhoto, myAchievements, fetchMyAchievements, markAchievementAsSeen } = useUserStore();
 
-  const { myOutfits, fetchMyOutfits, loading, refreshing, hasMore, deleteOutfit, savedOutfits, fetchSavedOutfits, savedOutfitsLoading, toggleSave } = useOutfitStore();
+  const isAdmin = myProfile?.isAdmin;
+
+  // Use granular selectors for the outfit store to prevent unnecessary re-renders.
+  const {
+    myOutfits,
+    fetchMyOutfits,
+    myOutfitsLoading,
+    myOutfitsRefreshing,
+    myOutfitsHasMore,
+    deleteOutfit,
+    savedOutfits,
+    fetchSavedOutfits,
+    savedOutfitsLoading,
+    toggleSave,
+  } = useOutfitStore(state => ({
+    myOutfits: state.myOutfits,
+    fetchMyOutfits: state.fetchMyOutfits,
+    myOutfitsLoading: state.myOutfitsLoading,
+    myOutfitsRefreshing: state.myOutfitsRefreshing,
+    myOutfitsHasMore: state.myOutfitsHasMore,
+    deleteOutfit: state.deleteOutfit,
+    savedOutfits: state.savedOutfits,
+    fetchSavedOutfits: state.fetchSavedOutfits,
+    savedOutfitsLoading: state.savedOutfitsLoading,
+    toggleSave: state.toggleSave,
+  }));
   const { contestsById } = useContestStore();
 
   const [tab, setTab] = useState('posts'); // posts | achievements | saved
@@ -94,7 +127,7 @@ export default function ProfileScreen({ navigation, route }) {
     if (isFocused && tab === 'achievements') {
       fetchMyAchievements(uid);
     }
-  }, [isFocused, tab, fetchSavedOutfits, fetchMyAchievements, uid, mySavedIds]);
+  }, [isFocused, tab, fetchSavedOutfits, fetchMyAchievements, uid]);
 
   const handleCoverPhotoChange = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -168,11 +201,19 @@ export default function ProfileScreen({ navigation, route }) {
     }
   }, [navigation]);
 
-  const onRefresh = useCallback(() => fetchMyOutfits({ reset: true }), [fetchMyOutfits]);
+  const onRefresh = useCallback(() => {
+    if (tab === 'posts') {
+      fetchMyOutfits({ reset: true });
+    } else if (tab === 'achievements') {
+      fetchMyAchievements(uid);
+    } else if (tab === 'saved') {
+      fetchSavedOutfits(uid);
+    }
+  }, [tab, fetchMyOutfits, fetchMyAchievements, fetchSavedOutfits, uid]);
 
   const onEnd = useCallback(() => {
-    if (!loading && hasMore) fetchMyOutfits({ reset: false });
-  }, [loading, hasMore, fetchMyOutfits]);
+    if (tab === 'posts' && !myOutfitsLoading && myOutfitsHasMore) fetchMyOutfits({ reset: false });
+  }, [tab, myOutfitsLoading, myOutfitsHasMore, fetchMyOutfits]);
 
   const fadeIn = useRef(new Animated.Value(0)).current;
   useEffect(() => {
@@ -188,18 +229,18 @@ export default function ProfileScreen({ navigation, route }) {
   const renderAchievementItem = useCallback(({ item }) => (
     <AchievementBadge item={item} onReveal={markAchievementAsSeen} />
   ), [markAchievementAsSeen]);
+  
+  const SavedEmpty = () => (
+    <View style={styles.emptyWrap}>
+      <Text style={styles.emptyTitle}>No saved posts</Text>
+      <Text style={styles.emptySub}>Tap the bookmark icon on a post to save it.</Text>
+    </View>
+  );
 
   const AchievementsEmpty = () => (
     <View style={styles.emptyWrap}>
       <Text style={styles.emptyTitle}>No achievements yet</Text>
       <Text style={styles.emptySub}>Join contests and earn badges.</Text>
-    </View>
-  );
-
-  const SavedEmpty = () => (
-    <View style={styles.emptyWrap}>
-      <Text style={styles.emptyTitle}>No saved posts</Text>
-      <Text style={styles.emptySub}>Tap the bookmark icon on a post to save it.</Text>
     </View>
   );
 
@@ -249,7 +290,10 @@ export default function ProfileScreen({ navigation, route }) {
           <Avatar uri={myProfile?.profilePicture} size={88} ring ringColor="#fff" />
           <View style={styles.infoContainer}>
             <View style={styles.nameContainer}>
-              <Text style={styles.name}>{myProfile?.name || 'Your Name'}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Text style={styles.name}>{myProfile?.name || 'Your Name'}</Text>
+                <VerificationBadge level={myProfile?.verification?.level} size={22} />
+              </View>
               {!!myProfile?.username && <Text style={styles.username}>@{myProfile.username}</Text>}
             </View>
             <View style={styles.statsRow}>
@@ -273,14 +317,18 @@ export default function ProfileScreen({ navigation, route }) {
   };
 
   const listData = tab === 'posts' ? data : tab === 'saved' ? savedOutfits : myAchievements;
-  const listEmpty =
-    tab === 'posts'
-    ? (initialLoadComplete && !loading && !refreshing ? <Text style={styles.empty}>No uploads yet — be the first to upload!</Text> : null) //TODO : add cute image that no post yet and encourage the user to post
-    : tab === 'achievements'
-      ? <AchievementsEmpty />
-      : <SavedEmpty />;
+  const isListLoading = tab === 'posts' ? myOutfitsLoading : tab === 'saved' ? savedOutfitsLoading : myAchievementsLoading;
+  const isRefreshing = tab === 'posts' ? myOutfitsRefreshing : tab === 'saved' ? savedOutfitsLoading : myAchievementsLoading;
+  const renderItemToUse = tab === 'posts' || tab === 'saved' ? renderItem : renderAchievementItem;
 
-  if (loading && (myOutfits?.length ?? 0) === 0) {
+  const listEmpty = !isListLoading && !isRefreshing ? (
+    tab === 'posts' ? (initialLoadComplete ? <Text style={styles.empty}>No uploads yet — be the first to upload!</Text> : null)
+    : tab === 'achievements' ? <AchievementsEmpty />
+    : <SavedEmpty />
+  ) : null;
+
+  // Show loading indicator only on initial load of the 'posts' tab
+  if (myOutfitsLoading && !myOutfitsRefreshing && (myOutfits?.length ?? 0) === 0 && tab === 'posts') {
     return (
       <View style={styles.center}>
         <ActivityIndicator />
@@ -300,13 +348,13 @@ export default function ProfileScreen({ navigation, route }) {
         keyExtractor={(item) => String(item?.id || item?._localKey)}
         numColumns={3}
         columnWrapperStyle={tab === 'achievements' ? styles.achievementsGrid : { margin: -1 }}
-        renderItem={renderItem} // This is fine
+        renderItem={renderItemToUse}
         ListHeaderComponent={<ProfileHeader />}
-        refreshControl={<RefreshControl refreshing={!!refreshing} onRefresh={onRefresh} />}
+        refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />}
         onEndReachedThreshold={0.35}
         onEndReached={onEnd}
         ListEmptyComponent={listEmpty}
-        ListFooterComponent={loading ? <ActivityIndicator style={{ marginVertical: 16 }} /> : null}
+        ListFooterComponent={isListLoading && !isRefreshing ? <ActivityIndicator style={{ marginVertical: 16 }} /> : null}
         showsVerticalScrollIndicator={false} // This is fine
         // Performance tuning for grid
         initialNumToRender={18}

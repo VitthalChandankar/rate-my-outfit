@@ -62,6 +62,7 @@ export default function SettingsScreen({ navigation }) {
   return (
     <ScrollView style={styles.container}>
      <SettingsSection title={i18n.t('settings.account')}>
+        <SettingsRow icon="shield-checkmark-outline" label="Verification" onPress={() => navigation.navigate('Verification')} color="#7A5AF8" />
         <SettingsRow icon="person-outline" label={i18n.t('settings.editProfile')} onPress={() => navigation.navigate('EditProfile')} />
         <SettingsRow icon="hand-left-outline" label="Blocked Accounts" onPress={() => navigation.navigate('BlockedUsers')} />
         <SettingsRow icon="lock-closed-outline" label={i18n.t('settings.changePassword')} onPress={() => showAlert('Coming Soon', 'This feature is not yet implemented.')} />

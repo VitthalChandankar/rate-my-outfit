@@ -72,6 +72,10 @@ async function createUser(uid, email, name, phone = null) {
       showRatingsOnMyProfile: true,
       showRatingsToOthers: true,
     },
+    verification: {
+      level: 'none', // none, basic, premium, pro
+      status: 'unverified', // unverified, pending, verified, rejected
+    },
     profileCompleted: false, // Add this flag for the new auth flow
   };
   await setDoc(doc(firestore, 'users', uid), userDoc);
@@ -853,6 +857,77 @@ async function updateProblemReportStatus(reportId, status) {
   }
 }
 
+async function createVerificationApplication(applicationData) {
+  try {
+    const payload = {
+      ...applicationData,
+      status: 'pending', // Always starts as pending
+      createdAt: serverTimestamp(),
+    };
+    const docRef = await addDoc(collection(firestore, 'verificationApplications'), payload);
+    // Also update the user's verification status to 'pending'
+    await updateDoc(doc(firestore, 'users', applicationData.userId), {
+      'verification.status': 'pending',
+    });
+    return { success: true, id: docRef.id };
+  } catch (error) {
+    console.error('createVerificationApplication error:', error);
+    return { success: false, error };
+  }
+}
+
+async function listVerificationApplications({ status = 'pending' }) {
+  try {
+    const q = query(
+      collection(firestore, 'verificationApplications'),
+      where('status', '==', status),
+      orderBy('createdAt', 'asc')
+    );
+    const snap = await getDocs(q);
+    const items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    return { success: true, items };
+  } catch (error) {
+    console.error('listVerificationApplications error:', error);
+    return { success: false, error };
+  }
+}
+
+async function getVerificationApplication(applicationId) {
+  try {
+    const appRef = doc(firestore, 'verificationApplications', applicationId);
+    const appSnap = await getDoc(appRef);
+    if (!appSnap.exists()) {
+      return { success: false, error: 'Application not found.' };
+    }
+    return { success: true, application: { id: appSnap.id, ...appSnap.data() } };
+  } catch (error) {
+    console.error('getVerificationApplication error:', error);
+    return { success: false, error };
+  }
+}
+
+async function processVerificationApplication({ applicationId, userId, decision, plan }) {
+  const appRef = doc(firestore, 'verificationApplications', applicationId);
+  const userRef = doc(firestore, 'users', userId);
+
+  try {
+    const batch = writeBatch(firestore);
+    // Update the application status
+    batch.update(appRef, { status: decision });
+    // Update the user's profile
+    if (decision === 'approved') {
+      batch.update(userRef, { 'verification.level': plan, 'verification.status': 'verified' });
+    } else { // 'rejected'
+      batch.update(userRef, { 'verification.level': 'none', 'verification.status': 'unverified' });
+    }
+    await batch.commit();
+    return { success: true };
+  } catch (error) {
+    console.error('processVerificationApplication error:', error);
+    return { success: false, error };
+  }
+}
+
 // --- Profile & social helpers ---
 async function getUserProfile(uid) {
   try {
@@ -1205,6 +1280,7 @@ export {
   logout, onAuthChange, sendResetEmail, signupWithEmail, uploadImage, fbFetchContestsByIds,
   toggleLikePost, fetchMyLikedOutfitIds, fetchLikersForOutfit, fbListContests, fbFetchContestEntries, fbCreateEntry, fbRateEntry, fbFetchContestLeaderboard, updateUserPushToken,
   getUserProfile, updateUserProfile, setUserAvatar, ensureUsernameUnique, blockUser, unblockUser, listBlockedUsers, fetchMyBlockedIds, fetchMyBlockerIds, createProblemReport, listProblemReports, updateProblemReportStatus,
+  createVerificationApplication, listVerificationApplications, getVerificationApplication, processVerificationApplication,
   followUser, unfollowUser, isFollowing, listFollowers, listFollowing,
   fetchNotifications, markNotificationsAsRead, subscribeToUnreadNotifications,
   fbSharePost, fbFetchShares, fbReactToShare, toggleSavePost, fetchMySavedOutfitIds, fetchOutfitsByIds, fetchUserAchievements, listAchievements, createOrUpdateAchievement

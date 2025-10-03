@@ -54,6 +54,7 @@ import HelpCenterScreen from '../screens/settings/HelpCenterScreen';
 import PrivacyPolicyScreen from '../screens/settings/PrivacyPolicyScreen';
 import ReportProblemScreen from '../screens/settings/ReportProblemScreen';
 import TermsOfServiceScreen from '../screens/settings/TermsOfServiceScreen';
+import VerificationScreen from '../screens/settings/VerificationScreen';
 
 import InboxScreen from '../screens/sharing/InboxScreen';
 import SharePostScreen from '../screens/sharing/SharePostScreen';
@@ -64,6 +65,8 @@ import ManageAchievementsScreen from '../screens/admin/ManageAchievementsScreen'
 import CreateAchievementScreen from '../screens/admin/CreateAchievementScreen';
 import ManageReportsScreen from '../screens/admin/ManageReportsScreen';
 import ReportDetailsScreen from '../screens/admin/ReportDetailsScreen';
+import ManageVerificationScreen from '../screens/admin/ManageVerificationScreen';
+import VerificationDetailsScreen from '../screens/admin/VerificationDetailsScreen';
 
 
 const Stack = createNativeStackNavigator();
@@ -297,6 +300,16 @@ function MainAppStack() {
         component={CreateAchievementScreen}
         options={{ headerShown: true, title: 'Create/Edit Achievement' }}
       />
+      <Stack.Screen
+        name="ManageVerification"
+        component={ManageVerificationScreen}
+        options={{ headerShown: true, title: 'Verification Requests' }}
+      />
+      <Stack.Screen
+        name="VerificationDetails"
+        component={VerificationDetailsScreen}
+        options={{ headerShown: true, title: 'Application Details' }}
+      />
        <Stack.Screen
         name="ManageReports"
         component={ManageReportsScreen}
@@ -315,6 +328,17 @@ function MainAppStack() {
         options={{
           headerShown: true,
           title: 'Settings',
+          headerStyle: { backgroundColor: '#fff' },
+          headerTintColor: '#111',
+          headerTitleStyle: { fontWeight: 'bold' },
+        }}
+      />
+      <Stack.Screen
+        name="Verification"
+        component={VerificationScreen}
+        options={{
+          headerShown: true,
+          title: 'Verification',
           headerStyle: { backgroundColor: '#fff' },
           headerTintColor: '#111',
           headerTitleStyle: { fontWeight: 'bold' },
