@@ -72,7 +72,7 @@ export default function HomeScreen() {
   useEffect(() => {
     navigation.setOptions({
       headerShown: true,
-      title: 'Rate My Outfit',
+      title: 'Vastrayl',
       headerRight: () => (
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
           <TouchableOpacity onPress={() => navigation.navigate('Inbox')} style={{ marginRight: 16 }}>

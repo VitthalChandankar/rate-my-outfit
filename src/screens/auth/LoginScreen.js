@@ -57,7 +57,7 @@ export default function LoginScreen({ navigation }) {
         {/* Logo / App Name */}
         <Ionicons name="shirt" size={64} color="#FF5A5F" style={{ marginBottom: 16 }} />
        
-        <Text style={styles.title}>Rate My Outfit</Text>
+        <Text style={styles.title}>Vastrayl</Text>
         <Text style={styles.subtitle}>Sign in or create an account</Text>
 
         {/* Error message */}

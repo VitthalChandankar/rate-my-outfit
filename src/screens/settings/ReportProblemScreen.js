@@ -59,7 +59,7 @@ export default function ReportProblemScreen({ navigation }) {
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
       <Text style={styles.title}>Report a Problem</Text>
-      <Text style={styles.subtitle}>Help us improve Rate My Outfit by describing the issue you've encountered.</Text>
+      <Text style={styles.subtitle}>Help us improve Vastrayl by describing the issue you've encountered.</Text>
 
       <Text style={styles.label}>Category</Text>
       <SegmentedButtons

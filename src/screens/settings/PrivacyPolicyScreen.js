@@ -19,7 +19,7 @@ export default function PrivacyPolicyScreen() {
 
       <Section title="1. Introduction">
         <P>
-          Welcome to Rate My Outfit ("we," "our," "us"). We are committed to protecting your privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our mobile application (the "App"). Please read this policy carefully.
+          Welcome to Vastrayl ("we," "our," "us"). We are committed to protecting your privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our mobile application (the "App"). Please read this policy carefully.
         </P>
       </Section>
 

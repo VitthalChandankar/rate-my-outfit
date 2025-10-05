@@ -211,7 +211,7 @@ const AchievementBadge = memo(({ item, onReveal }) => {
                 style={{ flex: 1 }}
               />
             </Animated.View>
-            <Text style={styles.brandText}>Rate My Outfit</Text>
+            <Text style={styles.brandText}>Vastrayl</Text>
             <Text style={styles.scratchHint}>Scratch to Reveal!</Text>
           </Animated.View>
         )}

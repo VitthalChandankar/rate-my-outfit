@@ -22,7 +22,7 @@ export default function HelpCenterScreen() {
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
       <Text style={styles.headerTitle}>Help Center</Text>
-      <Text style={styles.headerSubtitle}>Find answers to your questions and learn how to use Rate My Outfit.</Text>
+      <Text style={styles.headerSubtitle}>Find answers to your questions and learn how to use Vastrayl.</Text>
 
       <Section title="Frequently Asked Questions">
         <QA

@@ -74,7 +74,7 @@ export default function SignupScreen({ navigation }) {
         {/* Logo / App Name */}
         <Ionicons name="shirt" size={64} color="#FF5A5F" style={{ marginBottom: 16 }} />
         <Text style={styles.title}>Create Account</Text>
-        <Text style={styles.subtitle}>Join Rate My Outfit</Text>
+        <Text style={styles.subtitle}>Join Vastrayl</Text>
 
         {/* Error message */}
         {error ? <Text style={styles.errorText}>{error}</Text> : null}

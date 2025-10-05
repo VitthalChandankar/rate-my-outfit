@@ -19,7 +19,7 @@ export default function TermsOfServiceScreen() {
 
       <Section title="1. Acceptance of Terms">
         <P>
-          By accessing or using the Rate My Outfit mobile application (the "Service"), you agree to be bound by these Terms of Service ("Terms"). If you disagree with any part of the terms, then you may not access the Service.
+          By accessing or using the Vastrayl mobile application (the "Service"), you agree to be bound by these Terms of Service ("Terms"). If you disagree with any part of the terms, then you may not access the Service.
         </P>
       </Section>
 
