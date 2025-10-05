@@ -1,6 +1,15 @@
 // src/screens/main/SearchScreen.js
-import React, { useState, useCallback } from 'react';
-import { View, StyleSheet, TextInput, FlatList, Text, ActivityIndicator, TouchableOpacity } from 'react-native';
+import React, { useState, useCallback, useRef } from 'react';
+import {
+  View,
+  StyleSheet,
+  TextInput,
+  FlatList,
+  Text,
+  ActivityIndicator,
+  TouchableOpacity,
+  Keyboard,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import useUserStore from '../../store/UserStore';
@@ -19,6 +28,8 @@ export function SearchScreen() {
   const { profilesById, loadUserProfile, follow, unfollow, relCache, isFollowing } = useUserStore();
   const { user } = useAuthStore();
   const authedId = user?.uid || user?.user?.uid || null;
+
+  const inputRef = useRef(null);
 
   const handleSearch = useCallback(async (text) => {
     setSearchQuery(text);
@@ -40,6 +51,16 @@ export function SearchScreen() {
       setSearchResults([]);
     } finally {
       setLoading(false);
+    }
+  }, []);
+
+  const clearSearch = useCallback(() => {
+    setSearchQuery('');
+    setSearchResults([]);
+    // Dismiss keyboard then re-focus input for quick typing if you prefer
+    // Keyboard.dismiss();
+    if (inputRef.current && typeof inputRef.current.focus === 'function') {
+      inputRef.current.focus();
     }
   }, []);
 
@@ -66,7 +87,10 @@ export function SearchScreen() {
 
     return (
       <View style={styles.row}>
-        <TouchableOpacity onPress={() => navigation.navigate('UserProfile', { userId: item.id })} style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+        <TouchableOpacity
+          onPress={() => navigation.navigate('UserProfile', { userId: item.id })}
+          style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}
+        >
           <Avatar uri={display.picture} size={44} ring />
           <View style={{ marginLeft: 10, flex: 1 }}>
             <Text style={styles.name}>{display.name}</Text>
@@ -92,19 +116,40 @@ export function SearchScreen() {
       <View style={styles.searchContainer}>
         <Ionicons name="search" size={20} color="#999" style={styles.searchIcon} />
         <TextInput
+          ref={inputRef}
           placeholder="Search users by name or username..."
           placeholderTextColor="#999"
           style={styles.searchInput}
           value={searchQuery}
           onChangeText={handleSearch}
-          clearButtonMode="while-editing"
+          returnKeyType="search"
+          onSubmitEditing={() => {
+            // optional: trigger a final search on submit (already happens onChange)
+            if (searchQuery.trim()) handleSearch(searchQuery.trim());
+            Keyboard.dismiss();
+          }}
+          // `clearButtonMode` is iOS-only; we provide a cross icon for cross-platform
+          clearButtonMode="never"
         />
+        {/* Clear button (cross) shown only when there's text */}
+        {searchQuery.length > 0 ? (
+          <TouchableOpacity
+            onPress={clearSearch}
+            accessibilityLabel="Clear search"
+            accessibilityRole="button"
+            style={styles.clearBtn}
+            hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+          >
+            <Ionicons name="close-circle" size={18} color="#666" />
+          </TouchableOpacity>
+        ) : null}
       </View>
 
       {loading ? (
         <ActivityIndicator style={{ marginTop: 20 }} />
       ) : (
         <FlatList
+          keyboardShouldPersistTaps="handled"
           data={searchResults}
           keyExtractor={(item) => item.id}
           renderItem={renderItem}
@@ -130,6 +175,7 @@ const styles = StyleSheet.create({
   },
   searchIcon: { marginRight: 8 },
   searchInput: { flex: 1, height: 40, fontSize: 16 },
+  clearBtn: { marginLeft: 8 },
   row: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8 },
   name: { fontWeight: '700', color: '#111' },
   sub: { color: '#777', marginTop: 2, fontSize: 12 },
