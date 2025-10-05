@@ -1256,41 +1256,43 @@ async function subscribeToUnreadNotifications(userId, onUpdate) {
 
 async function firebaseSearchUsers(searchString) {
   try {
-      const searchTerm = searchString.toLowerCase();
-      const usersRef = collection(firestore, 'users');
-      
-      // Create a query that searches for users whose name or username matches the search term
-      const nameQuery = query(
-          usersRef,
-          where('name', '>=', searchTerm),
-          where('name', '<=', searchTerm + '\uf8ff'), // upper bound using unicode character
-          limit(10)
-      );
+    const searchTerm = searchString.toLowerCase();
+    const usersRef = collection(firestore, 'users');
+    
+    // Create a query that searches for users whose name or username matches the search term
+    const nameQuery = query(
+        usersRef,
+        where('name', '>=', searchTerm),
+        where('name', '<=', searchTerm + '\uf8ff'), // upper bound using unicode character
+        limit(10)
+    );
 
-      const usernameQuery = query(
-          usersRef,
-          where('username', '>=', searchTerm),
-          where('username', '<=', searchTerm + '\uf8ff'), // upper bound using unicode character
-          limit(10)
-      );
+    const usernameQuery = query(
+      usersRef,
+      where('username', '>=', searchTerm),
+      where('username', '<=', searchTerm + '\uf8ff'), // upper bound using unicode character
+      limit(10)
+  );
 
-      // Execute the queries
-      const [nameSnapshot, usernameSnapshot] = await Promise.all([
-          getDocs(nameQuery),
-          getDocs(usernameQuery),
-      ]);
+  // Execute the queries
+  const [nameSnapshot, usernameSnapshot] = await Promise.all([
+      getDocs(nameQuery),
+      getDocs(usernameQuery),
+  ]);
 
-      // Combine the results from both queries
-      const nameResults = nameSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      const usernameResults = usernameSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  // Combine the results from both queries
+  const nameResults = nameSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  const usernameResults = usernameSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-      // Deduplicate the results, giving priority to name matches
-      const combinedResults = [...nameResults, ...usernameResults];
-      const uniqueResults = Array.from(new Map(combinedResults.map(item => [item.id, item])).values());
+  // Deduplicate the results, giving priority to name matches
+  const combinedResults = [...nameResults, ...usernameResults];
+  const uniqueResults = Array.from(new Map(combinedResults.map(item => [item.id, item])).values());
 
-      return { success: true, users: uniqueResults };
-  } catch (error) {
-      console.error('firebaseSearchUsers error:', error);
+const users = uniqueResults.map(doc => ({ id: doc.id, name:doc.name, username:doc.username, picture: doc.profilePicture }));
+
+return { success: true, users };
+} catch (error) {
+console.error('firebaseSearchUsers error:', error);
       return { success: false, error };
   }
 }
