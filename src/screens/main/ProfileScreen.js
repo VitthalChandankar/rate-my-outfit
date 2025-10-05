@@ -3,7 +3,7 @@
 // segmented control, crisp grid, and actions (Edit/Share/Logout) for the signed-in user.
 // ProfileScreen: the owner’s self profile inside the MainTabs.
 
-import React, { useCallback, useEffect, useMemo, useRef, useState, memo } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -32,7 +32,8 @@ import { fetchOutfitsByIds } from '../../services/firebase';
 import useContestStore from '../../store/contestStore';
 import Avatar from '../../components/Avatar';
 import ProfileGridItem from '../../components/ProfileGridItem';
-import AchievementBadge from '../../components/AchievementBadge';
+// AchievementBadge will be dynamically imported to avoid useInsertionEffect warnings
+// import AchievementBadge from '../../components/AchievementBadge';
 import VerificationBadge from '../../components/VerificationBadge';
 
 const { width } = Dimensions.get('window');
@@ -105,6 +106,22 @@ export default function ProfileScreen({ navigation, route }) {
   const [tab, setTab] = useState('posts'); // posts | achievements | saved
   const [initialLoadComplete, setInitialLoadComplete] = useState(false);
 
+  // Lazy-load AchievementBadge to avoid running its hooks during the ProfileScreen initial render
+  const [AchievementBadgeComp, setAchievementBadgeComp] = useState(null);
+  useEffect(() => {
+    let mounted = true;
+    // Only load when achievements tab could be shown or profile mounts
+    (async () => {
+      try {
+        const mod = await import('../../components/AchievementBadge');
+        if (mounted) setAchievementBadgeComp(() => mod.default);
+      } catch (e) {
+        // ignore - we'll render fallback content if import fails
+      }
+    })();
+    return () => { mounted = false; };
+  }, []);
+
   useEffect(() => {
     if (isFocused) {
       // When focused, check for initialTab param and set it.
@@ -133,7 +150,7 @@ export default function ProfileScreen({ navigation, route }) {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaType.Images,
       allowsEditing: true,
-      aspect: [16, 9], // Enforce a widescreen aspect ratio
+      aspect: [16, 9],
       quality: 0.8,
     });
 
@@ -226,10 +243,20 @@ export default function ProfileScreen({ navigation, route }) {
     <ProfileGridItem item={item} onPress={handlePostPress} onLongPress={handlePostLongPress} showRating={showRatingsOnMyProfile} />
   ), [handlePostPress, handlePostLongPress, showRatingsOnMyProfile]);
 
-  const renderAchievementItem = useCallback(({ item }) => (
-    <AchievementBadge item={item} onReveal={markAchievementAsSeen} />
-  ), [markAchievementAsSeen]);
-  
+  // Use the dynamically loaded component if available; otherwise show a simple placeholder for achievements grid items.
+  const renderAchievementItem = useCallback(({ item }) => {
+    if (AchievementBadgeComp) {
+      const Comp = AchievementBadgeComp;
+      return <Comp item={item} onReveal={markAchievementAsSeen} />;
+    }
+    // fallback placeholder while AchievementBadge module loads
+    return (
+      <Pressable style={{ width: Math.floor((width - OUTER_PAD * 2 - GAP * (COLS - 1)) / COLS), height: 120, alignItems: 'center', justifyContent: 'center' }}>
+        <Text numberOfLines={1} style={{ fontSize: 12, color: '#666' }}>{item.title}</Text>
+      </Pressable>
+    );
+  }, [AchievementBadgeComp, markAchievementAsSeen]);
+
   const SavedEmpty = () => (
     <View style={styles.emptyWrap}>
       <Text style={styles.emptyTitle}>No saved posts</Text>
@@ -355,8 +382,7 @@ export default function ProfileScreen({ navigation, route }) {
         onEndReached={onEnd}
         ListEmptyComponent={listEmpty}
         ListFooterComponent={isListLoading && !isRefreshing ? <ActivityIndicator style={{ marginVertical: 16 }} /> : null}
-        showsVerticalScrollIndicator={false} // This is fine
-        // Performance tuning for grid
+        showsVerticalScrollIndicator={false}
         initialNumToRender={18}
         maxToRenderPerBatch={24}
         windowSize={9}
@@ -390,16 +416,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: OUTER_PAD,
-    marginTop: -20, // Controls the overlap of the avatar
+    marginTop: -20,
   },
   infoContainer: {
     marginTop: 20,
     flex: 1,
     marginLeft: 40,
   },
-  nameContainer: {
-    // Container for name and username
-  },
+  nameContainer: {},
   name: {
     fontSize: 22,
     fontWeight: '900',

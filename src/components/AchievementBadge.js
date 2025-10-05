@@ -1,8 +1,8 @@
 // src/components/AchievementBadge.js Square Grid Style Scratch Card
 import React, { useRef, useEffect, memo } from 'react';
-import { View, Text, StyleSheet, Pressable, Animated, PanResponder } from 'react-native';
-// replaced expo-av with expo-audio
-import { useAudioPlayer } from 'expo-audio';
+import { Text, StyleSheet, Pressable, Animated, PanResponder } from 'react-native';
+// We avoid calling any audio hook at render time.
+// The audio player is created imperatively inside useEffect.
 import { Image as ExpoImage } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -17,17 +17,16 @@ const AchievementBadge = memo(({ item, onReveal }) => {
 
   useEffect(() => {
     if (isNew) {
-      // Animate from locked (0) to unlocked (1)
       Animated.spring(animValue, {
         toValue: 1,
         friction: 8,
         tension: 100,
         useNativeDriver: true,
-      }).start(); // onReveal is now handled by the scratch action
+      }).start();
     }
   }, [isNew, animValue]);
 
-  // Shimmer animation for the scratch card
+  // Shimmer animation for scratch card
   const shimmerAnim = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     if (isNew) {
@@ -41,14 +40,85 @@ const AchievementBadge = memo(({ item, onReveal }) => {
     }
   }, [isNew, shimmerAnim]);
 
-  // --- expo-audio: useAudioPlayer hook ---
-  // useAudioPlayer manages lifecycle automatically (created & released for the component)
-  // audioSource can be a require(...) local asset
+  // --- Imperative audio initialization (avoids scheduling updates in insertion phase) ---
+  const playerRef = useRef(null);
+  const playerApiType = useRef(null); // 'expo-audio' | 'expo-av' | null
   const audioSource = require('../../assets/sounds/scratch.mp3');
-  const player = useAudioPlayer(audioSource);
 
-  // If you prefer manual control and lifetime, use createAudioPlayer per docs.
-  // const player = createAudioPlayer(audioSource) // then remember to release()
+  useEffect(() => {
+    let mounted = true;
+
+    (async () => {
+      try {
+        // Try dynamic import of expo-audio (if installed)
+        const expoAudio = await import('expo-audio');
+        if (expoAudio && typeof expoAudio.createAudioPlayer === 'function') {
+          const player = expoAudio.createAudioPlayer(audioSource);
+          if (!mounted) {
+            if (player && typeof player.unload === 'function') player.unload();
+            return;
+          }
+          playerRef.current = player;
+          playerApiType.current = 'expo-audio';
+          return;
+        }
+      } catch (e) {
+        // ignore - fallback to expo-av
+      }
+
+      try {
+        const expoAv = await import('expo-av');
+        if (expoAv && expoAv.Audio && typeof expoAv.Audio.Sound.createAsync === 'function') {
+          const { sound } = await expoAv.Audio.Sound.createAsync(audioSource);
+          if (!mounted) {
+            if (sound && typeof sound.unloadAsync === 'function') await sound.unloadAsync();
+            return;
+          }
+          playerRef.current = sound;
+          playerApiType.current = 'expo-av';
+          return;
+        }
+      } catch (e) {
+        // failed to init audio - OK to continue without sound
+      }
+    })();
+
+    return () => {
+      mounted = false;
+      try {
+        const p = playerRef.current;
+        if (!p) return;
+        if (playerApiType.current === 'expo-audio') {
+          if (typeof p.unload === 'function') p.unload();
+          else if (typeof p.release === 'function') p.release();
+        } else if (playerApiType.current === 'expo-av') {
+          if (typeof p.unloadAsync === 'function') p.unloadAsync();
+        }
+      } catch (_) {
+        // ignore cleanup errors
+      }
+    };
+  }, []);
+
+  // Play/reset helper
+  const resetAndPlaySound = async () => {
+    try {
+      const p = playerRef.current;
+      if (!p || !playerApiType.current) return;
+
+      if (playerApiType.current === 'expo-audio') {
+        if (typeof p.seekTo === 'function') await p.seekTo(0);
+        else if (typeof p.setPosition === 'function') await p.setPosition(0);
+        if (typeof p.play === 'function') await p.play();
+      } else if (playerApiType.current === 'expo-av') {
+        if (typeof p.setPositionAsync === 'function') await p.setPositionAsync(0);
+        if (typeof p.playAsync === 'function') await p.playAsync();
+      }
+    } catch (e) {
+      // ignore playback errors
+      // console.warn('Playback failed', e);
+    }
+  };
 
   const handlePress = () => {
     if (isUnlocked) {
@@ -87,35 +157,19 @@ const AchievementBadge = memo(({ item, onReveal }) => {
       onStartShouldSetPanResponder: () => isNew, // Only respond if it's a new, un-revealed achievement
       onMoveShouldSetPanResponder: () => isNew,
       onPanResponderMove: (evt, gestureState) => {
-        // A simple implementation: if moved enough, start fading out.
-        // A more complex implementation would involve masking.
         if (Math.abs(gestureState.dx) > 10 || Math.abs(gestureState.dy) > 10) {
           Animated.timing(scratchOpacity, {
             toValue: 0,
             duration: 400,
             useNativeDriver: true,
-          }).start(() => {
-            // play scratch sound using expo-audio player: reset position then play
-            (async () => {
-              try {
-                // expo-audio's player.play() will play from current position
-                // ensure we start from 0 for a "replay" effect
-                if (player && typeof player.seekTo === 'function') {
-                  // seekTo expects seconds (number)
-                  await player.seekTo(0);
-                }
-                if (player && typeof player.play === 'function') {
-                  await player.play();
-                }
-              } catch (e) {
-                // ignore audio playback errors silently (optionally log)
-                console.warn('Audio play failed', e);
-              }
-            })();
-
-            // Once the animation is complete, call onReveal to update the global state
+          }).start(async () => {
+            await resetAndPlaySound();
             if (onReveal) {
-              onReveal(item.id);
+              try {
+                onReveal(item.id);
+              } catch (e) {
+                // swallow errors
+              }
             }
           });
         }
@@ -178,10 +232,7 @@ const styles = StyleSheet.create({
   },
   badge: {
     position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
+    top: 0, left: 0, right: 0, bottom: 0,
     borderRadius: 0,
     justifyContent: 'center',
     alignItems: 'center',
@@ -205,11 +256,7 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
-  image: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 0,
-  },
+  image: { width: '100%', height: '100%', borderRadius: 0 },
   scratchCard: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: '#ccc',
@@ -219,37 +266,23 @@ const styles = StyleSheet.create({
     borderRadius: 0,
     justifyContent: 'center',
     alignItems: 'center',
-    overflow: 'hidden', // Clip the shimmer
+    overflow: 'hidden',
   },
   brandText: {
     fontSize: 16,
     fontWeight: 'bold',
     color: '#fff',
     marginBottom: 8,
-    textShadowColor: 'rgba(0, 0, 0, 0.2)',
+    textShadowColor: 'rgba(0,0,0,0.2)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
   },
-  scratchHint: {
-    fontSize: 14,
-    color: '#eee',
-  },
-  shimmer: {
-    position: 'absolute',
-    width: '100%',
-    height: '100%',
-    opacity: 0.8,
-  },
+  scratchHint: { fontSize: 14, color: '#eee' },
+  shimmer: { position: 'absolute', width: '100%', height: '100%', opacity: 0.8 },
   title: {
-    marginTop: 8,
-    textAlign: 'center',
-    fontWeight: '600',
-    fontSize: 13,
-    color: '#1F2937',
+    marginTop: 8, textAlign: 'center', fontWeight: '600', fontSize: 13, color: '#1F2937',
   },
-  titleLocked: {
-    color: '#9CA3AF',
-  },
+  titleLocked: { color: '#9CA3AF' },
 });
 
 export default memo(AchievementBadge);
