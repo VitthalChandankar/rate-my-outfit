@@ -1,12 +1,12 @@
 // src/components/AchievementBadge.js Square Grid Style Scratch Card
 import React, { useRef, useEffect, memo } from 'react';
 import { View, Text, StyleSheet, Pressable, Animated, PanResponder } from 'react-native';
-import { Audio } from 'expo-av';
+// replaced expo-av with expo-audio
+import { useAudioPlayer } from 'expo-audio';
 import { Image as ExpoImage } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import showAlert from '../utils/showAlert';
-
 
 const AchievementBadge = memo(({ item, onReveal }) => {
   const isUnlocked = !!item.unlockedAt;
@@ -41,21 +41,15 @@ const AchievementBadge = memo(({ item, onReveal }) => {
     }
   }, [isNew, shimmerAnim]);
 
-   // Load sound effect
-  const [sound, setSound] = React.useState(null);
+  // --- expo-audio: useAudioPlayer hook ---
+  // useAudioPlayer manages lifecycle automatically (created & released for the component)
+  // audioSource can be a require(...) local asset
+  const audioSource = require('../../assets/sounds/scratch.mp3');
+  const player = useAudioPlayer(audioSource);
 
-  useEffect(() => {
-    async function loadSound() {
-      const { sound } = await Audio.Sound.createAsync(
-         require('../../assets/sounds/scratch.mp3')
-      );
-      setSound(sound);
-    }
+  // If you prefer manual control and lifetime, use createAudioPlayer per docs.
+  // const player = createAudioPlayer(audioSource) // then remember to release()
 
-    loadSound();
-
-    return () => { if(sound) sound.unloadAsync(); }
-  }, []);
   const handlePress = () => {
     if (isUnlocked) {
       showAlert(item.title, item.description);
@@ -99,16 +93,26 @@ const AchievementBadge = memo(({ item, onReveal }) => {
           Animated.timing(scratchOpacity, {
             toValue: 0,
             duration: 400,
-           
-            /*Add Sound Effect here*/
-            onComplete: async () => {
-              if (sound) {
-                await sound.replayAsync();
-              }
-            },
-
             useNativeDriver: true,
           }).start(() => {
+            // play scratch sound using expo-audio player: reset position then play
+            (async () => {
+              try {
+                // expo-audio's player.play() will play from current position
+                // ensure we start from 0 for a "replay" effect
+                if (player && typeof player.seekTo === 'function') {
+                  // seekTo expects seconds (number)
+                  await player.seekTo(0);
+                }
+                if (player && typeof player.play === 'function') {
+                  await player.play();
+                }
+              } catch (e) {
+                // ignore audio playback errors silently (optionally log)
+                console.warn('Audio play failed', e);
+              }
+            })();
+
             // Once the animation is complete, call onReveal to update the global state
             if (onReveal) {
               onReveal(item.id);
@@ -116,8 +120,6 @@ const AchievementBadge = memo(({ item, onReveal }) => {
           });
         }
       },
-
-
     })
   ).current;
 
@@ -139,7 +141,7 @@ const AchievementBadge = memo(({ item, onReveal }) => {
           <ExpoImage source={{ uri: item.imageUrl }} style={styles.image} contentFit="contain" />
         </Animated.View>
 
- {/* Scratch Card Overlay */}
+        {/* Scratch Card Overlay */}
         {isNew && (
           <Animated.View {...panResponder.panHandlers} style={[styles.scratchCard, { opacity: scratchOpacity }]}>
             <LinearGradient
@@ -173,7 +175,7 @@ const styles = StyleSheet.create({
     width: '33.33%',
     padding: 1,
     aspectRatio: 1,
- },
+  },
   badge: {
     position: 'absolute',
     top: 0,
@@ -197,7 +199,7 @@ const styles = StyleSheet.create({
     borderColor: '#E5E7EB',
   },
   unlockedFace: {
-  backgroundColor: '#fff',
+    backgroundColor: '#fff',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 4,
@@ -210,10 +212,10 @@ const styles = StyleSheet.create({
   },
   scratchCard: {
     ...StyleSheet.absoluteFillObject,
- backgroundColor: '#ccc',
+    backgroundColor: '#ccc',
     width: '100%',
     height: '100%',
- position: 'absolute',
+    position: 'absolute',
     borderRadius: 0,
     justifyContent: 'center',
     alignItems: 'center',
@@ -245,11 +247,9 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#1F2937',
   },
- titleLocked: {
-    color: '#9CA3AF'
-  }
+  titleLocked: {
+    color: '#9CA3AF',
+  },
 });
-
-
 
 export default memo(AchievementBadge);

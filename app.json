@@ -5,7 +5,8 @@
     "version": "1.0.0",
     "plugins": [
       "@react-native-firebase/app",
-      "expo-localization"
+      "expo-localization",
+      "expo-audio"
     ],
     "orientation": "portrait",
     "icon": "./assets/icon.png",

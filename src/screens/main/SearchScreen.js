@@ -1,0 +1,149 @@
+// src/screens/main/SearchScreen.js
+import React, { useState, useCallback } from 'react';
+import { View, StyleSheet, TextInput, FlatList, Text, ActivityIndicator, TouchableOpacity } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
+import useUserStore from '../../store/UserStore';
+import useAuthStore from '../../store/authStore'; // adjust path if your auth store lives elsewhere
+import Avatar from '../../components/Avatar';
+import { SafeAreaView } from 'react-native-safe-area-context';
+
+// If `firebaseSearchUsers` lives in your project, import it accordingly:
+import { firebaseSearchUsers } from '../../services/firebase';
+
+export function SearchScreen() {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const navigation = useNavigation();
+  const { profilesById, loadUserProfile, follow, unfollow, relCache, isFollowing } = useUserStore();
+  const { user } = useAuthStore();
+  const authedId = user?.uid || user?.user?.uid || null;
+
+  const handleSearch = useCallback(async (text) => {
+    setSearchQuery(text);
+    if (!text.trim()) {
+      setSearchResults([]);
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const res = await firebaseSearchUsers(text);
+      if (res?.success) {
+        setSearchResults(res.users || []);
+      } else {
+        setSearchResults([]);
+      }
+    } catch (err) {
+      console.warn('Search error', err);
+      setSearchResults([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const renderItem = ({ item }) => {
+    const display = {
+      name: item.name || 'User',
+      username: item.username,
+      picture: item.picture,
+    };
+
+    const isSelf = authedId && item.id === authedId;
+    const relIdOf = (followerId, followingId) => `${followerId}_${followingId}`;
+    const following = !!relCache[relIdOf(authedId, item.id)];
+
+    const onToggleFollow = () => {
+      if (!authedId || authedId === item.id) return;
+
+      if (following) {
+        unfollow(authedId, item.id);
+      } else {
+        follow(authedId, item.id);
+      }
+    };
+
+    return (
+      <View style={styles.row}>
+        <TouchableOpacity onPress={() => navigation.navigate('UserProfile', { userId: item.id })} style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+          <Avatar uri={display.picture} size={44} ring />
+          <View style={{ marginLeft: 10, flex: 1 }}>
+            <Text style={styles.name}>{display.name}</Text>
+            {!!display.username && <Text style={styles.sub}>@{display.username}</Text>}
+          </View>
+        </TouchableOpacity>
+        {!isSelf && (
+          <TouchableOpacity
+            onPress={onToggleFollow}
+            style={[styles.followBtn, following && styles.followingBtn]}
+          >
+            <Text style={[styles.followText, following && styles.followingText]}>
+              {following ? 'Following' : 'Follow'}
+            </Text>
+          </TouchableOpacity>
+        )}
+      </View>
+    );
+  };
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <View style={styles.searchContainer}>
+        <Ionicons name="search" size={20} color="#999" style={styles.searchIcon} />
+        <TextInput
+          placeholder="Search users by name or username..."
+          placeholderTextColor="#999"
+          style={styles.searchInput}
+          value={searchQuery}
+          onChangeText={handleSearch}
+          clearButtonMode="while-editing"
+        />
+      </View>
+
+      {loading ? (
+        <ActivityIndicator style={{ marginTop: 20 }} />
+      ) : (
+        <FlatList
+          data={searchResults}
+          keyExtractor={(item) => item.id}
+          renderItem={renderItem}
+          contentContainerStyle={{ padding: 12 }}
+          ListEmptyComponent={searchQuery.trim() ? <Text style={styles.emptyText}>No users found.</Text> : null}
+        />
+      )}
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#fff' },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F0F0F0',
+    borderRadius: 10,
+    marginHorizontal: 12,
+    marginTop: 8,
+    marginBottom: 4,
+    paddingHorizontal: 10,
+  },
+  searchIcon: { marginRight: 8 },
+  searchInput: { flex: 1, height: 40, fontSize: 16 },
+  row: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8 },
+  name: { fontWeight: '700', color: '#111' },
+  sub: { color: '#777', marginTop: 2, fontSize: 12 },
+  followBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 10,
+    backgroundColor: '#111',
+  },
+  followText: { color: '#fff', fontWeight: '900' },
+  followingBtn: {
+    backgroundColor: '#EFEFF4',
+  },
+  followingText: { color: '#111' },
+  emptyText: { textAlign: 'center', marginTop: 20, color: '#666' },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+});

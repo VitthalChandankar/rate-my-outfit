@@ -341,7 +341,7 @@ const useUserStore = create((set, get) => ({
   unblockUser: async (blockedId) => {
     const blockerId = get().myProfile?.uid;
     if (!blockerId || !blockedId) return { success: false, error: 'Invalid unblock operation' };
-
+   
     // Optimistic update
     const currentBlocked = get().myBlockedIds;
     currentBlocked.delete(blockedId);

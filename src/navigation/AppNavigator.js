@@ -4,6 +4,7 @@ import { ActivityIndicator, View, TouchableOpacity } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { SearchScreen } from '../screens/main/SearchScreen';
 import { Ionicons } from '@expo/vector-icons';
 
 import useAuthStore from '../store/authStore';
@@ -80,6 +81,7 @@ function MainTabs() {
         tabBarIcon: ({ color, size }) => {
           let iconName = 'ellipse';
           if (route.name === 'Home') iconName = 'home';
+          else if (route.name === 'Search') iconName = 'search';
           else if (route.name === 'Contests') iconName = 'trophy';
           else if (route.name === 'Upload') iconName = 'cloud-upload';
           else if (route.name === 'Profile') iconName = 'person';
@@ -90,6 +92,7 @@ function MainTabs() {
       })}
     >
       <Tab.Screen name="Home" component={HomeScreen} options={{ headerShown: false }} />
+      <Tab.Screen name="Search" component={SearchScreen} options={{ headerShown: false }} />
       <Tab.Screen name="Contests" component={ContestsListScreen} options={{ headerShown: false }} />
       <Tab.Screen name="Upload" component={UploadScreen} options={{ title: 'Upload', headerShown: false }} />
       <Tab.Screen name="Profile" component={ProfileScreen} options={{ headerShown: false }} />
