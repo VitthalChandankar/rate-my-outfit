@@ -66,10 +66,17 @@ export default function FollowersScreen({ route, navigation }) {
     setLoading(true);
     (async () => {
       const res = await fetchFollowers({ userId, reset: true });
-      if (res.success) setRows(res.items || []);
+      if (res.success && res.items?.length > 0) {
+        setRows(res.items);
+        // Eagerly load profiles for all fetched followers
+        const followerIds = res.items.map(item => item.followerId);
+        await Promise.all(followerIds.map(id => ensureProfile(id)));
+      } else {
+        setRows(res.items || []);
+      }
       setLoading(false);
     })();
-  }, [userId, fetchFollowers]);
+  }, [userId, fetchFollowers, ensureProfile]);
 
   // Helper to ensure profile data for username/name if not denormalized
   const ensureProfile = useCallback(async (uid) => {
@@ -137,7 +144,7 @@ const filteredRows = React.useMemo(() => {
     const isSelf = authedId && targetId === authedId;
     const following = !!relCache[relIdOf(authedId, targetId)];
 
-    return <UserRow item={display} onToggle={() => onToggle(targetId)} isSelf={isSelf} following={following} onNavigate={() => navigation.navigate('UserProfile', { userId: targetId })} />;
+    return <UserRow item={display} onToggle={() => onToggle(targetId)} isSelf={isSelf} following={following} onNavigate={() => navigation.navigate('UserProfile', { userId: targetId })} />;    
   }, [profilesById, authedId, relCache, onToggle, navigation]);
 
   if (loading) {

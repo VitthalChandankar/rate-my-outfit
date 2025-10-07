@@ -64,10 +64,17 @@ export default function FollowingScreen({ route, navigation }) {
     setLoading(true);
     (async () => {
       const res = await fetchFollowing({ userId, reset: true });
-      if (res.success) setRows(res.items || []);
+      if (res.success && res.items?.length > 0) {
+        setRows(res.items);
+        // Eagerly load profiles for all fetched users
+        const followingIds = res.items.map(item => item.followingId);
+        await Promise.all(followingIds.map(id => ensureProfile(id)));
+      } else {
+        setRows(res.items || []);
+      }
       setLoading(false);
     })();
-  }, [userId, fetchFollowing]);
+  }, [userId, fetchFollowing, ensureProfile]);
 
   const ensureProfile = useCallback(async (uid) => {
     if (!uid) return null;
@@ -134,7 +141,7 @@ export default function FollowingScreen({ route, navigation }) {
     const isSelf = authedId && targetId === authedId;
     const following = !!relCache[relIdOf(authedId, targetId)];
 
-    return <UserRow item={display} onToggle={() => onToggle(targetId)} isSelf={isSelf} following={following} onNavigate={() => navigation.navigate('UserProfile', { userId: targetId })} />;
+    return <UserRow item={display} onToggle={() => onToggle(targetId)} isSelf={isSelf} following={following} onNavigate={() => navigation.navigate('UserProfile', { userId: targetId })} />;    
   }, [profilesById, authedId, relCache, onToggle, navigation]);
 
   if (loading) {
