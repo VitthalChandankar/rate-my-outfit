@@ -128,7 +128,7 @@ export default function FollowingScreen({ route, navigation }) {
     const cached = profilesById[targetId];
     const display = {
       name: item.followingName || cached?.name || cached?.displayName || `User ${String(targetId).slice(0, 6)}`,
-      username: cached?.username || '',
+      username: item.followingUsername || cached?.username || '',
       picture: item.followingPicture || cached?.profilePicture || null,
     };
     const isSelf = authedId && targetId === authedId;

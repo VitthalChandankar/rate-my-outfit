@@ -131,7 +131,7 @@ const filteredRows = React.useMemo(() => {
     const cached = profilesById[targetId];
     const display = {
       name: item.followerName || cached?.name || cached?.displayName || `User ${String(targetId).slice(0, 6)}`,
-      username: cached?.username || '',
+      username: item.followerUsername || cached?.username || '',
       picture: item.followerPicture || cached?.profilePicture || null,
     };
     const isSelf = authedId && targetId === authedId;
