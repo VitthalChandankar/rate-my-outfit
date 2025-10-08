@@ -6,7 +6,8 @@ import {
   getUserProfile,
   fbSharePost,
   fbReactToShare,
-  fbDeleteShare, // Import the new delete function
+  fbDeleteShare,
+  fbSoftDeleteShare,
   fbFetchAllUserShares,
   subscribeToUnreadShareCount,
   markAllSharesAsRead as fbMarkAllAsRead,
@@ -95,6 +96,7 @@ const useShareStore = create((set, get) => ({
           sharesByOtherUser[otherUserId] = [];
         }
         sharesByOtherUser[otherUserId].push(share);
+        
       });
 
       // Create conversation summaries
@@ -119,6 +121,7 @@ const useShareStore = create((set, get) => ({
       set({
         conversations: conversationList,
         sharesByConversation: sharesByOtherUser,
+        
         conversationsLoading: false,
       });
     } else {
@@ -184,8 +187,8 @@ const useShareStore = create((set, get) => ({
     await fbReactToShare({ shareId, read: true });
   },
 
-  // Delete a received share
-  deleteShare: async (shareId) => {
+  // Hard delete a share (for everyone)
+  hardDeleteShare: async (shareId) => {
     const { sharesByConversation } = get();
     let otherUserId = null;
     let originalSharesForUser = null;
@@ -218,6 +221,41 @@ const useShareStore = create((set, get) => ({
           ...state.sharesByConversation,
           [otherUserId]: originalSharesForUser,
         },
+      }));
+    }
+  },
+
+  // Soft delete a share (for one user)
+  softDeleteShare: async ({ shareId, userType }) => {
+    const { sharesByConversation } = get();
+    let otherUserId = null;
+    let originalSharesForUser = null;
+
+    for (const userId in sharesByConversation) {
+      if (sharesByConversation[userId].some(s => s.id === shareId)) {
+        otherUserId = userId;
+        originalSharesForUser = [...sharesByConversation[userId]];
+        break;
+      }
+    }
+
+    if (!otherUserId) return;
+
+    // Optimistically remove from the UI
+    const newSharesForUser = sharesByConversation[otherUserId].filter(share => share.id !== shareId);
+    set(state => ({
+      sharesByConversation: {
+        ...state.sharesByConversation,
+        [otherUserId]: newSharesForUser,
+      },
+    }));
+
+    const res = await fbSoftDeleteShare({ shareId, userType });
+
+    if (!res.success) {
+      console.error('Failed to soft-delete share from backend.');
+      set(state => ({
+        sharesByConversation: { ...state.sharesByConversation, [otherUserId]: originalSharesForUser },
       }));
     }
   },
@@ -260,5 +298,6 @@ const useShareStore = create((set, get) => ({
     });
   },
 }));
+
 
 export default useShareStore;

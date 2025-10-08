@@ -1,6 +1,6 @@
 // src/screens/sharing/ShareConversationScreen.js
 import React, { useCallback, useRef, useEffect } from 'react';
-import { View, Text, FlatList, StyleSheet, ActivityIndicator, TouchableOpacity, Animated } from 'react-native';
+import { View, Text, FlatList, StyleSheet, ActivityIndicator, TouchableOpacity, Animated, Alert } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import { Image as ExpoImage } from 'expo-image';
 import { useNavigation } from '@react-navigation/native';
@@ -41,7 +41,7 @@ function ShareRow({ item, onReact, onDelete, onOpen, isSentByUser }) {
       extrapolate: 'clamp',
     });
     return (
-      <TouchableOpacity style={styles.deleteButton} onPress={() => onDelete(item.id)}>
+      <TouchableOpacity style={styles.deleteButton} onPress={() => onDelete(item)}>
         <Animated.Text style={[styles.deleteButtonText, { transform: [{ scale }] }]}>
           Delete
         </Animated.Text>
@@ -92,7 +92,7 @@ export default function ShareConversationScreen({ route }) {
   const navigation = useNavigation();
   const { otherUserId } = route.params;
   const { user } = useAuthStore();
-  const { sharesByConversation, reactToShare, deleteShare, markShareAsRead } = useShareStore();
+  const { sharesByConversation, reactToShare, softDeleteShare, hardDeleteShare, markShareAsRead } = useShareStore();
   const flatListRef = useRef(null);
   const didInitialScroll = useRef(false);
 
@@ -142,6 +142,42 @@ export default function ShareConversationScreen({ route }) {
     }
   };
 
+  const handleDelete = (share) => {
+    const isSentByUser = share.senderId === user.uid;
+
+    if (isSentByUser) {
+      // Sender: show options
+      Alert.alert(
+        "Delete Message",
+        "This will permanently delete this message.",
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Delete for Me",
+            onPress: () => softDeleteShare({ shareId: share.id, userType: 'sender' }),
+          },
+          {
+            text: "Delete for Everyone",
+            style: "destructive",
+            onPress: () => hardDeleteShare(share.id),
+          },
+        ],
+        { cancelable: true }
+      );
+    } else {
+      // Recipient: just delete for me
+      Alert.alert(
+        "Delete Message",
+        "This message will be removed from your inbox. The sender will still be able to see it.",
+        [
+          { text: "Cancel", style: "cancel" },
+          { text: "Delete", style: "destructive", onPress: () => softDeleteShare({ shareId: share.id, userType: 'recipient' }) },
+        ],
+        { cancelable: true }
+      );
+    }
+  };
+
   return (
     <FlatList
       ref={flatListRef}
@@ -151,7 +187,7 @@ export default function ShareConversationScreen({ route }) {
         <ShareRow
           item={item}
           onReact={reactToShare}
-          onDelete={deleteShare}
+          onDelete={handleDelete}
           onOpen={handleOpenPost}
           isSentByUser={item.senderId === user.uid}
         />

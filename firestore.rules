@@ -193,9 +193,12 @@ service cloud.firestore {
     match /shares/{shareId} {
       allow read, list: if isSignedIn() && (request.auth.uid == resource.data.recipientId || request.auth.uid == resource.data.senderId);
       allow create: if isSignedIn() && request.auth.uid == request.resource.data.senderId;
-      // Allow recipient to update only the 'reaction' and 'read' fields.
-      allow update: if isSignedIn() && request.auth.uid == resource.data.recipientId && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reaction', 'read']);
-      // Users can delete shares they've received.
+      // Allow sender/recipient to update specific fields.
+      allow update: if isSignedIn() && (
+        (request.auth.uid == resource.data.recipientId && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reaction', 'read', 'deletedByRecipient'])) ||
+        (request.auth.uid == resource.data.senderId && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['deletedBySender']))
+      );
+      // Users can delete shares if they are the sender or recipient (for "Delete for Everyone").
       allow delete: if isSignedIn() && (request.auth.uid == resource.data.recipientId || request.auth.uid == resource.data.senderId);
     }
 

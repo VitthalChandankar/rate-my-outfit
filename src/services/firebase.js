@@ -1209,9 +1209,27 @@ async function fbReactToShare({ shareId, reaction, read }) {
   }
 }
 
+async function fbSoftDeleteShare({ shareId, userType }) {
+  if (!shareId || !userType) {
+    return { success: false, error: 'Missing shareId or userType' };
+  }
+  try {
+    const shareRef = doc(firestore, 'shares', shareId);
+    const update = userType === 'sender'
+      ? { deletedBySender: true }
+      : { deletedByRecipient: true };
+    await updateDoc(shareRef, update);
+    return { success: true };
+  } catch (error) {
+    console.error('fbSoftDeleteShare error:', error);
+    return { success: false, error };
+  }
+}
+
 async function fbFetchAllUserShares(userId) {
   if (!userId) return { success: false, error: 'User ID required' };
   try {
+    // Query without the 'deletedBy' flags to fetch all relevant documents.
     const receivedQuery = query(
       collection(firestore, 'shares'),
       where('recipientId', '==', userId)
@@ -1225,9 +1243,15 @@ async function fbFetchAllUserShares(userId) {
       getDocs(receivedQuery),
       getDocs(sentQuery),
     ]);
-
-    const receivedItems = receivedSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-    const sentItems = sentSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    
+    // Perform the filtering on the client-side. This correctly handles documents
+    // where the delete flag does not exist.
+    const receivedItems = receivedSnap.docs
+      .map(d => ({ id: d.id, ...d.data() }))
+      .filter(item => item.deletedByRecipient !== true);
+    const sentItems = sentSnap.docs
+      .map(d => ({ id: d.id, ...d.data() }))
+      .filter(item => item.deletedBySender !== true);
 
     const allItems = [...receivedItems, ...sentItems];
     // Sort by most recent message overall
@@ -1415,5 +1439,5 @@ export {
   createVerificationApplication, listVerificationApplications, getVerificationApplication, processVerificationApplication,
   followUser, unfollowUser, isFollowing, listFollowers, listFollowing,
   fetchNotifications, markNotificationsAsRead, subscribeToUnreadNotifications,
-  fbSharePost, fbFetchShares, fbReactToShare, fbDeleteShare, fbFetchAllUserShares, toggleSavePost, fetchMySavedOutfitIds, fetchOutfitsByIds, fetchUserAchievements, listAchievements, createOrUpdateAchievement, subscribeToUnreadShareCount, markAllSharesAsRead
+  fbSharePost, fbFetchShares, fbReactToShare, fbDeleteShare, fbSoftDeleteShare, fbFetchAllUserShares, toggleSavePost, fetchMySavedOutfitIds, fetchOutfitsByIds, fetchUserAchievements, listAchievements, createOrUpdateAchievement, subscribeToUnreadShareCount, markAllSharesAsRead
 };
