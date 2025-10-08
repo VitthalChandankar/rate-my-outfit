@@ -10,6 +10,7 @@ import useOutfitStore from '../../store/outfitStore';
 import useUserStore from '../../store/UserStore';
 import useNotificationsStore from '../../store/notificationsStore';
 import useContestStore from '../../store/contestStore';
+import useShareStore from '../../store/shareStore';
 import OutfitCard from '../../components/OutfitCard';
 
 function ensureKey(item) {
@@ -47,6 +48,7 @@ export default function HomeScreen() {
   const contestsById = useContestStore((s) => s.contestsById);
 
   const unreadCount = useNotificationsStore((s) => s.unreadCount);
+  const unreadShareCount = useShareStore((s) => s.unreadShareCount);
 
   const [initialLoaded, setInitialLoaded] = useState(false);
 
@@ -76,7 +78,14 @@ export default function HomeScreen() {
       headerRight: () => (
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
           <TouchableOpacity onPress={() => navigation.navigate('Inbox')} style={{ marginRight: 16 }}>
-            <Ionicons name="paper-plane-outline" size={24} color="#111" />
+            <View>
+              <Ionicons name="paper-plane-outline" size={24} color="#111" />
+              {unreadShareCount > 0 && (
+                <View style={styles.badgeContainer}>
+                  <Text style={styles.badgeText}>{unreadShareCount > 9 ? '9+' : unreadShareCount}</Text>
+                </View>
+              )}
+            </View>
           </TouchableOpacity>
           <TouchableOpacity onPress={() => navigation.navigate('Notifications')} style={{ marginRight: 10 }}>
             <View>
@@ -91,7 +100,7 @@ export default function HomeScreen() {
         </View>
       )
     });
-  }, [navigation, unreadCount]);
+  }, [navigation, unreadCount, unreadShareCount]);
 
   // Add listener for tab press to scroll to top
   useEffect(() => {

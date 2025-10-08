@@ -1156,6 +1156,7 @@ async function fbSharePost({ senderId, recipientId, outfitData }) {
       recipientId,
       outfitId: outfitData.id,
       outfitImageUrl: outfitData.imageUrl,
+      outfitData: outfitData, // Add full outfit data for rich navigation
       outfitCaption: outfitData.caption || '',
       createdAt: serverTimestamp(),
       read: false,
@@ -1204,6 +1205,62 @@ async function fbReactToShare({ shareId, reaction, read }) {
     }
     return { success: true };
   } catch (error) {
+    return { success: false, error };
+  }
+}
+
+async function fbDeleteShare(shareId) {
+  if (!shareId) {
+    return { success: false, error: 'Missing shareId' };
+  }
+  try {
+    const shareRef = doc(firestore, 'shares', shareId);
+    // The security rule ensures only the recipient can delete this.
+    await deleteDoc(shareRef);
+    return { success: true };
+  } catch (error) {
+    console.error('fbDeleteShare error:', error);
+    return { success: false, error };
+  }
+}
+
+async function subscribeToUnreadShareCount(userId, onUpdate) {
+  if (!userId) return () => {}; // Return a no-op unsubscribe function
+
+  const q = query(
+    collection(firestore, 'shares'),
+    where('recipientId', '==', userId),
+    where('read', '==', false)
+  );
+
+  const unsubscribe = onSnapshot(q, (snapshot) => {
+    onUpdate(snapshot.size);
+  }, (error) => {
+    console.error("Error subscribing to unread shares:", error);
+    onUpdate(0);
+  });
+
+  return unsubscribe;
+}
+
+async function markAllSharesAsRead(userId) {
+  try {
+    const q = query(
+      collection(firestore, 'shares'),
+      where('recipientId', '==', userId),
+      where('read', '==', false)
+    );
+    const snap = await getDocs(q);
+    if (snap.empty) return { success: true };
+
+    const batch = writeBatch(firestore);
+    snap.docs.forEach(docSnap => {
+      batch.update(docSnap.ref, { read: true });
+    });
+    await batch.commit();
+    return { success: true };
+  } catch (error) {
+    console.error('markAllSharesAsRead failed:', error);
     return { success: false, error };
   }
 }
@@ -1327,5 +1384,5 @@ export {
   createVerificationApplication, listVerificationApplications, getVerificationApplication, processVerificationApplication,
   followUser, unfollowUser, isFollowing, listFollowers, listFollowing,
   fetchNotifications, markNotificationsAsRead, subscribeToUnreadNotifications,
-  fbSharePost, fbFetchShares, fbReactToShare, toggleSavePost, fetchMySavedOutfitIds, fetchOutfitsByIds, fetchUserAchievements, listAchievements, createOrUpdateAchievement
+  fbSharePost, fbFetchShares, fbReactToShare, fbDeleteShare, toggleSavePost, fetchMySavedOutfitIds, fetchOutfitsByIds, fetchUserAchievements, listAchievements, createOrUpdateAchievement, subscribeToUnreadShareCount, markAllSharesAsRead
 };

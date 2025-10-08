@@ -1,18 +1,69 @@
 // src/screens/sharing/InboxScreen.js
-import React, { useEffect, useCallback } from 'react';
-import { View, Text, FlatList, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native';
+import React, { useEffect, useCallback, useRef, useState } from 'react';
+import { View, Text, FlatList, StyleSheet, ActivityIndicator, TouchableOpacity, RefreshControl, Animated } from 'react-native';
+import { Swipeable } from 'react-native-gesture-handler'; // Import Swipeable
 import { Image as ExpoImage } from 'expo-image';
+import { useFocusEffect } from '@react-navigation/native';
 import useShareStore from '../../store/shareStore';
+import useAuthStore from '../../store/authStore';
 import formatDate from '../../utils/formatDate';
 import { withCloudinaryTransforms, IMG_GRID } from '../../utils/cloudinaryUrl';
 
 const REACTIONS = ['❤️', '🔥', '😂', '👍'];
 
-function ShareRow({ item, onReact, onOpen }) {
-  const transformedUrl = withCloudinaryTransforms(item.outfitImageUrl, IMG_GRID);
+function ReactionEmoji({ emoji, isSelected, onPress }) {
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    // Animate when the `isSelected` prop changes.
+    Animated.spring(scaleAnim, {
+      toValue: isSelected ? 1.3 : 1,
+      friction: 3,
+      useNativeDriver: true,
+    }).start();
+  }, [isSelected, scaleAnim]);
 
   return (
-    <TouchableOpacity style={[styles.row, !item.read && styles.unread]} onPress={() => onOpen(item)}>
+    <TouchableOpacity onPress={onPress} style={styles.reactionButton}>
+      <Animated.Text
+        style={[styles.emoji, { opacity: isSelected ? 1 : 0.5 }, { transform: [{ scale: scaleAnim }] }]}
+      >
+        {emoji}
+      </Animated.Text>
+    </TouchableOpacity>
+  );
+}
+
+function ShareRow({ item, onReact, onOpen, onDelete }) {
+  const [isSwiping, setIsSwiping] = useState(false);
+  const transformedUrl = withCloudinaryTransforms(item.outfitImageUrl, IMG_GRID);
+
+  const renderRightActions = (progress, dragX) => {
+    const scale = dragX.interpolate({
+      inputRange: [-100, 0],
+      outputRange: [1, 0],
+      extrapolate: 'clamp',
+    });
+    return (
+      <TouchableOpacity
+        style={styles.deleteButton}
+        onPress={() => onDelete(item.id)}
+      >
+        <Animated.Text style={[styles.deleteButtonText, { transform: [{ scale }] }]}>
+          Delete
+        </Animated.Text>
+      </TouchableOpacity>
+    );
+  };
+
+  return (
+    <Swipeable
+      renderRightActions={renderRightActions}
+      overshootRight={false}
+      onSwipeableWillOpen={() => setIsSwiping(true)}
+      onSwipeableWillClose={() => setIsSwiping(false)}
+    >
+      <TouchableOpacity style={[styles.row, !item.read && styles.unread, isSwiping && styles.swiping]} onPress={() => onOpen(item)}>
       <ExpoImage source={{ uri: item.senderProfilePicture }} style={styles.avatar} />
       <View style={styles.content}>
         <Text style={styles.message}>
@@ -21,32 +72,68 @@ function ShareRow({ item, onReact, onOpen }) {
         <Text style={styles.timestamp}>{formatDate(item.createdAt)}</Text>
         <View style={styles.reactions}>
           {REACTIONS.map(emoji => (
-            <TouchableOpacity key={emoji} onPress={() => onReact(item.id, emoji)} style={styles.reactionButton}>
-              <Text style={[styles.emoji, item.reaction === emoji && styles.emojiSelected]}>{emoji}</Text>
-            </TouchableOpacity>
+            <ReactionEmoji
+              key={emoji}
+              emoji={emoji}
+              isSelected={item.reaction === emoji}
+              onPress={() => onReact({ shareId: item.id, reaction: emoji })}
+            />
           ))}
         </View>
       </View>
       <ExpoImage source={{ uri: transformedUrl }} style={styles.thumbnail} />
-    </TouchableOpacity>
+      </TouchableOpacity>
+    </Swipeable>
   );
 }
 
 export default function InboxScreen({ navigation }) {
-  const { shares, loadingShares, hasMoreShares, fetchShares, reactToShare, markShareAsRead } = useShareStore();
+  const { user } = useAuthStore();
+  const {
+    shares,
+    loadingShares,
+    hasMoreShares,
+    fetchShares,
+    reactToShare,
+    markShareAsRead,
+    markAllSharesAsRead,
+    deleteShare,
+    subscribeToUnreadCount,
+  } = useShareStore();
 
   useEffect(() => {
     fetchShares({ reset: true });
-  }, [fetchShares]);
+    if (user?.uid) {
+      subscribeToUnreadCount(user.uid);
+    }
+  }, [fetchShares, user?.uid, subscribeToUnreadCount]);
+
+  // When the screen is focused, mark all shares as read.
+  useFocusEffect(
+    useCallback(() => {
+      if (user?.uid) {
+        markAllSharesAsRead(user.uid);
+      }
+    }, [user?.uid, markAllSharesAsRead])
+  );
 
   const handleOpenPost = (share) => {
     if (!share.read) {
       markShareAsRead(share.id);
     }
-    navigation.navigate('OutfitDetails', { outfitId: share.outfitId });
+
+    const outfitData = share.outfitData;
+    const isContestPost = outfitData && outfitData.type === 'contest' && outfitData.contestId;
+
+    if (isContestPost) {
+      const item = { id: outfitData.entryId || outfitData.id, ...outfitData };
+      navigation.navigate('RateEntry', { item, mode: 'entry' });
+    } else {
+      navigation.navigate('OutfitDetails', { outfitId: share.outfitId });
+    }
   };
 
-  const onRefresh = useCallback(() => fetchShares({ reset: true }), [fetchShares]);
+  const onRefresh = useCallback(() => { if (user?.uid) fetchShares({ reset: true }); }, [fetchShares, user?.uid]);
   const onEndReached = useCallback(() => {
     if (!loadingShares && hasMoreShares) {
       fetchShares({ reset: false });
@@ -61,9 +148,8 @@ export default function InboxScreen({ navigation }) {
     <FlatList
       data={shares}
       keyExtractor={(item) => item.id}
-      renderItem={({ item }) => <ShareRow item={item} onReact={reactToShare} onOpen={handleOpenPost} />}
-      onRefresh={onRefresh}
-      refreshing={loadingShares}
+      renderItem={({ item }) => <ShareRow item={item} onReact={reactToShare} onOpen={handleOpenPost} onDelete={deleteShare} />}
+      refreshControl={<RefreshControl refreshing={loadingShares} onRefresh={onRefresh} />}
       onEndReached={onEndReached}
       onEndReachedThreshold={0.5}
       ListEmptyComponent={
@@ -100,6 +186,9 @@ const styles = StyleSheet.create({
   },
   unread: {
     backgroundColor: 'rgba(122, 90, 248, 0.05)',
+  },
+  swiping: {
+    backgroundColor: '#f5f5f5',
   },
   avatar: {
     width: 50,
@@ -139,10 +228,17 @@ const styles = StyleSheet.create({
   },
   emoji: {
     fontSize: 20,
-    opacity: 0.5,
   },
-  emojiSelected: {
-    opacity: 1,
-    transform: [{ scale: 1.2 }],
+  deleteButton: {
+    backgroundColor: '#FF3B30',
+    justifyContent: 'center',
+    alignItems: 'flex-end',
+    paddingRight: 20,
+    width: 100, // Fixed width for the delete button
+  },
+  deleteButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 16,
   },
 });

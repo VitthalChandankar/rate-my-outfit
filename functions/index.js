@@ -710,3 +710,95 @@ exports.onOutfitDelete = onDocumentDeleted("outfits/{outfitId}", async (event) =
 
   await batch.commit();
 });
+
+
+/**
+ * Sends a push notification to a user when a post is shared with them.
+ * This function triggers whenever a new document is created in the /shares collection.
+ */
+exports.onSharePost = onDocumentCreated("shares/{shareId}", async (event) => {
+  const snap = event.data;
+  if (!snap) {
+    console.log("No data associated with the share event, exiting.");
+    return;
+  }
+
+  const shareData = snap.data();
+  const { recipientId, senderName, outfitId, outfitData } = shareData;
+
+  if (!recipientId || !senderName) {
+    console.log("Share document is missing recipientId or senderName.");
+    return null;
+  }
+
+  // Get the recipient's user document to find their push tokens.
+  const recipientDoc = await admin.firestore().collection("users").doc(recipientId).get();
+
+  if (!recipientDoc.exists) {
+    console.log(`Recipient user document not found for ID: ${recipientId}`);
+    return null;
+  }
+
+  const recipient = recipientDoc.data();
+  const pushTokens = recipient.pushTokens; // Assumes tokens are an array of Expo push tokens
+
+  if (!pushTokens || pushTokens.length === 0) {
+    console.log(`Recipient ${recipientId} has no push tokens to notify.`);
+    return null;
+  }
+
+  // Construct the payload for Expo's push service
+  const messages = pushTokens.map((token) => ({
+    to: token,
+    sound: "default",
+    title: "New Post Shared!",
+    body: `${senderName} shared a post with you.`,
+    data: {
+      type: "share",
+      outfitId: outfitId,
+      outfitData: JSON.stringify(outfitData || {}),
+    },
+  }));
+
+  // Use fetch to call Expo's push API.
+  try {
+    const response = await fetch("https://exp.host/--/api/v2/push/send", {
+      method: "POST",
+      headers: {
+        "Accept": "application/json",
+        "Accept-encoding": "gzip, deflate",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(messages),
+    });
+
+    const responseData = await response.json();
+
+    if (!response.ok) {
+      console.error("Error response from Expo Push API for onSharePost:", { status: response.status, body: responseData });
+      return null;
+    }
+
+    console.log("Expo push response for onSharePost:", responseData);
+
+    // Clean up invalid tokens
+    if (responseData.data && Array.isArray(responseData.data)) {
+      const invalidTokens = [];
+      responseData.data.forEach((ticket, i) => {
+        if (ticket.status === "error" && ticket.details?.error === "DeviceNotRegistered") {
+          invalidTokens.push(pushTokens[i]);
+        }
+      });
+
+      if (invalidTokens.length > 0) {
+        console.log("Removing invalid tokens for onSharePost:", invalidTokens);
+        await recipientDoc.ref.update({
+          pushTokens: admin.firestore.FieldValue.arrayRemove(...invalidTokens),
+        });
+      }
+    }
+  } catch (error) {
+    console.error("Error sending share push notification via Expo:", error);
+  }
+  return null;
+});

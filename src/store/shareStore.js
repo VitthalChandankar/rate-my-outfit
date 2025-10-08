@@ -7,6 +7,9 @@ import {
   fbSharePost,
   fbFetchShares,
   fbReactToShare,
+  fbDeleteShare, // Import the new delete function
+  subscribeToUnreadShareCount,
+  markAllSharesAsRead as fbMarkAllAsRead,
 } from '../services/firebase';
 import useAuthStore from './authStore';
 
@@ -14,10 +17,14 @@ const useShareStore = create((set, get) => ({
   mutuals: [],
   loadingMutuals: false,
 
+  unreadShareCount: 0,
+  _unsubShares: null,
+
   shares: [],
   loadingShares: false,
   hasMoreShares: true,
   lastShareDoc: null,
+
 
   // Fetch users that the current user mutually follows
   fetchMutuals: async () => {
@@ -93,18 +100,27 @@ const useShareStore = create((set, get) => ({
 
   // React to a received share
   reactToShare: async ({ shareId, reaction }) => {
+    const currentShare = get().shares.find(s => s.id === shareId);
+    if (!currentShare) return;
+
+    const originalReaction = currentShare.reaction;
+    const newReaction = originalReaction === reaction ? null : reaction;
+
     // Optimistically update the UI
     set(state => ({
       shares: state.shares.map(share =>
-        share.id === shareId ? { ...share, reaction } : share
+        share.id === shareId ? { ...share, reaction: newReaction } : share
       ),
     }));
 
-    const res = await fbReactToShare({ shareId, reaction });
+    const res = await fbReactToShare({ shareId, reaction: newReaction });
 
     if (!res.success) {
-      // Revert on failure (optional, could just show an error)
       console.error('Failed to save reaction');
+      // Revert on failure
+      set(state => ({
+        shares: state.shares.map(share => share.id === shareId ? { ...share, reaction: originalReaction } : share)
+      }));
     }
   },
 
@@ -117,6 +133,64 @@ const useShareStore = create((set, get) => ({
     }));
     // This is a fire-and-forget call to the backend
     await fbReactToShare({ shareId, read: true });
+  },
+
+  // Delete a received share
+  deleteShare: async (shareId) => {
+    const originalShares = get().shares;
+
+    // Optimistically remove from the UI
+    set(state => ({
+      shares: state.shares.filter(share => share.id !== shareId)
+    }));
+
+    const res = await fbDeleteShare(shareId);
+
+    if (!res.success) {
+      console.error('Failed to delete share from backend.');
+      // Revert on failure
+      set({ shares: originalShares });
+      // Optionally, show an alert to the user
+      // Alert.alert('Error', 'Could not delete the message. Please try again.');
+    }
+  },
+
+  // Mark all shares as read
+  markAllSharesAsRead: async (userId) => {
+    if (!userId) return;
+
+    const hasUnread = get().unreadShareCount > 0;
+    if (hasUnread) {
+      // Optimistically update UI
+      set(state => ({
+        shares: state.shares.map(s => ({ ...s, read: true })),
+        unreadShareCount: 0,
+      }));
+      // Call backend
+      await fbMarkAllAsRead(userId);
+    }
+  },
+
+  // Subscribe to real-time unread count for the badge
+  subscribeToUnreadCount: (userId) => {
+    if (!userId || get()._unsubShares) return; // Already subscribed
+    const unsub = subscribeToUnreadShareCount(userId, (count) => {
+      set({ unreadShareCount: count });
+    });
+    set({ _unsubShares: unsub });
+  },
+
+  // Clear store on logout
+  clearShareStore: () => {
+    const unsub = get()._unsubShares;
+    if (typeof unsub === 'function') {
+      try { unsub(); } catch {}
+    }
+    set({
+      shares: [],
+      unreadShareCount: 0,
+      _unsubShares: null,
+    });
   },
 }));
 

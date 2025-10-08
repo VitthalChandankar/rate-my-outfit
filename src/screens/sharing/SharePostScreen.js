@@ -44,6 +44,7 @@ export default function SharePostScreen({ route, navigation }) {
     if (sentTo.has(recipient.uid)) return;
 
     setSentTo(prev => new Set(prev).add(recipient.uid));
+    console.log(`Sending share to: ${recipient.uid}`); // Add this line
 
     const res = await sendShare({ recipientId: recipient.uid, outfitData });
 
@@ -51,6 +52,7 @@ export default function SharePostScreen({ route, navigation }) {
       Alert.alert('Error', 'Could not send the post. Please try again.');
       setSentTo(prev => {
         const newSet = new Set(prev);
+        console.log(`Removing ${recipient.uid} from sentTo due to error`); // Add this line
         newSet.delete(recipient.uid);
         return newSet;
       });

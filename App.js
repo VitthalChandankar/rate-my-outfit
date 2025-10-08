@@ -3,6 +3,7 @@ import { Provider as PaperProvider } from 'react-native-paper';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useEffect } from 'react';
 import { useNavigationContainerRef } from '@react-navigation/native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { ActionSheetProvider } from '@expo/react-native-action-sheet';
 import * as Notifications from 'expo-notifications';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -14,6 +15,7 @@ import useUserStore from './src/store/UserStore';
 import i18n from './src/config/i18n';
 import GlobalAlert from './src/components/GlobalAlert';
 import useNotificationsStore from './src/store/notificationsStore';
+import useShareStore from './src/store/shareStore';
 
 export default function App() {
   const { initializeAuth, user } = useAuthStore();
@@ -36,6 +38,20 @@ export default function App() {
     hydrateSeenAchievements(); // Load seen achievements from storage on app start
   }, [initializeAuth, hydrateSeenAchievements]);
 
+  // Effect for handling user-dependent subscriptions for notification/share badges
+  useEffect(() => {
+    if (user?.uid) {
+      // Subscribe to get real-time counts for badges
+      useNotificationsStore.getState().subscribeToUnreadCount(user.uid);
+      useShareStore.getState().subscribeToUnreadCount(user.uid);
+    } else {
+      // User logged out, clear the stores
+      useNotificationsStore.getState().clearNotifications();
+      useShareStore.getState().clearShareStore();
+    }
+  }, [user]);
+
+
    // Effect for handling notification taps
    useEffect(() => {
     // This listener is fired whenever a notification is received while the app is foregrounded
@@ -52,10 +68,42 @@ export default function App() {
     // (works when app is foregrounded, backgrounded, or killed)
     const responseSubscription = Notifications.addNotificationResponseReceivedListener(response => {
       const data = response.notification.request.content.data;
-      console.log('Notification tapped with data:', data);
-      if (data?.outfitId && navigationRef.isReady()) {
+      console.log('Notification tapped with data:', data); // Keep for debugging
+
+      if (!navigationRef.isReady()) {
+        return;
+      }
+
+      // Handle 'share' notification type
+      if (data?.type === 'share' && data.outfitData) {
+        try {
+          const outfitData = JSON.parse(data.outfitData);
+          const isContestPost = outfitData.type === 'contest' && outfitData.contestId;
+
+          if (isContestPost) {
+            // Navigate to RateEntryScreen for contest posts
+            const item = {
+              id: outfitData.entryId || outfitData.id,
+              userId: outfitData.userId,
+              userName: outfitData.user?.name,
+              userPhoto: outfitData.user?.profilePicture,
+              imageUrl: outfitData.imageUrl,
+              caption: outfitData.caption,
+              contestId: outfitData.contestId,
+            };
+            navigationRef.navigate('RateEntry', { item, mode: 'entry' });
+          } else {
+            // Default to OutfitDetails for normal posts
+            navigationRef.navigate('OutfitDetails', { outfitId: outfitData.id });
+          }
+        } catch (e) {
+          console.error("Failed to parse outfitData from notification", e);
+          // Fallback for safety if parsing fails
+          if (data.outfitId) navigationRef.navigate('OutfitDetails', { outfitId: data.outfitId });
+        }
+      } else if (data?.outfitId) { // Handle legacy or other notification types
         navigationRef.navigate('OutfitDetails', { outfitId: data.outfitId });
-      } else if (data?.senderId && navigationRef.isReady()) {
+      } else if (data?.senderId) { // Handle 'follow' notifications
         navigationRef.navigate('UserProfile', { userId: data.senderId });
       }
     });
@@ -68,15 +116,17 @@ export default function App() {
 
   return (
     <SafeAreaProvider>
-      <PaperProvider theme={theme}>
-        <ActionSheetProvider>
-          <>
-            <StatusBar style="light" />
-            <AppNavigator navigationRef={navigationRef} />
-            <GlobalAlert />
-          </>
-        </ActionSheetProvider>
-      </PaperProvider>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <PaperProvider theme={theme}>
+          <ActionSheetProvider>
+            <>
+              <StatusBar style="light" />
+              <AppNavigator navigationRef={navigationRef} />
+              <GlobalAlert />
+            </>
+          </ActionSheetProvider>
+        </PaperProvider>
+      </GestureHandlerRootView>
     </SafeAreaProvider>
   );
 }
