@@ -90,6 +90,21 @@
       ]
     },
     {
+      "collectionGroup": "shares",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "senderId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
+      ]
+    }
+    ,
+    {
       "collectionGroup": "notifications",
       "queryScope": "COLLECTION",
       "fields": [

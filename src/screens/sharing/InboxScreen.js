@@ -1,182 +1,128 @@
 // src/screens/sharing/InboxScreen.js
-import React, { useEffect, useCallback, useRef, useState } from 'react';
-import { View, Text, FlatList, StyleSheet, ActivityIndicator, TouchableOpacity, RefreshControl, Animated } from 'react-native';
-import { Swipeable } from 'react-native-gesture-handler'; // Import Swipeable
-import { Image as ExpoImage } from 'expo-image';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
+import { View, Text, FlatList, StyleSheet, ActivityIndicator, TouchableOpacity, TextInput, RefreshControl } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
 import useShareStore from '../../store/shareStore';
 import useAuthStore from '../../store/authStore';
 import formatDate from '../../utils/formatDate';
-import { withCloudinaryTransforms, IMG_GRID } from '../../utils/cloudinaryUrl';
+import Avatar from '../../components/Avatar';
 
-const REACTIONS = ['❤️', '🔥', '😂', '👍'];
+function ConversationRow({ conversation, onPress }) {
+  const { otherUser, lastShare, unreadCount } = conversation;
+  const { user: currentUser } = useAuthStore();
 
-function ReactionEmoji({ emoji, isSelected, onPress }) {
-  const scaleAnim = useRef(new Animated.Value(1)).current;
-
-  useEffect(() => {
-    // Animate when the `isSelected` prop changes.
-    Animated.spring(scaleAnim, {
-      toValue: isSelected ? 1.3 : 1,
-      friction: 3,
-      useNativeDriver: true,
-    }).start();
-  }, [isSelected, scaleAnim]);
-
-  return (
-    <TouchableOpacity onPress={onPress} style={styles.reactionButton}>
-      <Animated.Text
-        style={[styles.emoji, { opacity: isSelected ? 1 : 0.5 }, { transform: [{ scale: scaleAnim }] }]}
-      >
-        {emoji}
-      </Animated.Text>
-    </TouchableOpacity>
-  );
-}
-
-function ShareRow({ item, onReact, onOpen, onDelete }) {
-  const [isSwiping, setIsSwiping] = useState(false);
-  const transformedUrl = withCloudinaryTransforms(item.outfitImageUrl, IMG_GRID);
-
-  const renderRightActions = (progress, dragX) => {
-    const scale = dragX.interpolate({
-      inputRange: [-100, 0],
-      outputRange: [1, 0],
-      extrapolate: 'clamp',
-    });
-    return (
-      <TouchableOpacity
-        style={styles.deleteButton}
-        onPress={() => onDelete(item.id)}
-      >
-        <Animated.Text style={[styles.deleteButtonText, { transform: [{ scale }] }]}>
-          Delete
-        </Animated.Text>
-      </TouchableOpacity>
-    );
-  };
+  let lastMessage = '';
+  if (lastShare) {
+    const direction = lastShare.senderId === currentUser.uid ? 'sent' : 'received';
+    if (direction === 'sent') {
+      lastMessage = `You: ${lastShare.outfitCaption || 'Shared a post'}`;
+    } else {
+      lastMessage = lastShare.outfitCaption || 'Shared a post';
+    }
+  }
 
   return (
-    <Swipeable
-      renderRightActions={renderRightActions}
-      overshootRight={false}
-      onSwipeableWillOpen={() => setIsSwiping(true)}
-      onSwipeableWillClose={() => setIsSwiping(false)}
-    >
-      <TouchableOpacity style={[styles.row, !item.read && styles.unread, isSwiping && styles.swiping]} onPress={() => onOpen(item)}>
-      <ExpoImage source={{ uri: item.senderProfilePicture }} style={styles.avatar} />
+    <TouchableOpacity style={styles.row} onPress={() => onPress(conversation)}>
+      <Avatar uri={otherUser.profilePicture} size={50} />
       <View style={styles.content}>
-        <Text style={styles.message}>
-          <Text style={styles.senderName}>{item.senderName || 'Someone'}</Text> shared a post with you.
-        </Text>
-        <Text style={styles.timestamp}>{formatDate(item.createdAt)}</Text>
-        <View style={styles.reactions}>
-          {REACTIONS.map(emoji => (
-            <ReactionEmoji
-              key={emoji}
-              emoji={emoji}
-              isSelected={item.reaction === emoji}
-              onPress={() => onReact({ shareId: item.id, reaction: emoji })}
-            />
-          ))}
+        <View style={styles.rowTop}>
+          <Text style={styles.name}>{otherUser.name}</Text>
+          {lastShare?.createdAt && <Text style={styles.timestamp}>{formatDate(lastShare.createdAt)}</Text>}
+        </View>
+        <View style={styles.rowBottom}>
+          <Text style={[styles.lastMessage, unreadCount > 0 && styles.unreadText]} numberOfLines={1}>
+            {lastMessage}
+          </Text>
+          {unreadCount > 0 && (
+            <View style={styles.unreadBadge}>
+              <Text style={styles.unreadBadgeText}>{unreadCount}</Text>
+            </View>
+          )}
         </View>
       </View>
-      <ExpoImage source={{ uri: transformedUrl }} style={styles.thumbnail} />
-      </TouchableOpacity>
-    </Swipeable>
+    </TouchableOpacity>
   );
 }
 
 export default function InboxScreen({ navigation }) {
   const { user } = useAuthStore();
-  const {
-    shares,
-    loadingShares,
-    hasMoreShares,
-    fetchShares,
-    reactToShare,
-    markShareAsRead,
-    markAllSharesAsRead,
-    deleteShare,
-    subscribeToUnreadCount,
-  } = useShareStore();
+  const { conversations, conversationsLoading, fetchConversations, markAllSharesAsRead } = useShareStore();
+  const [searchQuery, setSearchQuery] = useState('');
 
-  useEffect(() => {
-    fetchShares({ reset: true });
-    if (user?.uid) {
-      subscribeToUnreadCount(user.uid);
-    }
-  }, [fetchShares, user?.uid, subscribeToUnreadCount]);
-
-  // When the screen is focused, mark all shares as read.
   useFocusEffect(
-    useCallback(() => {
+    React.useCallback(() => {
       if (user?.uid) {
+        fetchConversations();
         markAllSharesAsRead(user.uid);
       }
-    }, [user?.uid, markAllSharesAsRead])
+    }, [user?.uid, fetchConversations, markAllSharesAsRead])
   );
 
-  const handleOpenPost = (share) => {
-    if (!share.read) {
-      markShareAsRead(share.id);
-    }
+  const filteredConversations = useMemo(() => {
+    if (!searchQuery) return conversations;
+    const lowercasedQuery = searchQuery.toLowerCase();
+    return conversations.filter(
+      conv =>
+        conv.otherUser.name?.toLowerCase().includes(lowercasedQuery) ||
+        conv.otherUser.username?.toLowerCase().includes(lowercasedQuery)
+    );
+  }, [conversations, searchQuery]);
 
-    const outfitData = share.outfitData;
-    const isContestPost = outfitData && outfitData.type === 'contest' && outfitData.contestId;
-
-    if (isContestPost) {
-      const item = { id: outfitData.entryId || outfitData.id, ...outfitData };
-      navigation.navigate('RateEntry', { item, mode: 'entry' });
-    } else {
-      navigation.navigate('OutfitDetails', { outfitId: share.outfitId });
-    }
+  const handleConversationPress = (conversation) => {
+    navigation.navigate('ShareConversation', {
+      otherUserId: conversation.otherUser.uid,
+      userName: conversation.otherUser.name,
+    });
   };
 
-  const onRefresh = useCallback(() => { if (user?.uid) fetchShares({ reset: true }); }, [fetchShares, user?.uid]);
-  const onEndReached = useCallback(() => {
-    if (!loadingShares && hasMoreShares) {
-      fetchShares({ reset: false });
-    }
-  }, [loadingShares, hasMoreShares, fetchShares]);
+  const onRefresh = useCallback(() => {
+    if (user?.uid) fetchConversations();
+  }, [user?.uid, fetchConversations]);
 
-  if (loadingShares && shares.length === 0) {
+  if (conversationsLoading && conversations.length === 0) {
     return <View style={styles.center}><ActivityIndicator /></View>;
   }
 
   return (
-    <FlatList
-      data={shares}
-      keyExtractor={(item) => item.id}
-      renderItem={({ item }) => <ShareRow item={item} onReact={reactToShare} onOpen={handleOpenPost} onDelete={deleteShare} />}
-      refreshControl={<RefreshControl refreshing={loadingShares} onRefresh={onRefresh} />}
-      onEndReached={onEndReached}
-      onEndReachedThreshold={0.5}
-      ListEmptyComponent={
-        !loadingShares ? <Text style={styles.emptyText}>Your inbox is empty.</Text> : null
-      }
-      ListFooterComponent={loadingShares && shares.length > 0 ? <ActivityIndicator style={{ margin: 20 }} /> : null}
-      style={styles.container}
-    />
+    <View style={styles.container}>
+      <View style={styles.searchContainer}>
+        <Ionicons name="search" size={20} color="#9CA3AF" style={styles.searchIcon} />
+        <TextInput
+          placeholder="Search conversations..."
+          style={styles.searchInput}
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          placeholderTextColor="#9CA3AF"
+        />
+      </View>
+      <FlatList
+        data={filteredConversations}
+        keyExtractor={(item) => item.otherUser.uid}
+        renderItem={({ item }) => <ConversationRow conversation={item} onPress={handleConversationPress} />}
+        ListEmptyComponent={
+          !conversationsLoading ? <Text style={styles.emptyText}>No messages yet.</Text> : null
+        }
+        refreshControl={<RefreshControl refreshing={conversationsLoading} onRefresh={onRefresh} />}
+      />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-  },
-  center: {
-    flex: 1,
-    justifyContent: 'center',
+  container: { flex: 1, backgroundColor: '#fff' },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  emptyText: { textAlign: 'center', marginTop: 50, color: '#666', fontSize: 16 },
+  searchContainer: {
+    flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: '#F3F4F6',
+    margin: 16,
+    borderRadius: 12,
+    paddingHorizontal: 12,
   },
-  emptyText: {
-    textAlign: 'center',
-    marginTop: 50,
-    color: '#666',
-    fontSize: 16,
-  },
+  searchIcon: { marginRight: 8 },
+  searchInput: { flex: 1, height: 44, fontSize: 16, color: '#111' },
   row: {
     flexDirection: 'row',
     padding: 16,
@@ -184,61 +130,21 @@ const styles = StyleSheet.create({
     borderBottomColor: '#E5E7EB',
     alignItems: 'center',
   },
-  unread: {
-    backgroundColor: 'rgba(122, 90, 248, 0.05)',
-  },
-  swiping: {
-    backgroundColor: '#f5f5f5',
-  },
-  avatar: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    marginRight: 12,
-    backgroundColor: '#f0f0f0',
-  },
-  content: {
-    flex: 1,
-  },
-  message: {
-    fontSize: 15,
-    lineHeight: 22,
-  },
-  senderName: {
-    fontWeight: 'bold',
-  },
-  timestamp: {
-    fontSize: 12,
-    color: '#6B7280',
-    marginTop: 4,
-  },
-  thumbnail: {
-    width: 60,
-    height: 60,
-    borderRadius: 8,
-    marginLeft: 12,
-    backgroundColor: '#f0f0f0',
-  },
-  reactions: {
-    flexDirection: 'row',
-    marginTop: 12,
-  },
-  reactionButton: {
-    padding: 4,
-  },
-  emoji: {
-    fontSize: 20,
-  },
-  deleteButton: {
-    backgroundColor: '#FF3B30',
+  content: { flex: 1, marginLeft: 12 },
+  rowTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  name: { fontWeight: 'bold', fontSize: 16 },
+  timestamp: { fontSize: 12, color: '#6B7280' },
+  rowBottom: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 },
+  lastMessage: { color: '#6B7280', flex: 1 },
+  unreadText: { color: '#111', fontWeight: 'bold' },
+  unreadBadge: {
+    backgroundColor: '#7A5AF8',
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
     justifyContent: 'center',
-    alignItems: 'flex-end',
-    paddingRight: 20,
-    width: 100, // Fixed width for the delete button
+    alignItems: 'center',
+    paddingHorizontal: 6,
   },
-  deleteButtonText: {
-    color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 16,
-  },
+  unreadBadgeText: { color: '#fff', fontSize: 12, fontWeight: 'bold' },
 });

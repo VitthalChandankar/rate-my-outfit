@@ -59,6 +59,7 @@ import VerificationScreen from '../screens/settings/VerificationScreen';
 
 import InboxScreen from '../screens/sharing/InboxScreen';
 import SharePostScreen from '../screens/sharing/SharePostScreen';
+import ShareConversationScreen from '../screens/sharing/ShareConversationScreen';
 
 // Admin Screens
 import AdminDashboardScreen from '../screens/admin/AdminDashboardScreen';
@@ -271,6 +272,17 @@ function MainAppStack() {
           headerTintColor: '#111',
           headerTitleStyle: { fontWeight: 'bold' },
         }}
+      />
+      <Stack.Screen
+        name="ShareConversation"
+        component={ShareConversationScreen}
+        options={({ route }) => ({
+          headerShown: true,
+          title: route.params?.userName || 'Conversation',
+          headerStyle: { backgroundColor: '#fff' },
+          headerTintColor: '#111',
+          headerTitleStyle: { fontWeight: 'bold' },
+        })}
       />
       <Stack.Screen
         name="SharePost"

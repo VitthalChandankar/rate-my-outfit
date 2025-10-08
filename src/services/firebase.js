@@ -1209,6 +1209,37 @@ async function fbReactToShare({ shareId, reaction, read }) {
   }
 }
 
+async function fbFetchAllUserShares(userId) {
+  if (!userId) return { success: false, error: 'User ID required' };
+  try {
+    const receivedQuery = query(
+      collection(firestore, 'shares'),
+      where('recipientId', '==', userId)
+    );
+    const sentQuery = query(
+      collection(firestore, 'shares'),
+      where('senderId', '==', userId)
+    );
+
+    const [receivedSnap, sentSnap] = await Promise.all([
+      getDocs(receivedQuery),
+      getDocs(sentQuery),
+    ]);
+
+    const receivedItems = receivedSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const sentItems = sentSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+    const allItems = [...receivedItems, ...sentItems];
+    // Sort by most recent message overall
+    allItems.sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0));
+
+    return { success: true, items: allItems };
+  } catch (error) {
+    console.error('fbFetchAllUserShares error:', error);
+    return { success: false, error };
+  }
+}
+
 async function fbDeleteShare(shareId) {
   if (!shareId) {
     return { success: false, error: 'Missing shareId' };
@@ -1384,5 +1415,5 @@ export {
   createVerificationApplication, listVerificationApplications, getVerificationApplication, processVerificationApplication,
   followUser, unfollowUser, isFollowing, listFollowers, listFollowing,
   fetchNotifications, markNotificationsAsRead, subscribeToUnreadNotifications,
-  fbSharePost, fbFetchShares, fbReactToShare, fbDeleteShare, toggleSavePost, fetchMySavedOutfitIds, fetchOutfitsByIds, fetchUserAchievements, listAchievements, createOrUpdateAchievement, subscribeToUnreadShareCount, markAllSharesAsRead
+  fbSharePost, fbFetchShares, fbReactToShare, fbDeleteShare, fbFetchAllUserShares, toggleSavePost, fetchMySavedOutfitIds, fetchOutfitsByIds, fetchUserAchievements, listAchievements, createOrUpdateAchievement, subscribeToUnreadShareCount, markAllSharesAsRead
 };

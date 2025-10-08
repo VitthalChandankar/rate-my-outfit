@@ -5,9 +5,9 @@ import {
   listFollowing,
   getUserProfile,
   fbSharePost,
-  fbFetchShares,
   fbReactToShare,
   fbDeleteShare, // Import the new delete function
+  fbFetchAllUserShares,
   subscribeToUnreadShareCount,
   markAllSharesAsRead as fbMarkAllAsRead,
 } from '../services/firebase';
@@ -20,11 +20,9 @@ const useShareStore = create((set, get) => ({
   unreadShareCount: 0,
   _unsubShares: null,
 
-  shares: [],
-  loadingShares: false,
-  hasMoreShares: true,
-  lastShareDoc: null,
-
+  conversations: [],
+  sharesByConversation: {},
+  conversationsLoading: false,
 
   // Fetch users that the current user mutually follows
   fetchMutuals: async () => {
@@ -77,49 +75,97 @@ const useShareStore = create((set, get) => ({
     });
   },
 
-  // Fetch shares received by the current user
-  fetchShares: async ({ reset = false } = {}) => {
+  // Fetch all conversations for the current user
+  fetchConversations: async () => {
     const { user } = useAuthStore.getState();
-    if (!user?.uid || (get().loadingShares && !reset)) return;
+    if (!user?.uid || get().conversationsLoading) return;
 
-    set({ loadingShares: true });
+    set({ conversationsLoading: true });
 
-    const startAfterDoc = reset ? null : get().lastShareDoc;
-    const res = await fbFetchShares({ recipientId: user.uid, startAfterDoc });
+    const res = await fbFetchAllUserShares(user.uid);
 
     if (res.success) {
-      const newShares = res.items || [];
-      set(state => ({
-        shares: reset ? newShares : [...state.shares, ...newShares],
-        lastShareDoc: res.last,
-        hasMoreShares: !!res.last,
-      }));
+      const shares = res.items || [];
+      const sharesByOtherUser = {};
+
+      // Group shares by the other person in the conversation
+      shares.forEach(share => {
+        const otherUserId = share.senderId === user.uid ? share.recipientId : share.senderId;
+        if (!sharesByOtherUser[otherUserId]) {
+          sharesByOtherUser[otherUserId] = [];
+        }
+        sharesByOtherUser[otherUserId].push(share);
+      });
+
+      // Create conversation summaries
+      const userIdsToFetch = Object.keys(sharesByOtherUser);
+      const profiles = await Promise.all(userIdsToFetch.map(uid => getUserProfile(uid)));
+      const userProfilesMap = new Map(profiles.filter(p => p.success).map(p => [p.user.uid, p.user]));
+
+      const conversationList = Object.entries(sharesByOtherUser).map(([otherUserId, userShares]) => {
+        const lastShare = userShares[0]; // Already sorted by date from fetch
+        const userProfile = userProfilesMap.get(otherUserId);
+
+        return {
+          otherUser: userProfile,
+          lastShare: lastShare,
+          unreadCount: userShares.filter(s => s.recipientId === user.uid && !s.read).length,
+        };
+      }).filter(c => c.otherUser); // Filter out conversations where user profile failed to load
+
+      // Sort conversations by the timestamp of the last message
+      conversationList.sort((a, b) => (b.lastShare.createdAt?.toMillis() || 0) - (a.lastShare.createdAt?.toMillis() || 0));
+
+      set({
+        conversations: conversationList,
+        sharesByConversation: sharesByOtherUser,
+        conversationsLoading: false,
+      });
+    } else {
+      set({ conversationsLoading: false });
     }
-    set({ loadingShares: false });
   },
 
   // React to a received share
   reactToShare: async ({ shareId, reaction }) => {
-    const currentShare = get().shares.find(s => s.id === shareId);
-    if (!currentShare) return;
+    const { sharesByConversation } = get();
+    let otherUserId = null;
+    let shareToUpdate = null;
 
-    const originalReaction = currentShare.reaction;
+    for (const userId in sharesByConversation) {
+      shareToUpdate = sharesByConversation[userId].find(s => s.id === shareId);
+      if (shareToUpdate) {
+        otherUserId = userId;
+        break;
+      }
+    }
+
+    if (!shareToUpdate || !otherUserId) return;
+
+    const originalReaction = shareToUpdate.reaction;
     const newReaction = originalReaction === reaction ? null : reaction;
 
     // Optimistically update the UI
     set(state => ({
-      shares: state.shares.map(share =>
-        share.id === shareId ? { ...share, reaction: newReaction } : share
-      ),
+      sharesByConversation: {
+        ...state.sharesByConversation,
+        [otherUserId]: state.sharesByConversation[otherUserId].map(share =>
+          share.id === shareId ? { ...share, reaction: newReaction } : share
+        ),
+      },
     }));
 
     const res = await fbReactToShare({ shareId, reaction: newReaction });
 
     if (!res.success) {
       console.error('Failed to save reaction');
-      // Revert on failure
       set(state => ({
-        shares: state.shares.map(share => share.id === shareId ? { ...share, reaction: originalReaction } : share)
+        sharesByConversation: {
+          ...state.sharesByConversation,
+          [otherUserId]: state.sharesByConversation[otherUserId].map(share =>
+            share.id === shareId ? { ...share, reaction: originalReaction } : share
+          ),
+        },
       }));
     }
   },
@@ -127,9 +173,12 @@ const useShareStore = create((set, get) => ({
   // Mark a share as read
   markShareAsRead: async (shareId) => {
     set(state => ({
-      shares: state.shares.map(share =>
-        share.id === shareId ? { ...share, read: true } : share
-      ),
+      sharesByConversation: Object.keys(state.sharesByConversation).reduce((acc, userId) => {
+        acc[userId] = state.sharesByConversation[userId].map(share =>
+          share.id === shareId ? { ...share, read: true } : share
+        );
+        return acc;
+      }, {}),
     }));
     // This is a fire-and-forget call to the backend
     await fbReactToShare({ shareId, read: true });
@@ -137,21 +186,39 @@ const useShareStore = create((set, get) => ({
 
   // Delete a received share
   deleteShare: async (shareId) => {
-    const originalShares = get().shares;
+    const { sharesByConversation } = get();
+    let otherUserId = null;
+    let originalSharesForUser = null;
+
+    for (const userId in sharesByConversation) {
+      if (sharesByConversation[userId].some(s => s.id === shareId)) {
+        otherUserId = userId;
+        originalSharesForUser = [...sharesByConversation[userId]];
+        break;
+      }
+    }
+
+    if (!otherUserId) return;
 
     // Optimistically remove from the UI
+    const newSharesForUser = sharesByConversation[otherUserId].filter(share => share.id !== shareId);
     set(state => ({
-      shares: state.shares.filter(share => share.id !== shareId)
+      sharesByConversation: {
+        ...state.sharesByConversation,
+        [otherUserId]: newSharesForUser,
+      },
     }));
 
     const res = await fbDeleteShare(shareId);
 
     if (!res.success) {
       console.error('Failed to delete share from backend.');
-      // Revert on failure
-      set({ shares: originalShares });
-      // Optionally, show an alert to the user
-      // Alert.alert('Error', 'Could not delete the message. Please try again.');
+      set(state => ({
+        sharesByConversation: {
+          ...state.sharesByConversation,
+          [otherUserId]: originalSharesForUser,
+        },
+      }));
     }
   },
 
@@ -163,7 +230,6 @@ const useShareStore = create((set, get) => ({
     if (hasUnread) {
       // Optimistically update UI
       set(state => ({
-        shares: state.shares.map(s => ({ ...s, read: true })),
         unreadShareCount: 0,
       }));
       // Call backend
@@ -187,7 +253,8 @@ const useShareStore = create((set, get) => ({
       try { unsub(); } catch {}
     }
     set({
-      shares: [],
+      conversations: [],
+      sharesByConversation: {},
       unreadShareCount: 0,
       _unsubShares: null,
     });

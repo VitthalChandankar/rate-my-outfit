@@ -5,7 +5,7 @@ import { Image as ExpoImage } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import useShareStore from '../../store/shareStore';
 
-function UserRow({ user, onSend }) {
+function UserRow({ user, onSend, isSent }) {
   return (
     <View style={styles.row}>
       <ExpoImage source={{ uri: user.profilePicture }} style={styles.avatar} />
@@ -13,8 +13,14 @@ function UserRow({ user, onSend }) {
         <Text style={styles.name}>{user.name}</Text>
         <Text style={styles.username}>@{user.username}</Text>
       </View>
-      <TouchableOpacity style={styles.sendButton} onPress={() => onSend(user)}>
-        <Text style={styles.sendButtonText}>Send</Text>
+      <TouchableOpacity
+        style={[styles.sendButton, isSent && styles.sentButton]}
+        onPress={() => onSend(user)}
+        disabled={isSent}
+      >
+        <Text style={[styles.sendButtonText, isSent && styles.sentButtonText]}>
+          {isSent ? 'Sent' : 'Send'}
+        </Text>
       </TouchableOpacity>
     </View>
   );
@@ -80,6 +86,7 @@ export default function SharePostScreen({ route, navigation }) {
             <UserRow
               user={item}
               onSend={handleSend}
+              isSent={sentTo.has(item.uid)}
             />
           )}
           ListEmptyComponent={<Text style={styles.emptyText}>No mutual followers found.</Text>}
@@ -139,9 +146,15 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 20,
   },
+  sentButton: {
+    backgroundColor: '#E5E7EB', // A neutral grey color
+  },
   sendButtonText: {
     color: '#fff',
     fontWeight: 'bold',
+  },
+  sentButtonText: {
+    color: '#6B7280', // A darker grey for the text
   },
   emptyText: {
     textAlign: 'center',
