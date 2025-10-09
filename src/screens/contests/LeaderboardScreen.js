@@ -10,6 +10,50 @@ import { useNavigation } from '@react-navigation/native';
 import useContestStore from '../../store/contestStore';
 import Avatar from '../../components/Avatar';
 
+// NEW: Component for a single winner in the top 3 podium
+const WinnerCard = ({ user, rank, onUserPress }) => {
+  const isFirst = rank === 1;
+  const size = isFirst ? 80 : 60;
+  const containerStyle = isFirst ? styles.winnerCardFirst : styles.winnerCard;
+
+  return (
+    <Pressable onPress={() => onUserPress(user.userId)} style={[styles.winnerCardContainer, isFirst && styles.winnerCardContainerFirst]}>
+      <View style={containerStyle}>
+        <Text style={styles.winnerRank}>{rank}</Text>
+        <Avatar uri={user.user?.profilePicture} size={size} ring={isFirst} ringColor="#FFD700" />
+        <Text style={styles.winnerName} numberOfLines={1}>{user.user?.name || 'User'}</Text>
+        <Text style={styles.winnerScore}>{(user.averageRating || 0).toFixed(1)}</Text>
+      </View>
+    </Pressable>
+  );
+};
+
+// NEW: Component to display the top 3 winners in a podium layout
+function TopThree({ topThree, onUserPress }) {
+  if (!topThree || topThree.length === 0) {
+    return null;
+  }
+
+  // Ensure we have placeholders if there are fewer than 3 winners
+  const first = topThree[0];
+  const second = topThree[1];
+  const third = topThree[2];
+
+  return (
+    <View style={styles.topThreeContainer}>
+      {second ? (
+        <WinnerCard user={second} rank={2} onUserPress={onUserPress} />
+      ) : <View style={styles.winnerCardContainer} /> /* Placeholder */}
+      {first ? (
+        <WinnerCard user={first} rank={1} onUserPress={onUserPress} />
+      ) : <View style={styles.winnerCardContainer} /> /* Placeholder */}
+      {third ? (
+        <WinnerCard user={third} rank={3} onUserPress={onUserPress} />
+      ) : <View style={styles.winnerCardContainer} /> /* Placeholder */}
+    </View>
+  );
+}
+
 export function LeaderboardList({ contestId, limit = 50, minVotes = 1, ListHeaderComponent }) {
   const navigation = useNavigation();
   const rows = useContestStore((s) => s.leaderboards[contestId] || []);
@@ -27,15 +71,19 @@ export function LeaderboardList({ contestId, limit = 50, minVotes = 1, ListHeade
     fetchLeaderboard({ contestId, limit, minVotes });
   }, [contestId, limit, minVotes, fetchLeaderboard]);
 
-  const renderItem = ({ item, index }) => {
-    const handlePress = () => {
-      if (item.userId) {
-        navigation.navigate('UserProfile', { userId: item.userId });
-      }
-    };
+  const handleUserPress = useCallback((userId) => {
+    if (userId) {
+      navigation.navigate('UserProfile', { userId });
+    }
+  }, [navigation]);
+
+  const topThree = rows.slice(0, 3);
+  const restOfList = rows.slice(3);
+
+  const renderItem = useCallback(({ item, index }) => {
     return (
-      <Pressable onPress={handlePress} style={({ pressed }) => [styles.row, pressed && { backgroundColor: '#f9f9f9' }]}>
-        <Text style={styles.rank}>{index + 1}</Text>
+      <Pressable onPress={() => handleUserPress(item.userId)} style={({ pressed }) => [styles.row, pressed && { backgroundColor: '#f9f9f9' }]}>
+        <Text style={styles.rank}>{index + 4}</Text>
         <Avatar uri={item.user?.profilePicture} name={item.user?.name} size={40} />
         <View style={{ flex: 1, marginLeft: 10 }}>
           <Text style={styles.name} numberOfLines={1}>
@@ -48,21 +96,27 @@ export function LeaderboardList({ contestId, limit = 50, minVotes = 1, ListHeade
         <Text style={styles.score}>{(item.averageRating || 0).toFixed(1)}</Text>
       </Pressable>
     );
-  };
+  }, [handleUserPress]);
 
   return (
     <FlatList
-      data={rows}
+      data={restOfList}
       keyExtractor={(it) => it.id || it.entryId || `${it.userId}-${(it.imageUrl || '').slice(-6)}`}
       renderItem={renderItem}
       onRefresh={onRefresh}
       refreshing={false}
       contentContainerStyle={{ paddingBottom: 24 }}
-      ListHeaderComponent={ListHeaderComponent || <Text style={styles.title}>Leaderboard</Text>}
+      ListHeaderComponent={
+        <>
+          {ListHeaderComponent || <Text style={styles.title}>Leaderboard</Text>}
+          <TopThree topThree={topThree} onUserPress={handleUserPress} />
+          {restOfList.length > 0 && <Text style={styles.listTitle}>All Ranks</Text>}
+        </>
+      }
       ListEmptyComponent={
         !loading ? (
           <Text style={{ textAlign: 'center', color: '#666', marginTop: 24 }}>
-            No leaderboard yet.
+            {topThree?.length === 0 && restOfList?.length === 0 ? "No leaderboard yet." : null}
           </Text>
         ) : null
       }
@@ -105,4 +159,58 @@ const styles = StyleSheet.create({
   sub: { fontSize: 12, color: '#888', marginTop: 2 },
   score: { fontSize: 16, fontWeight: '800', color: '#7A5AF8' },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  // Top 3 Podium Styles
+  topThreeContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'flex-end',
+    paddingVertical: 20,
+    paddingHorizontal: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+    backgroundColor: '#fff',
+  },
+  winnerCardContainer: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  winnerCardContainerFirst: {
+    // The middle item can be normal, its content is what's elevated
+  },
+  winnerCard: {
+    alignItems: 'center',
+    padding: 10,
+    borderRadius: 12,
+    backgroundColor: '#f8f8f8',
+    width: '90%',
+  },
+  winnerCardFirst: {
+    alignItems: 'center',
+    padding: 15,
+    borderRadius: 16,
+    backgroundColor: '#fff',
+    width: '95%',
+    marginBottom: 20, // Elevate it
+    shadowColor: '#7A5AF8',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 10,
+    elevation: 8,
+  },
+  winnerRank: {
+    position: 'absolute',
+    top: -12,
+    backgroundColor: '#7A5AF8',
+    color: '#fff',
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    textAlign: 'center',
+    lineHeight: 24,
+    fontWeight: 'bold',
+    zIndex: 1,
+  },
+  winnerName: { marginTop: 8, fontWeight: 'bold', fontSize: 14, textAlign: 'center' },
+  winnerScore: { marginTop: 4, fontSize: 16, fontWeight: '900', color: '#7A5AF8' },
+  listTitle: { fontSize: 18, fontWeight: '800', marginTop: 16, marginBottom: 8, paddingHorizontal: 16, color: '#333' },
 });

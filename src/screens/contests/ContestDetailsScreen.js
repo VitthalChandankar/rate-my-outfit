@@ -112,33 +112,35 @@ export default function ContestDetailsScreen({ route, navigation }) {
   const Header = () => (
     <View style={styles.headerContainer}>
       <Surface style={styles.mainCard} elevation={4}>
-        {/* Banner */}
-        {bannerImage && (
-          <ExpoImage source={{ uri: bannerImage }} style={styles.bannerImg} contentFit="cover" />
-        )}
+        <View style={styles.mainCardInner}>
+          {/* Banner */}
+          {bannerImage && (
+            <ExpoImage source={{ uri: bannerImage }} style={styles.bannerImg} contentFit="cover" />
+          )}
 
-        {/* Details */}
-        <View style={styles.detailsContainer}>
-          <Text style={styles.title}>{contestData.title || 'Contest'}</Text>
-          {!!contestData.theme && <Text style={styles.theme}>{contestData.theme}</Text>}
-          <View style={styles.infoGrid}>
-            <InfoCard icon="calendar-outline" label="Starts" value={formatDate(startMs)} />
-            <InfoCard icon="flag-outline" label="Ends" value={formatDate(endMs)} />
-            <InfoCard icon="person-outline" label="Host" value={host} />
-            <InfoCard icon="gift-outline" label="Prize" value={contestData.prize || 'Feature'} />
-            <InfoCard icon="globe-outline" label="Region" value={countryDisplay} />
-          </View>
-          
-          <View style={styles.actionsRow}>
-            <TouchableOpacity
-              onPress={onParticipate}
-              style={[styles.button, styles.primaryBtn, status !== 'active' && styles.disabledBtn]}
-              activeOpacity={0.8}
-              disabled={status !== 'active'}
-            >
-              <Ionicons name="add-circle-outline" size={20} color="#fff" />
-              <Text style={styles.primaryBtnText}>Participate</Text>
-            </TouchableOpacity>
+          {/* Details */}
+          <View style={styles.detailsContainer}>
+            <Text style={styles.title}>{contestData.title || 'Contest'}</Text>
+            {!!contestData.theme && <Text style={styles.theme}>{contestData.theme}</Text>}
+            <View style={styles.infoGrid}>
+              <InfoCard icon="calendar-outline" label="Starts" value={formatDate(startMs)} />
+              <InfoCard icon="flag-outline" label="Ends" value={formatDate(endMs)} />
+              <InfoCard icon="person-outline" label="Host" value={host} />
+              <InfoCard icon="gift-outline" label="Prize" value={contestData.prize || 'Feature'} />
+              <InfoCard icon="globe-outline" label="Region" value={countryDisplay} />
+            </View>
+            
+            <View style={styles.actionsRow}>
+              <TouchableOpacity
+                onPress={onParticipate}
+                style={[styles.button, styles.primaryBtn, status !== 'active' && styles.disabledBtn]}
+                activeOpacity={0.8}
+                disabled={status !== 'active'}
+              >
+                <Ionicons name="add-circle-outline" size={20} color="#fff" />
+                <Text style={styles.primaryBtnText}>Participate</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Surface>
@@ -199,7 +201,10 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.12,
     shadowRadius: 16,
     elevation: 8,
-    overflow: 'hidden', // Ensures banner corners are clipped
+  },
+  mainCardInner: {
+    borderRadius: 20,
+    overflow: 'hidden',
   },
   bannerImg: { width: '100%', height: 180 },
   detailsContainer: { padding: PADDING_H },
