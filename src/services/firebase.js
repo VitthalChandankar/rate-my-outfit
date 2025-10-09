@@ -736,6 +736,49 @@ async function fbFetchContestLeaderboard({ contestId, limitCount = 50, minVotes 
   }
 }
 
+async function fbCreateAdvertisement({ advertiserId, imageUrl, title, targetUrl, callToAction, planId, durationDays = 7 }) {
+  try {
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + durationDays * 24 * 60 * 60 * 1000);
+
+    const payload = {
+      advertiserId,
+      imageUrl,
+      title,
+      targetUrl,
+      callToAction,
+      planId,
+      status: 'active', // Ads are active immediately for now
+      createdAt: serverTimestamp(),
+      expiresAt: expiresAt, // Store the expiration timestamp
+    };
+    const docRef = await addDoc(collection(firestore, 'advertisements'), payload);
+    return { success: true, id: docRef.id };
+  } catch (error) {
+    console.error('fbCreateAdvertisement error:', error);
+    return { success: false, error };
+  }
+}
+
+async function fbFetchActiveAds({ limitCount = 5 } = {}) {
+  try {
+    const now = new Date();
+    const q = query(
+      collection(firestore, 'advertisements'),
+      where('status', '==', 'active'),
+      where('expiresAt', '>', now), // Filter out expired ads
+      orderBy('expiresAt', 'asc'),   // Show ads expiring soonest first
+      limit(limitCount)
+    );
+    const snap = await getDocs(q);
+    const items = snap.docs.map(d => ({ id: d.id, ...d.data(), isAd: true })); // Add isAd flag
+    return { success: true, items };
+  } catch (error) {
+    console.error('fbFetchActiveAds error:', error);
+    return { success: false, error };
+  }
+}
+
 async function blockUser({ blockerId, blockedId }) {
   if (!blockerId || !blockedId || blockerId === blockedId) {
     return { success: false, error: 'Invalid block operation' };
@@ -1435,7 +1478,7 @@ async function markNotificationsAsRead(userId) {
 export {
   addComment, auth, createUser, createOutfitDocument,
   deleteComment, deleteOutfit, fetchCommentsForOutfit, fetchFeed, fetchOutfitDetails, fetchUserOutfits, firestore, loginWithEmail, fbCreateContest,
-  logout, onAuthChange, sendResetEmail, signupWithEmail, uploadImage, fbFetchContestsByIds,
+  logout, onAuthChange, sendResetEmail, signupWithEmail, uploadImage, fbFetchContestsByIds, fbCreateAdvertisement, fbFetchActiveAds,
   toggleLikePost, fetchMyLikedOutfitIds, fetchLikersForOutfit, fbListContests, fbFetchContestEntries, fbCreateEntry, fbRateEntry, fbFetchContestLeaderboard, updateUserPushToken,
   getUserProfile, updateUserProfile, setUserAvatar, ensureUsernameUnique, blockUser, unblockUser, listBlockedUsers, fetchMyBlockedIds, fetchMyBlockerIds, createProblemReport, listProblemReports, updateProblemReportStatus,firebaseSearchUsers,
   createVerificationApplication, listVerificationApplications, getVerificationApplication, processVerificationApplication,

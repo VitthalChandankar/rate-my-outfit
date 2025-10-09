@@ -13,6 +13,7 @@ import useNotificationsStore from '../../store/notificationsStore';
 import useContestStore from '../../store/contestStore';
 import useShareStore from '../../store/shareStore';
 import OutfitCard from '../../components/OutfitCard';
+import { fbFetchActiveAds } from '../../services/firebase';
 
 function ensureKey(item) {
   if (item?.id) return item;
@@ -53,12 +54,15 @@ export default function HomeScreen() {
 
   const [fontsLoaded] = useFonts({ PlayfairDisplay_400Regular });
   const [initialLoaded, setInitialLoaded] = useState(false);
+  const [ads, setAds] = useState([]); // State for ads
 
 
   useEffect(() => {
     if (isFocused) {
       // We no longer fetch all contests. Instead, we fetch them on-demand based on the feed.
       fetchFeed({ limit: 12, reset: true }).finally(() => setInitialLoaded(true));
+      // Fetch ads when the screen is focused
+      fbFetchActiveAds({ limitCount: 5 }).then(res => res.success && setAds(res.items));
     }
   }, [isFocused, fetchFeed]);
 
@@ -132,11 +136,28 @@ export default function HomeScreen() {
     const deduped = dedupeById(withKeys);
     const filtered = deduped.filter(item => !myBlockedIds.has(item.userId) && !myBlockerIds.has(item.userId));
 
-    return filtered.map(item => ({
+    const outfitsWithContestData = filtered.map(item => ({
       ...item,
       contestData: item.contestId ? contestsById[item.contestId] : null,
     }));
-  }, [feed, contestsById, myBlockedIds, myBlockerIds]);
+
+    // Inject ads into the feed
+    if (ads.length > 0) {
+      const injectedFeed = [];
+      let adIndex = 0;
+      for (let i = 0; i < outfitsWithContestData.length; i++) {
+        injectedFeed.push(outfitsWithContestData[i]);
+        // Inject an ad every 5 posts, and if we still have ads to show
+        if ((i + 1) % 5 === 0 && adIndex < ads.length) {
+          injectedFeed.push(ads[adIndex]);
+          adIndex++;
+        }
+      }
+      return injectedFeed;
+    }
+
+    return outfitsWithContestData;
+  }, [feed, contestsById, myBlockedIds, myBlockerIds, ads]);
 
   const keyExtractor = useCallback((item) => String(item?.id || item?._localKey), []);
 

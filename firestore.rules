@@ -202,6 +202,13 @@ service cloud.firestore {
       allow delete: if isSignedIn() && (request.auth.uid == resource.data.recipientId || request.auth.uid == resource.data.senderId);
     }
 
+    // advertisements: Public read. Advertiser can create.
+    match /advertisements/{adId} {
+      allow read: if true;
+      allow create: if isSignedIn() && request.resource.data.advertiserId == request.auth.uid;
+      allow update, delete: if isSignedIn() && resource.data.advertiserId == request.auth.uid || isAdmin();
+    }
+
     match /problemReports/{reportId} {
   allow create: if isSignedIn() && request.resource.data.reporterId == request.auth.uid;
   allow read, update, delete: if isAdmin(); // This line already permits the update.

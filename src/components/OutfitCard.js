@@ -3,7 +3,7 @@
 // Normal posts: like/comment/share and caption below image.
 
 import React, { useMemo, memo, useRef, useEffect, useState } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View, Pressable, Platform, Animated, Easing, Dimensions } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View, Pressable, Platform, Animated, Easing, Dimensions, Linking } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Image as ExpoImage } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -75,6 +75,39 @@ const useCountdown = (endTime) => {
 const OutfitCard = memo(({ item, onPress, onRate, onUserPress, onLike, isLiked, isSaved, onPressSave, onPressLikes, onPressComments, onPressContest, onPressShare }) => {
   const raw = item || null;
   if (!raw) return null;
+
+  const isAd = raw.isAd === true;
+
+  if (isAd) {
+    const handleAdPress = () => {
+      if (raw.targetUrl) {
+        Linking.openURL(raw.targetUrl).catch(err => console.error("Failed to open URL:", err));
+      }
+    };
+
+    return (
+      <View style={styles.card}>
+        <View style={styles.header}>
+          <Text style={styles.sponsoredLabel}>Sponsored</Text>
+        </View>
+        <TouchableOpacity activeOpacity={0.9} onPress={handleAdPress}>
+          <ExpoImage
+            source={{ uri: raw.imageUrl }}
+            style={styles.image}
+            contentFit="cover"
+          />
+        </TouchableOpacity>
+        <Pressable onPress={handleAdPress} style={styles.adCtaContainer}>
+          <Text style={styles.adTitle} numberOfLines={1}>{raw.title}</Text>
+          <View style={styles.adCtaButton}>
+            <Text style={styles.adCtaText}>{raw.callToAction || 'Learn More'}</Text>
+            <Ionicons name="arrow-forward" size={16} color="#7A5AF8" />
+          </View>
+        </Pressable>
+      </View>
+    );
+  }
+
 
   const id = raw.id || raw._localKey || null;
   const imageUrl = raw.imageUrl || raw.image || null;
@@ -383,6 +416,37 @@ const styles = StyleSheet.create({
   avatar: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#EEE' },
   avatarFallback: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#7A5AF8', alignItems: 'center', justifyContent: 'center' },
   avatarInitial: { color: '#fff', fontWeight: '700' },
+  // Ad styles
+  sponsoredLabel: {
+    fontWeight: '600',
+    color: '#6B7280',
+    fontSize: 12,
+  },
+  adCtaContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: '#F9FAFB',
+  },
+  adTitle: {
+    fontWeight: '600',
+    fontSize: 14,
+    color: '#111',
+    flex: 1,
+    marginRight: 8,
+  },
+  adCtaButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  adCtaText: {
+    fontWeight: 'bold',
+    color: '#7A5AF8',
+    fontSize: 13,
+  },
 });
 
 export default OutfitCard;

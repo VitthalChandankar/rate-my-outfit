@@ -93,6 +93,10 @@ export default function SettingsScreen({ navigation }) {
         <Text style={styles.helperText}>Controls visibility of average ratings on your contest posts on profile</Text>
      </SettingsSection>
 
+     <SettingsSection title="Business">
+        <SettingsRow icon="megaphone-outline" label="Publish Ads on Vastrayl" onPress={() => navigation.navigate('CreateAd')} color="#7A5AF8" />
+      </SettingsSection>
+
      <SettingsSection title={i18n.t('settings.support')}>
         <SettingsRow icon="help-circle-outline" label={i18n.t('settings.helpCenter')} onPress={() => navigation.navigate('HelpCenter')} />
         <SettingsRow icon="chatbubble-ellipses-outline" label={i18n.t('settings.contactUs')} onPress={() => Linking.openURL('mailto:support@yourapp.com?subject=App Support')} />

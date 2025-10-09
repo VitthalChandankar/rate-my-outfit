@@ -61,6 +61,7 @@ import InboxScreen from '../screens/sharing/InboxScreen';
 import SharePostScreen from '../screens/sharing/SharePostScreen';
 import ShareConversationScreen from '../screens/sharing/ShareConversationScreen';
 
+import CreateAdScreen from '../screens/ads/CreateAdScreen';
 // Admin Screens
 import AdminDashboardScreen from '../screens/admin/AdminDashboardScreen';
 import ManageAchievementsScreen from '../screens/admin/ManageAchievementsScreen';
@@ -180,6 +181,16 @@ function MainAppStack() {
         options={{
           headerShown: true,
           title: 'Host a New Contest',
+        }}
+      />
+
+      {/* Ad Creation */}
+      <Stack.Screen
+        name="CreateAd"
+        component={CreateAdScreen}
+        options={{
+          headerShown: true,
+          title: 'Create Advertisement',
         }}
       />
 
