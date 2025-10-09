@@ -713,7 +713,7 @@ async function fbRateEntry({ entryId, contestId, userId, rating, aiFlag = false 
 
   
   // NEW: leaderboard for a contest (min votes)
-async function fbFetchContestLeaderboard({ contestId, limitCount = 50, minVotes = 10 }) {
+async function fbFetchContestLeaderboard({ contestId, limitCount = 50, minVotes = 1 }) {
   try {
   // Basic approach: pull top N by createdAt window then filter client-side by minVotes and sort by averageRating
   const q = query(
@@ -722,7 +722,8 @@ async function fbFetchContestLeaderboard({ contestId, limitCount = 50, minVotes 
       orderBy('createdAt', 'desc'),
   limit(400) // safety buffer, filtered client-side
     );
-    const snap = await getDocs(qy);
+   
+    const snap = await getDocs(q);
     let items = [];
     snap.forEach((d) => items.push({ id: d.id, ...d.data() }));
     items = items.filter((e) => (e.ratingsCount || 0) >= minVotes && e.status !== 'flagged');
@@ -730,6 +731,7 @@ async function fbFetchContestLeaderboard({ contestId, limitCount = 50, minVotes 
     items = items.slice(0, limitCount);
     return { success: true, items };
   } catch (error) {
+   
     return { success: false, error };
   }
 }

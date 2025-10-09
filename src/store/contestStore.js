@@ -331,7 +331,7 @@ const useContestStore = create((set, get) => ({
   },
 
   // Fetch leaderboard and enrich with usernames/avatars
-  fetchLeaderboard: async ({ contestId, limit = 50, minVotes = 10 }) => {
+  fetchLeaderboard: async ({ contestId, limit = 50, minVotes = 1 }) => {
     if (!contestId) return { success: false, error: 'contestId required' };
     const res = await fbFetchContestLeaderboard({ contestId, limitCount: limit, minVotes });
     if (res.success) {
