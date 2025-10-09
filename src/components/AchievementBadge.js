@@ -216,9 +216,6 @@ const AchievementBadge = memo(({ item, onReveal }) => {
           </Animated.View>
         )}
       </Animated.View>
-      <Text style={[styles.title, !isUnlocked && styles.titleLocked]} numberOfLines={2}>
-        {item.title}
-      </Text>
     </Pressable>
   );
 });
@@ -279,10 +276,6 @@ const styles = StyleSheet.create({
   },
   scratchHint: { fontSize: 14, color: '#eee' },
   shimmer: { position: 'absolute', width: '100%', height: '100%', opacity: 0.8 },
-  title: {
-    marginTop: 8, textAlign: 'center', fontWeight: '600', fontSize: 13, color: '#1F2937',
-  },
-  titleLocked: { color: '#9CA3AF' },
 });
 
 export default memo(AchievementBadge);

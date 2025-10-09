@@ -264,7 +264,6 @@ export default function ProfileScreen({ navigation, route }) {
     // fallback placeholder while AchievementBadge module loads
     return (
       <Pressable style={{ width: Math.floor((width - OUTER_PAD * 2 - GAP * (COLS - 1)) / COLS), height: 120, alignItems: 'center', justifyContent: 'center' }}>
-        <Text numberOfLines={1} style={{ fontSize: 12, color: '#666' }}>{item.title}</Text>
       </Pressable>
     );
   }, [AchievementBadgeComp, markAchievementAsSeen]);
