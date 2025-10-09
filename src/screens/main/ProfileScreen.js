@@ -147,23 +147,35 @@ export default function ProfileScreen({ navigation, route }) {
   }, [isFocused, tab, fetchSavedOutfits, fetchMyAchievements, uid]);
 
   const handleCoverPhotoChange = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaType.Images,
-      allowsEditing: true,
-      aspect: [16, 9],
-      quality: 0.8,
-    });
+    try {
+      // Ensure user has granted permission to access the media library.
+      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (permissionResult.granted === false) {
+        Alert.alert('Permission Required', 'Please grant permission to access your photo library to change the cover photo.');
+        return;
+      }
 
-    if (!result.canceled && result.assets?.[0]?.uri) {
-      const uri = result.assets[0].uri;
-      Alert.alert(
-        'Update Cover Photo',
-        'Do you want to set this as your new cover photo?',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Update', onPress: () => setCoverPhoto(uid, uri) },
-        ]
-      );
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images, // Corrected from MediaType to MediaTypeOptions
+        allowsEditing: true,
+        aspect: [16, 9],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets?.[0]?.uri) {
+        const uri = result.assets[0].uri;
+        Alert.alert(
+          'Update Cover Photo',
+          'Do you want to set this as your new cover photo?',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Update', onPress: () => setCoverPhoto(uid, uri) },
+          ]
+        );
+      }
+    } catch (error) {
+      console.error("handleCoverPhotoChange error:", error);
+      Alert.alert('Error', 'An unexpected error occurred while trying to select a photo.');
     }
   };
 
