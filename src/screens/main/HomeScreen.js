@@ -5,6 +5,7 @@ import React, { useCallback, useEffect, useMemo, useState, useRef } from 'react'
 import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, Text, View, TouchableOpacity } from 'react-native';
 import { useIsFocused, useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import { useFonts, PlayfairDisplay_400Regular } from '@expo-google-fonts/playfair-display';
 import useAuthStore from '../../store/authStore';
 import useOutfitStore from '../../store/outfitStore';
 import useUserStore from '../../store/UserStore';
@@ -50,7 +51,9 @@ export default function HomeScreen() {
   const unreadCount = useNotificationsStore((s) => s.unreadCount);
   const unreadShareCount = useShareStore((s) => s.unreadShareCount);
 
+  const [fontsLoaded] = useFonts({ PlayfairDisplay_400Regular });
   const [initialLoaded, setInitialLoaded] = useState(false);
+
 
   useEffect(() => {
     if (isFocused) {
@@ -75,7 +78,12 @@ export default function HomeScreen() {
     navigation.setOptions({
       headerShown: true,
       title: 'Vastrayl',
+
       headerTitleAlign: 'left',
+      headerTitleStyle: {
+        fontFamily: fontsLoaded ? 'PlayfairDisplay_400Regular' : undefined,
+        fontSize: 24
+      },
       headerRight: () => (
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 20 }}>
           <TouchableOpacity onPress={() => navigation.navigate('Inbox')}>
@@ -101,7 +109,7 @@ export default function HomeScreen() {
         </View>
       )
     });
-  }, [navigation, unreadCount, unreadShareCount]);
+  }, [navigation, unreadCount, unreadShareCount, fontsLoaded]);
 
   // Add listener for tab press to scroll to top
   useEffect(() => {
