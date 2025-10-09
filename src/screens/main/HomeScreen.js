@@ -76,8 +76,8 @@ export default function HomeScreen() {
       headerShown: true,
       title: 'Vastrayl',
       headerRight: () => (
-        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          <TouchableOpacity onPress={() => navigation.navigate('Inbox')} style={{ marginRight: 16 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 20 }}>
+          <TouchableOpacity onPress={() => navigation.navigate('Inbox')}>
             <View>
               <Ionicons name="paper-plane-outline" size={24} color="#111" />
               {unreadShareCount > 0 && (
