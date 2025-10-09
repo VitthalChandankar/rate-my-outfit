@@ -75,6 +75,7 @@ export default function HomeScreen() {
     navigation.setOptions({
       headerShown: true,
       title: 'Vastrayl',
+      headerTitleAlign: 'left',
       headerRight: () => (
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 20 }}>
           <TouchableOpacity onPress={() => navigation.navigate('Inbox')}>
