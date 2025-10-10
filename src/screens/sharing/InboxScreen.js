@@ -1,14 +1,16 @@
 // src/screens/sharing/InboxScreen.js
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
-import { View, Text, FlatList, StyleSheet, ActivityIndicator, TouchableOpacity, TextInput, RefreshControl } from 'react-native';
+import { View, Text, FlatList, StyleSheet, ActivityIndicator, TouchableOpacity, TextInput, RefreshControl, Alert, Animated } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import { Swipeable } from 'react-native-gesture-handler';
+import { Snackbar } from 'react-native-paper';
 import useShareStore from '../../store/shareStore';
 import useAuthStore from '../../store/authStore';
 import formatDate from '../../utils/formatDate';
 import Avatar from '../../components/Avatar';
 
-function ConversationRow({ conversation, onPress }) {
+function ConversationRow({ conversation, onPress, onDelete }) {
   const { otherUser, lastShare, unreadCount } = conversation;
   const { user: currentUser } = useAuthStore();
 
@@ -22,33 +24,54 @@ function ConversationRow({ conversation, onPress }) {
     }
   }
 
+  const renderRightActions = (progress, dragX) => {
+    const scale = dragX.interpolate({
+      inputRange: [-100, 0],
+      outputRange: [1, 0],
+      extrapolate: 'clamp',
+    });
+    return (
+      <TouchableOpacity
+        style={styles.deleteButton}
+        onPress={() => onDelete(conversation)}
+      >
+        <Animated.Text style={[styles.deleteButtonText, { transform: [{ scale }] }]}>
+          Delete
+        </Animated.Text>
+      </TouchableOpacity>
+    );
+  };
+
   return (
-    <TouchableOpacity style={styles.row} onPress={() => onPress(conversation)}>
-      <Avatar uri={otherUser.profilePicture} size={50} />
-      <View style={styles.content}>
-        <View style={styles.rowTop}>
-          <Text style={styles.name}>{otherUser.name}</Text>
-          {lastShare?.createdAt && <Text style={styles.timestamp}>{formatDate(lastShare.createdAt)}</Text>}
+    <Swipeable renderRightActions={renderRightActions} overshootRight={false}>
+      <TouchableOpacity style={styles.row} onPress={() => onPress(conversation)}>
+        <Avatar uri={otherUser.profilePicture} size={50} />
+        <View style={styles.content}>
+          <View style={styles.rowTop}>
+            <Text style={styles.name}>{otherUser.name}</Text>
+            {lastShare?.createdAt && <Text style={styles.timestamp}>{formatDate(lastShare.createdAt)}</Text>}
+          </View>
+          <View style={styles.rowBottom}>
+            <Text style={[styles.lastMessage, unreadCount > 0 && styles.unreadText]} numberOfLines={1}>
+              {lastMessage}
+            </Text>
+            {unreadCount > 0 && (
+              <View style={styles.unreadBadge}>
+                <Text style={styles.unreadBadgeText}>{unreadCount}</Text>
+              </View>
+            )}
+          </View>
         </View>
-        <View style={styles.rowBottom}>
-          <Text style={[styles.lastMessage, unreadCount > 0 && styles.unreadText]} numberOfLines={1}>
-            {lastMessage}
-          </Text>
-          {unreadCount > 0 && (
-            <View style={styles.unreadBadge}>
-              <Text style={styles.unreadBadgeText}>{unreadCount}</Text>
-            </View>
-          )}
-        </View>
-      </View>
-    </TouchableOpacity>
+      </TouchableOpacity>
+    </Swipeable>
   );
 }
 
 export default function InboxScreen({ navigation }) {
   const { user } = useAuthStore();
-  const { conversations, conversationsLoading, fetchConversations, markAllSharesAsRead } = useShareStore();
+  const { conversations, conversationsLoading, fetchConversations, markAllSharesAsRead, deleteConversation, undoDeleteConversation } = useShareStore();
   const [searchQuery, setSearchQuery] = useState('');
+  const [isUndoVisible, setIsUndoVisible] = useState(false);
 
   useFocusEffect(
     React.useCallback(() => {
@@ -76,6 +99,13 @@ export default function InboxScreen({ navigation }) {
     });
   };
 
+  const handleDeleteConversation = useCallback((conversation) => {
+    deleteConversation(conversation.otherUser.uid);
+    setIsUndoVisible(true);
+  }, [deleteConversation]);
+
+  const handleUndo = () => undoDeleteConversation();
+
   const onRefresh = useCallback(() => {
     if (user?.uid) fetchConversations();
   }, [user?.uid, fetchConversations]);
@@ -99,12 +129,23 @@ export default function InboxScreen({ navigation }) {
       <FlatList
         data={filteredConversations}
         keyExtractor={(item) => item.otherUser.uid}
-        renderItem={({ item }) => <ConversationRow conversation={item} onPress={handleConversationPress} />}
+        renderItem={({ item }) => <ConversationRow conversation={item} onPress={handleConversationPress} onDelete={handleDeleteConversation} />}
         ListEmptyComponent={
           !conversationsLoading ? <Text style={styles.emptyText}>No messages yet.</Text> : null
         }
         refreshControl={<RefreshControl refreshing={conversationsLoading} onRefresh={onRefresh} />}
       />
+      <Snackbar
+        visible={isUndoVisible}
+        onDismiss={() => setIsUndoVisible(false)}
+        action={{
+          label: 'Undo',
+          onPress: handleUndo,
+        }}
+        duration={4500} // Slightly less than the store timeout
+      >
+        Conversation deleted.
+        </Snackbar>
     </View>
   );
 }
@@ -147,4 +188,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
   },
   unreadBadgeText: { color: '#fff', fontSize: 12, fontWeight: 'bold' },
+  deleteButton: {
+    backgroundColor: '#FF3B30',
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: 100,
+  },
+  deleteButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
 });

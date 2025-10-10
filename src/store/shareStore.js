@@ -8,6 +8,7 @@ import {
   fbReactToShare,
   fbDeleteShare,
   fbSoftDeleteShare,
+  fbSoftDeleteConversation,
   fbFetchAllUserShares,
   subscribeToUnreadShareCount,
   markAllSharesAsRead as fbMarkAllAsRead,
@@ -24,6 +25,7 @@ const useShareStore = create((set, get) => ({
   conversations: [],
   sharesByConversation: {},
   conversationsLoading: false,
+  conversationToDelete: null, // For undo functionality
 
   // Fetch users that the current user mutually follows
   fetchMutuals: async () => {
@@ -258,6 +260,47 @@ const useShareStore = create((set, get) => ({
         sharesByConversation: { ...state.sharesByConversation, [otherUserId]: originalSharesForUser },
       }));
     }
+  },
+
+  deleteConversation: (otherUserId) => {
+    const { user } = useAuthStore.getState();
+    if (!user?.uid || !otherUserId) return;
+
+    const conversation = get().conversations.find(c => c.otherUser.uid === otherUserId);
+    if (!conversation) return;
+
+    // Clear any pending delete to avoid conflicts
+    const pendingDelete = get().conversationToDelete;
+    if (pendingDelete?.timerId) {
+      clearTimeout(pendingDelete.timerId);
+    }
+
+    // Optimistically update the UI
+    set(state => ({
+      conversations: state.conversations.filter(c => c.otherUser.uid !== otherUserId),
+    }));
+
+    // Schedule the actual deletion after a delay
+    const timerId = setTimeout(() => {
+      fbSoftDeleteConversation({ userId: user.uid, otherUserId });
+      set({ conversationToDelete: null }); // Clear after deletion is confirmed
+    }, 5000); // 5 seconds to undo
+
+    // Store the conversation and timer for potential undo
+    set({ conversationToDelete: { conversation, timerId } });
+  },
+
+  undoDeleteConversation: () => {
+    const { conversationToDelete } = get();
+    if (!conversationToDelete) return;
+
+    clearTimeout(conversationToDelete.timerId); // Cancel the scheduled deletion
+
+    // Add the conversation back to the list and sort it
+    set(state => ({
+      conversations: [...state.conversations, conversationToDelete.conversation].sort((a, b) => (b.lastShare.createdAt?.toMillis() || 0) - (a.lastShare.createdAt?.toMillis() || 0)),
+      conversationToDelete: null,
+    }));
   },
 
   // Mark all shares as read

@@ -1367,6 +1367,44 @@ async function fbFetchAllUserShares(userId) {
   }
 }
 
+async function fbSoftDeleteConversation({ userId, otherUserId }) {
+  if (!userId || !otherUserId) {
+    return { success: false, error: 'User IDs are required.' };
+  }
+
+  try {
+    const batch = writeBatch(firestore);
+
+    // Find shares sent by the current user to the other user
+    const sentQuery = query(
+      collection(firestore, 'shares'),
+      where('senderId', '==', userId),
+      where('recipientId', '==', otherUserId)
+    );
+    const sentSnap = await getDocs(sentQuery);
+    sentSnap.docs.forEach(doc => {
+      batch.update(doc.ref, { deletedBySender: true });
+    });
+
+    // Find shares received by the current user from the other user
+    const receivedQuery = query(
+      collection(firestore, 'shares'),
+      where('senderId', '==', otherUserId),
+      where('recipientId', '==', userId)
+    );
+    const receivedSnap = await getDocs(receivedQuery);
+    receivedSnap.docs.forEach(doc => {
+      batch.update(doc.ref, { deletedByRecipient: true });
+    });
+
+    await batch.commit();
+    return { success: true };
+  } catch (error) {
+    console.error('fbSoftDeleteConversation error:', error);
+    return { success: false, error };
+  }
+}
+
 async function fbDeleteShare(shareId) {
   if (!shareId) {
     return { success: false, error: 'Missing shareId' };
@@ -1542,5 +1580,5 @@ export {
   createVerificationApplication, listVerificationApplications, getVerificationApplication, processVerificationApplication,
   followUser, unfollowUser, isFollowing, listFollowers, listFollowing,
   fetchNotifications, markNotificationsAsRead, subscribeToUnreadNotifications,
-  fbSharePost, fbFetchShares, fbReactToShare, fbDeleteShare, fbSoftDeleteShare, fbFetchAllUserShares, toggleSavePost, fetchMySavedOutfitIds, fetchOutfitsByIds, fetchUserAchievements, listAchievements, createOrUpdateAchievement, subscribeToUnreadShareCount, markAllSharesAsRead
+  fbSharePost, fbFetchShares, fbReactToShare, fbDeleteShare, fbSoftDeleteShare, fbSoftDeleteConversation, fbFetchAllUserShares, toggleSavePost, fetchMySavedOutfitIds, fetchOutfitsByIds, fetchUserAchievements, listAchievements, createOrUpdateAchievement, subscribeToUnreadShareCount, markAllSharesAsRead
 };
