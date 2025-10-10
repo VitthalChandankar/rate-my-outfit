@@ -4,6 +4,8 @@ import { View, Text, FlatList, StyleSheet, ActivityIndicator, TouchableOpacity, 
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { Swipeable } from 'react-native-gesture-handler';
+import LottieView from 'lottie-react-native';
+import EmptyChatAnimation from '../../../assets/lottie/Empty_chat_screen.json';
 import { Snackbar } from 'react-native-paper';
 import useShareStore from '../../store/shareStore';
 import useAuthStore from '../../store/authStore';
@@ -131,7 +133,18 @@ export default function InboxScreen({ navigation }) {
         keyExtractor={(item) => item.otherUser.uid}
         renderItem={({ item }) => <ConversationRow conversation={item} onPress={handleConversationPress} onDelete={handleDeleteConversation} />}
         ListEmptyComponent={
-          !conversationsLoading ? <Text style={styles.emptyText}>No messages yet.</Text> : null
+          !conversationsLoading ? (
+            <View style={styles.emptyContainer}>
+              <LottieView
+                source={EmptyChatAnimation}
+                autoPlay
+                loop={true}
+                style={styles.lottieAnimation}
+              />
+              <Text style={styles.emptyTitle}>No Messages Yet</Text>
+              <Text style={styles.emptySubtitle}>Share a post with a friend to start a conversation.</Text>
+            </View>
+          ) : null
         }
         refreshControl={<RefreshControl refreshing={conversationsLoading} onRefresh={onRefresh} />}
       />
@@ -153,7 +166,6 @@ export default function InboxScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#fff' },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  emptyText: { textAlign: 'center', marginTop: 50, color: '#666', fontSize: 16 },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -198,5 +210,28 @@ const styles = StyleSheet.create({
     color: 'white',
     fontWeight: 'bold',
     fontSize: 16,
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingTop: 60,
+    paddingHorizontal: 20,
+  },
+  lottieAnimation: {
+    width: 250,
+    height: 250,
+  },
+  emptyTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333',
+    marginTop: 0,
+  },
+  emptySubtitle: {
+    fontSize: 15,
+    color: '#6B7280',
+    marginTop: 8,
+    textAlign: 'center',
+    lineHeight: 22,
   },
 });

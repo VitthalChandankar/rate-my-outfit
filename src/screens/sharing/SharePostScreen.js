@@ -50,7 +50,6 @@ export default function SharePostScreen({ route, navigation }) {
     if (sentTo.has(recipient.uid)) return;
 
     setSentTo(prev => new Set(prev).add(recipient.uid));
-    console.log(`Sending share to: ${recipient.uid}`); // Add this line
 
     const res = await sendShare({ recipientId: recipient.uid, outfitData });
 
