@@ -12,6 +12,8 @@ import useUserStore from '../../store/UserStore';
 import useNotificationsStore from '../../store/notificationsStore';
 import useContestStore from '../../store/contestStore';
 import useShareStore from '../../store/shareStore';
+import useModalStore from '../../store/useModalStore'; // Import the modal store
+import ReportReasonModal from '../../components/ReportReasonModal'; // Import the new modal
 import OutfitCard from '../../components/OutfitCard';
 import { fbFetchActiveAds } from '../../services/firebase';
 
@@ -38,10 +40,12 @@ export default function HomeScreen() {
   const authedUid = authedUser?.uid || authedUser?.user?.uid || null;
 
   const feed = useOutfitStore((s) => s.feed);
+  const showCustomAlert = useModalStore((s) => s.show); // Get the show function from the store
   const toggleLike = useOutfitStore((s) => s.toggleLike);
   const { toggleSave } = useOutfitStore();
   const fetchFeed = useOutfitStore((s) => s.fetchFeed);
   const { myLikedIds, mySavedIds, myBlockerIds } = useUserStore((s) => ({ myLikedIds: s.myLikedIds, mySavedIds: s.mySavedIds, myBlockerIds: s.myBlockerIds }));
+  const reportPost = useOutfitStore((s) => s.reportPost);
   const myBlockedIds = useUserStore((s) => s.myBlockedIds);
   const loading = useOutfitStore((s) => s.loading);
   const refreshing = useOutfitStore((s) => s.refreshing);
@@ -53,6 +57,8 @@ export default function HomeScreen() {
   const unreadShareCount = useShareStore((s) => s.unreadShareCount);
 
   const [fontsLoaded] = useFonts({ PlayfairDisplay_400Regular });
+  const [isReportModalVisible, setIsReportModalVisible] = useState(false);
+  const [postToReport, setPostToReport] = useState(null);
   const [initialLoaded, setInitialLoaded] = useState(false);
   const [ads, setAds] = useState([]); // State for ads
 
@@ -192,6 +198,29 @@ export default function HomeScreen() {
     navigation.navigate('SharePost', { outfitData });
   }, [navigation]);
 
+  const handleReportPress = useCallback((post) => { // This now just opens the modal
+    if (!post?.id) return;
+    setPostToReport(post);
+    setIsReportModalVisible(true);
+  }, []);
+
+  const handleReportConfirm = useCallback(async (post, reason) => { // This is called from the modal
+    if (!post?.id || !reason) return;
+    const res = await reportPost({ outfitId: post.id, reason });
+    if (res.success) {
+      showCustomAlert({ title: 'Reported', message: 'Thank you for your feedback. This post has been reported.', buttons: [{ text: 'OK' }] });
+    } else {
+      showCustomAlert({ title: 'Error', message: res.error?.message || 'Could not report post.', buttons: [{ text: 'OK' }] });
+    }
+    setPostToReport(null);
+    setIsReportModalVisible(false);
+  }, [reportPost, showCustomAlert]);
+
+  const handleCloseReportModal = useCallback(() => {
+    setIsReportModalVisible(false);
+    setPostToReport(null);
+  }, []);
+
   const handleContestPress = useCallback((post) => {
     if (!post?.contestId) return;
     navigation.navigate('ContestDetails', { contestId: post.contestId });
@@ -271,37 +300,48 @@ export default function HomeScreen() {
       onPressLikes={handleLikesPress}
       onPressComments={handleCommentsPress}
       onPressContest={handleContestPress}
+      onPressReport={handleReportPress}
       onPressShare={handleSharePress}
       isLiked={myLikedIds.has(item.id)}
       isSaved={mySavedIds.has(item.id)}
       onPressSave={handleSave}
     />
-  ), [handleOpen, handleRate, handleLike, handleUserPress, handleLikesPress, handleCommentsPress, handleContestPress, handleSharePress, myLikedIds, mySavedIds, handleSave]);
+  ), [handleOpen, handleRate, handleLike, handleUserPress, handleLikesPress, handleCommentsPress, handleContestPress, handleSharePress, handleReportPress, myLikedIds, mySavedIds, handleSave]);
 
   return (
-    <FlatList
-      ref={listRef}
-      data={data}
-      keyExtractor={keyExtractor}
-      renderItem={renderItem}
-      refreshControl={<RefreshControl refreshing={!!refreshing} onRefresh={onRefresh} />}
-      onEndReached={loadMore}
-      onEndReachedThreshold={0.5}
-      contentContainerStyle={styles.container}
-      ListEmptyComponent={initialLoaded && !loading ? <Text style={styles.empty}>No outfits yet — be the first to upload!</Text> : null}
-      ListFooterComponent={loading ? <ActivityIndicator style={{ marginVertical: 16 }} /> : null}
-      // Performance tuning
-      initialNumToRender={6}
-      maxToRenderPerBatch={6}
-      updateRowsBatchNumber={6}
-      windowSize={7}
-      removeClippedSubviews
-      getItemLayout={(data, index) => ({
-        length: ROW_HEIGHT,
-        offset: ROW_HEIGHT * index,
-        index,
-      })}
-    />
+    <>
+      <FlatList
+        ref={listRef}
+        data={data}
+        keyExtractor={keyExtractor}
+        renderItem={renderItem}
+        refreshControl={<RefreshControl refreshing={!!refreshing} onRefresh={onRefresh} />}
+        onEndReached={loadMore}
+        onEndReachedThreshold={0.5}
+        contentContainerStyle={styles.container}
+        ListEmptyComponent={initialLoaded && !loading ? <Text style={styles.empty}>No outfits yet — be the first to upload!</Text> : null}
+        ListFooterComponent={loading ? <ActivityIndicator style={{ marginVertical: 16 }} /> : null}
+        // Performance tuning
+        initialNumToRender={6}
+        maxToRenderPerBatch={6}
+        updateRowsBatchNumber={6}
+        windowSize={7}
+        removeClippedSubviews
+        getItemLayout={(data, index) => ({
+          length: ROW_HEIGHT,
+          offset: ROW_HEIGHT * index,
+          index,
+        })}
+      />
+      {postToReport && (
+        <ReportReasonModal
+          isVisible={isReportModalVisible}
+          onClose={handleCloseReportModal}
+          onReportConfirm={handleReportConfirm}
+          post={postToReport}
+        />
+      )}
+    </>
   );
 }
 

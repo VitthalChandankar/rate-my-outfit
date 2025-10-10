@@ -64,6 +64,7 @@ const useUserStore = create((set, get) => ({
   mySavedIds: new Set(),
   myBlockedIds: new Set(), // NEW: for users the current user has blocked
   myBlockerIds: new Set(), // NEW: for users who have blocked the current user
+  myReportedIds: new Set(), // For posts the current user has reported
 
   // For the blocked users list screen
   blockedUsers: [],
@@ -223,6 +224,11 @@ const useUserStore = create((set, get) => ({
     if (current.has(outfitId)) current.delete(outfitId);
     else current.add(outfitId);
     set({ mySavedIds: new Set(current) });
+  },
+
+  addReportedId: (outfitId) => {
+    const current = get().myReportedIds;
+    set({ myReportedIds: new Set(current).add(outfitId) });
   },
 
   fetchMyAchievements: async (uid) => {
@@ -482,6 +488,7 @@ const useUserStore = create((set, get) => ({
       mySavedIds: new Set(),
       myBlockerIds: new Set(),
       myBlockedIds: new Set(),
+      myReportedIds: new Set(),
       myAchievements: [],
       myAchievementsLoading: false,
       seenAchievements: new Set(),

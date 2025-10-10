@@ -1,6 +1,7 @@
 // src/services/firebase.js
 import { getApps, initializeApp } from 'firebase/app';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 import { where, updateDoc, deleteDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
 import {
   createUserWithEmailAndPassword,
@@ -53,6 +54,7 @@ const auth = initializeAuth(app, {
 });
 
 const firestore = getFirestore(app);
+const functions = getFunctions(app);
 
 // --- User creation helper ---
 async function createUser(uid, email, name, phone = null) {
@@ -779,6 +781,62 @@ async function fbFetchActiveAds({ limitCount = 5 } = {}) {
   }
 }
 
+async function fbReportPost({ outfitId, reason }) {
+  try {
+    const reportPostFn = httpsCallable(functions, 'reportPost');
+    const result = await reportPostFn({ outfitId, reason });
+    return { success: true, data: result.data };
+  } catch (error) {
+    console.error("fbReportPost error:", error);
+    // Check for specific errors from the cloud function
+    if (error.code === 'functions/already-exists') {
+      return { success: false, error: { message: 'You have already reported this post.' } };
+    }
+    if (error.code === 'functions/not-found') {
+      return { success: false, error: { message: 'This post may have been deleted or is no longer available.' } };
+    }
+    return { success: false, error };
+  }
+}
+
+async function fbFetchReportedPosts({ limitCount = 30, startAfterDoc = null } = {}) {
+  try {
+    let q = query(
+      collection(firestore, 'outfits'),
+      where('reportsCount', '>', 0),
+      orderBy('reportsCount', 'desc'),
+      limit(limitCount)
+    );
+    if (startAfterDoc) {
+      q = query(q, startAfter(startAfterDoc));
+    }
+    const snap = await getDocs(q);
+    const items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const last = snap.docs[snap.docs.length - 1] || null;
+    return { success: true, items, last };
+  } catch (error) {
+    console.error('fbFetchReportedPosts error:', error);
+    return { success: false, error };
+  }
+}
+
+async function fbAdminUpdatePostStatus({ outfitId, status }) {
+  if (!outfitId || !status) return { success: false, error: 'Missing outfitId or status' };
+  try {
+    const outfitRef = doc(firestore, 'outfits', outfitId);
+    const updates = { status };
+    if (status === 'active') {
+      // If restoring, also reset the reports count
+      updates.reportsCount = 0;
+    }
+    await updateDoc(outfitRef, updates);
+    return { success: true };
+  } catch (error) {
+    console.error('fbAdminUpdatePostStatus error:', error);
+    return { success: false, error };
+  }
+}
+
 async function blockUser({ blockerId, blockedId }) {
   if (!blockerId || !blockedId || blockerId === blockedId) {
     return { success: false, error: 'Invalid block operation' };
@@ -1478,7 +1536,7 @@ async function markNotificationsAsRead(userId) {
 export {
   addComment, auth, createUser, createOutfitDocument,
   deleteComment, deleteOutfit, fetchCommentsForOutfit, fetchFeed, fetchOutfitDetails, fetchUserOutfits, firestore, loginWithEmail, fbCreateContest,
-  logout, onAuthChange, sendResetEmail, signupWithEmail, uploadImage, fbFetchContestsByIds, fbCreateAdvertisement, fbFetchActiveAds,
+  logout, onAuthChange, sendResetEmail, signupWithEmail, uploadImage, fbFetchContestsByIds, fbCreateAdvertisement, fbFetchActiveAds, fbReportPost, fbFetchReportedPosts, fbAdminUpdatePostStatus,
   toggleLikePost, fetchMyLikedOutfitIds, fetchLikersForOutfit, fbListContests, fbFetchContestEntries, fbCreateEntry, fbRateEntry, fbFetchContestLeaderboard, updateUserPushToken,
   getUserProfile, updateUserProfile, setUserAvatar, ensureUsernameUnique, blockUser, unblockUser, listBlockedUsers, fetchMyBlockedIds, fetchMyBlockerIds, createProblemReport, listProblemReports, updateProblemReportStatus,firebaseSearchUsers,
   createVerificationApplication, listVerificationApplications, getVerificationApplication, processVerificationApplication,

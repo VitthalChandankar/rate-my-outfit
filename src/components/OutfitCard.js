@@ -5,10 +5,14 @@
 import React, { useMemo, memo, useRef, useEffect, useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View, Pressable, Platform, Animated, Easing, Dimensions, Linking } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { Button } from 'react-native-paper';
+import { BlurView } from 'expo-blur';
 import { Image as ExpoImage } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import formatDate from '../utils/formatDate';
 import { withCloudinaryTransforms, IMG_FEED } from '../utils/cloudinaryUrl';
+import useUserStore from '../store/UserStore';
+import useModalStore from '../store/useModalStore';
 
 const { width } = Dimensions.get('window');
 
@@ -72,7 +76,7 @@ const useCountdown = (endTime) => {
   return { timeLeft, show };
 };
 
-const OutfitCard = memo(({ item, onPress, onRate, onUserPress, onLike, isLiked, isSaved, onPressSave, onPressLikes, onPressComments, onPressContest, onPressShare }) => {
+const OutfitCard = memo(({ item, onPress, onRate, onUserPress, onLike, isLiked, isSaved, onPressSave, onPressLikes, onPressComments, onPressContest, onPressShare, onPressReport }) => {
   const raw = item || null;
   if (!raw) return null;
 
@@ -110,6 +114,9 @@ const OutfitCard = memo(({ item, onPress, onRate, onUserPress, onLike, isLiked, 
 
 
   const id = raw.id || raw._localKey || null;
+  const myReportedIds = useUserStore(s => s.myReportedIds);
+  const isReported = myReportedIds.has(id);
+  const [isBlurred, setIsBlurred] = useState(raw?.status === 'flagged');
   const imageUrl = raw.imageUrl || raw.image || null;
 
   const type = raw.type || (raw.contestId ? 'contest' : 'normal');
@@ -164,6 +171,13 @@ const OutfitCard = memo(({ item, onPress, onRate, onUserPress, onLike, isLiked, 
   const handleCommentsPress = () => { if (typeof onPressComments === 'function') onPressComments({ outfitId: id, postOwnerId: userId }); };
   const handleContestTap = () => { if (typeof onPressContest === 'function') onPressContest(raw); };
   const handleShare = () => { if (typeof onPressShare === 'function') onPressShare(raw); };
+  const handleReport = () => {
+    if (isReported) {
+      useModalStore.getState().show({ title: 'Already Reported', message: 'You have already reported this post.', buttons: [{ text: 'OK' }] });
+      return;
+    }
+    if (typeof onPressReport === 'function') onPressReport(raw);
+  };
 
   const handleUserTap = () => {
     if (typeof onUserPress === 'function') {
@@ -225,6 +239,18 @@ const OutfitCard = memo(({ item, onPress, onRate, onUserPress, onLike, isLiked, 
             <View style={[styles.image, styles.imagePlaceholder]} />
           )}
 
+          {isBlurred && (
+            <BlurView intensity={80} tint="light" style={StyleSheet.absoluteFill}>
+              <View style={styles.blurContainer}>
+                <Text style={styles.blurTitle}>Sensitive Content</Text>
+                <Text style={styles.blurText}>This post has been flagged by the community.</Text>
+                <Button mode="contained" onPress={() => setIsBlurred(false)} style={styles.blurButton}>
+                  Show Post
+                </Button>
+              </View>
+            </BlurView>
+          )}
+
           {isContest && ratingsCount > 0 && (
             <View style={styles.ratingOverlay}>
               <Text style={styles.ratingText}>{averageRating.toFixed(1)}</Text>
@@ -283,6 +309,9 @@ const OutfitCard = memo(({ item, onPress, onRate, onUserPress, onLike, isLiked, 
           </TouchableOpacity>
         </View>
         <View style={styles.footerRight}>
+          <TouchableOpacity style={styles.action} onPress={handleReport}>
+            <Ionicons name="warning-outline" size={24} color={isReported ? '#9CA3AF' : '#D92D20'} />
+          </TouchableOpacity>
           <TouchableOpacity style={styles.action} onPress={handleSavePress}>
             <Ionicons name={isSaved ? 'bookmark' : 'bookmark-outline'} size={24} color={'#111'} />
           </TouchableOpacity>
@@ -446,6 +475,26 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#7A5AF8',
     fontSize: 13,
+  },
+  // Blur styles
+  blurContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  blurTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  blurText: {
+    textAlign: 'center',
+    color: '#555',
+    marginTop: 8,
+  },
+  blurButton: {
+    marginTop: 20,
   },
 });
 

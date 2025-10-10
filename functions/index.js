@@ -3,6 +3,9 @@
 const admin = require("firebase-admin");
 const {onDocumentCreated, onDocumentDeleted, onDocumentUpdated} = require("firebase-functions/v2/firestore");
 const {onTaskDispatched} = require("firebase-functions/v2/tasks");
+const { onCall, HttpsError } = require("firebase-functions/v2/https");
+
+
 
 admin.initializeApp();
 
@@ -710,6 +713,82 @@ exports.onOutfitDelete = onDocumentDeleted("outfits/{outfitId}", async (event) =
 
   await batch.commit();
 });
+
+// Define report thresholds
+const FLAG_THRESHOLD = 5;
+const DELETE_THRESHOLD = 10;
+
+/**
+ * A callable function for users to report a post.
+ * This handles the logic securely on the backend.
+ */
+exports.reportPost = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "You must be logged in to report a post.");
+  }
+
+  const { outfitId, reason } = request.data;
+  const reporterId = request.auth.uid;
+
+  if (!outfitId) {
+    throw new HttpsError("invalid-argument", "The function must be called with an 'outfitId'.");
+  }
+
+  const db = admin.firestore();
+  const reportRef = db.collection("reports").doc(`${outfitId}_${reporterId}`);
+  const outfitRef = db.collection("outfits").doc(outfitId);
+
+  try {
+    await db.runTransaction(async (transaction) => {
+      const [reportSnap, outfitSnap] = await Promise.all([
+        transaction.get(reportRef),
+        transaction.get(outfitRef),
+      ]);
+
+      if (reportSnap.exists) {
+        // To prevent spamming, we don't throw an error, just acknowledge the existing report.
+        throw new HttpsError("already-exists", "You have already reported this post.");
+      }
+
+      if (!outfitSnap.exists) {
+        throw new HttpsError("not-found", "The post you are trying to report does not exist.");
+      }
+
+      // 1. Create the report document.
+      transaction.set(reportRef, {
+        outfitId,
+        reporterId,
+        reason: reason || "No reason provided.",
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+
+      // 2. Increment reportsCount and update status if thresholds are met.
+      const currentReports = outfitSnap.data().reportsCount || 0;
+      const newReportsCount = currentReports + 1;
+
+      let newStatus = "under_review";
+      if (newReportsCount >= DELETE_THRESHOLD) {
+        newStatus = "deleted";
+      } else if (newReportsCount >= FLAG_THRESHOLD) {
+        newStatus = "flagged";
+      }
+
+      transaction.update(outfitRef, {
+        reportsCount: admin.firestore.FieldValue.increment(1),
+        status: newStatus,
+      });
+    });
+
+    return { success: true, message: "Post reported successfully." };
+  } catch (error) {
+    console.error("Error reporting post:", error);
+    if (error instanceof HttpsError) {
+      throw error;
+    }
+    throw new HttpsError("internal", "An error occurred while reporting the post.");
+  }
+});
+
 
 
 /**

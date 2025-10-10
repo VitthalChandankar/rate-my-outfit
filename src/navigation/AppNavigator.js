@@ -67,6 +67,7 @@ import AdminDashboardScreen from '../screens/admin/AdminDashboardScreen';
 import ManageAchievementsScreen from '../screens/admin/ManageAchievementsScreen';
 import CreateAchievementScreen from '../screens/admin/CreateAchievementScreen';
 import ManageReportsScreen from '../screens/admin/ManageReportsScreen';
+import ManagePostReportsScreen from '../screens/admin/ManagePostReportsScreen';
 import ReportDetailsScreen from '../screens/admin/ReportDetailsScreen';
 import ManageVerificationScreen from '../screens/admin/ManageVerificationScreen';
 import VerificationDetailsScreen from '../screens/admin/VerificationDetailsScreen';
@@ -345,6 +346,11 @@ function MainAppStack() {
         name="ReportDetails"
         component={ReportDetailsScreen}
         options={{ headerShown: true }} // Title will be set dynamically
+      />
+      <Stack.Screen
+        name="ManagePostReports"
+        component={ManagePostReportsScreen}
+        options={{ headerShown: true, title: 'Post Reports' }}
       />
 
       {/* Settings flow */}

@@ -3,6 +3,7 @@ import React, { useEffect, useCallback } from 'react';
 import { View, Text, FlatList, StyleSheet, ActivityIndicator, TouchableOpacity, RefreshControl } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Image as ExpoImage } from 'expo-image';
+import showAlert from '../../utils/showAlert';
 import { Ionicons } from '@expo/vector-icons';
 import useNotificationsStore from '../../store/notificationsStore';
 import useAuthStore from '../../store/authStore';
@@ -35,6 +36,10 @@ function NotificationRow({ item, onNotificationPress }) {
     iconName = 'shield-checkmark';
     iconColor = '#5856D6'; // Indigo
       message = <Text style={styles.message}>Achievement unlocked: <Text style={styles.senderName}>{item.body || 'New Badge'}</Text></Text>; // To mark achievement as seen only when the user click on profile button it shoudl not call when the user clicks to notification for achivement
+  } else if (item.type === 'post_deleted') {
+    iconName = 'trash-bin';
+    iconColor = '#EF4444'; // Red
+    message = <Text style={styles.message}>{item.body || 'Your post was removed.'}</Text>;
   }
 
   return (
@@ -91,6 +96,8 @@ export default function NotificationsScreen() {
       navigation.navigate('UserProfile', { userId: notification.senderId });
     } else if (notification.type === 'contest_win' && notification.contestId) {
       navigation.navigate('ContestDetails', { contestId: notification.contestId, initialTab: 'leaderboard' });
+    } else if (notification.type === 'post_deleted') {
+      showAlert('Post Removed', 'This post was removed due to community guideline violations.');
     } else if (notification.outfitId) {
       navigation.navigate('OutfitDetails', { outfitId: notification.outfitId });
     } else if (notification.type === 'achievement') {

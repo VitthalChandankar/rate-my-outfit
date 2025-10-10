@@ -53,6 +53,12 @@ export default function AdminDashboardScreen({ navigation }) {
           left={props => <List.Icon {...props} icon="bug" />}
           onPress={() => navigation.navigate('ManageReports')}
         />
+        <List.Item
+          title="Post Reports"
+          description="Review and moderate reported posts"
+          left={props => <List.Icon {...props} icon="alert-circle" />}
+          onPress={() => navigation.navigate('ManagePostReports')}
+        />
       </List.Section>
       <List.Section title="Developer Tools">
         <Button

@@ -15,6 +15,7 @@ import {
   fetchOutfitsByIds,
   fetchUserOutfits,
   uploadImage,
+  fbReportPost,
 } from '../services/firebase';
 import useUserStore from './UserStore';
 import useAuthStore from './authStore';
@@ -217,6 +218,23 @@ const useOutfitStore = create((set, get) => ({
       set({ feed: originalFeed });
       toggleLikedId(outfitId); // toggle back
     }
+  },
+
+  reportPost: async ({ outfitId, reason }) => {
+    const res = await fbReportPost({ outfitId, reason });
+    if (res.success) {
+      // Optimistically update the post in the feed if it's there
+      set(state => ({
+        feed: state.feed.map(post => {
+          if (post.id === outfitId) {
+            return { ...post, reportsCount: (post.reportsCount || 0) + 1 };
+          }
+          return post;
+        }),
+      }));
+      useUserStore.getState().addReportedId(outfitId);
+    }
+    return res;
   },
 
   // Save/unsave a post
