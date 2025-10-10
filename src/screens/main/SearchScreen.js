@@ -15,6 +15,8 @@ import { useNavigation } from '@react-navigation/native';
 import useUserStore from '../../store/UserStore';
 import useAuthStore from '../../store/authStore'; // adjust path if your auth store lives elsewhere
 import Avatar from '../../components/Avatar';
+import LottieView from 'lottie-react-native';
+import SearchUserAnimation from '../../../assets/lottie/Search_user_animation.json';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 // If `firebaseSearchUsers` lives in your project, import it accordingly:
@@ -147,15 +149,28 @@ export function SearchScreen() {
 
       {loading ? (
         <ActivityIndicator style={{ marginTop: 20 }} />
-      ) : (
+      ) : searchResults.length > 0 ? (
         <FlatList
           keyboardShouldPersistTaps="handled"
           data={searchResults}
           keyExtractor={(item) => item.id}
           renderItem={renderItem}
           contentContainerStyle={{ padding: 12 }}
-          ListEmptyComponent={searchQuery.trim() ? <Text style={styles.emptyText}>No users found.</Text> : null}
         />
+      ) : searchQuery.trim() ? (
+        <Text style={styles.emptyText}>No users found.</Text>
+      ) : (
+        // Initial empty state with animation
+        <View style={styles.emptyContainer}>
+          <LottieView
+            source={SearchUserAnimation}
+            autoPlay
+            loop
+            style={styles.lottieAnimation}
+          />
+          <Text style={styles.emptyTitle}>Search for People</Text>
+          <Text style={styles.emptySubtitle}>Find friends, creators, and people you know by their name or username.</Text>
+        </View>
       )}
     </SafeAreaView>
   );
@@ -192,4 +207,27 @@ const styles = StyleSheet.create({
   followingText: { color: '#111' },
   emptyText: { textAlign: 'center', marginTop: 20, color: '#666' },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  emptyContainer: {
+    flex: 1, // Make the container take up all available space
+    alignItems: 'center',
+    paddingTop: 60,
+    paddingHorizontal: 20,
+  },
+  lottieAnimation: {
+    width: 200,
+    height: 200,
+  },
+  emptyTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333',
+    marginTop: 16,
+  },
+  emptySubtitle: {
+    fontSize: 15,
+    color: '#6B7280',
+    marginTop: 8,
+    textAlign: 'center',
+    lineHeight: 22,
+  },
 });
