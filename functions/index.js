@@ -570,11 +570,55 @@ exports.onContestCreate = onDocumentCreated("contests/{contestId}", async (event
 });
 
 /**
+ * Helper function to award an achievement to a user.
+ * @param {FirebaseFirestore.Transaction} transaction The Firestore transaction.
+ * @param {FirebaseFirestore.Firestore} db The Firestore instance.
+ * @param {string} userId The ID of the user to award the achievement to.
+ * @param {string} achievementId The ID of the achievement to award.
+ * @return {Promise<{awarded: boolean, achievementData: object|null}>}
+ */
+async function awardAchievement(transaction, db, userId, achievementId) {
+  if (!userId || !achievementId) {
+    return {awarded: false, achievementData: null};
+  }
+
+  const achievementDefRef = db.collection("achievements").doc(achievementId);
+  const userAchievementRef = db.collection("users").doc(userId).collection("userAchievements").doc(achievementId);
+
+  const [achievementDefSnap, userAchievementSnap] = await Promise.all([
+    transaction.get(achievementDefRef),
+    transaction.get(userAchievementRef),
+  ]);
+
+  if (!achievementDefSnap.exists) {
+    console.warn(`Achievement definition '${achievementId}' not found.`);
+    return {awarded: false, achievementData: null};
+  }
+
+  if (userAchievementSnap.exists) {
+    console.log(`User ${userId} already has achievement '${achievementId}'.`);
+    return {awarded: false, achievementData: null};
+  }
+
+  const achievementData = achievementDefSnap.data();
+  transaction.set(userAchievementRef, {
+    ...achievementData,
+    unlockedAt: admin.firestore.FieldValue.serverTimestamp(),
+  });
+
+  // Increment user's achievement count
+  const userRef = db.doc(`users/${userId}`);
+  transaction.update(userRef, {"stats.achievementsCount": admin.firestore.FieldValue.increment(1)});
+
+  return {awarded: true, achievementData};
+}
+
+/**
  * Processes a contest when it ends to find and declare a winner.
  * This function is triggered by a Cloud Scheduler task created by onContestCreate.
  */
 exports.resolveContestWinner = onTaskDispatched({taskQueue: "resolvecontestwinner"}, async (event) => {
-  const { contestId } = event.data;
+  const {contestId} = event.data;
   if (!contestId) {
     console.error("No contestId provided in the scheduled task payload.");
     return;
@@ -582,90 +626,89 @@ exports.resolveContestWinner = onTaskDispatched({taskQueue: "resolvecontestwinne
 
   console.log(`Processing end of contest ${contestId}.`);
   const db = admin.firestore();
-  const MIN_VOTES = 10; // Minimum votes an entry needs to be considered for winning.
+  const MIN_VOTES = 1; // Minimum votes an entry needs to be considered for winning.
 
-  // 1. Fetch all entries for the contest.
+  // 1. Fetch contest data to get achievement IDs and prize info
+  const contestRef = db.collection("contests").doc(contestId);
+  const contestSnap = await contestRef.get();
+  if (!contestSnap.exists) {
+    console.error(`Contest ${contestId} not found.`);
+    return;
+  }
+  const contestData = contestSnap.data();
+  const achievementIds = contestData.achievementIds || {};
+  const prize = contestData.prize || null;
+  const hasPhysicalPrize = prize && prize.toLowerCase() !== "feature";
+
+  // 2. Fetch all eligible entries for the contest.
   const entriesQuery = db.collection("entries").where("contestId", "==", contestId);
   const entriesSnap = await entriesQuery.get();
 
   if (entriesSnap.empty) {
     console.log(`Contest ${contestId} has no entries. No winner to declare.`);
-    return null;
+    return;
   }
 
-  // 2. Find the winning entry using a fair, multi-level tie-breaking system.
-  let winnerEntry = null;
+  // 3. Filter, sort, and get top 3 winners
+  const eligibleEntries = entriesSnap.docs
+      .map((doc) => ({id: doc.id, ...doc.data()}))
+      .filter((entry) => (entry.ratingsCount || 0) >= MIN_VOTES);
 
-  for (const doc of entriesSnap.docs) {
-    const entry = { id: doc.id, ...doc.data() };
+  eligibleEntries.sort((a, b) => {
+    // Primary: Higher average rating wins
+    const ratingDiff = (b.averageRating || 0) - (a.averageRating || 0);
+    if (ratingDiff !== 0) return ratingDiff;
+    // Tie-breaker 1: More votes wins
+    const votesDiff = (b.ratingsCount || 0) - (a.ratingsCount || 0);
+    if (votesDiff !== 0) return votesDiff;
+    // Tie-breaker 2: Earlier submission wins
+    return (a.createdAt?.toMillis() || 0) - (b.createdAt?.toMillis() || 0);
+  });
 
-    // Rule 1: Must meet minimum votes to be eligible.
-    if ((entry.ratingsCount || 0) < MIN_VOTES) {
-      continue;
-    }
+  const winners = eligibleEntries.slice(0, 3);
 
-    // If this is the first valid entry, it's the current winner.
-    if (!winnerEntry) {
-      winnerEntry = entry;
-      continue;
-    }
+  if (winners.length === 0) {
+    console.log(`No entries in contest ${contestId} met the minimum of ${MIN_VOTES} votes.`);
+    return;
+  }
 
-    // Rule 2: Higher average rating wins.
-    const currentWinnerRating = winnerEntry.averageRating || 0;
-    const entryRating = entry.averageRating || 0;
-    if (entryRating > currentWinnerRating) {
-      winnerEntry = entry;
-    } else if (entryRating === currentWinnerRating) {
-      // Rule 3 (Tie-breaker 1): More votes wins.
-      const currentWinnerVotes = winnerEntry.ratingsCount || 0;
-      const entryVotes = entry.ratingsCount || 0;
-      if (entryVotes > currentWinnerVotes) {
-        winnerEntry = entry;
-      } else if (entryVotes === currentWinnerVotes) {
-        // Rule 4 (Tie-breaker 2): Earlier submission wins.
-        if ((entry.createdAt?.toMillis() || 0) < (winnerEntry.createdAt?.toMillis() || 0)) {
-          winnerEntry = entry;
+  // 4. Process each winner
+  for (let i = 0; i < winners.length; i++) {
+    const winner = winners[i];
+    const rank = i + 1; // 1st, 2nd, 3rd
+
+    try {
+      await db.runTransaction(async (transaction) => {
+        // Mark entry with its rank
+        const entryRef = db.collection("entries").doc(winner.id);
+        transaction.update(entryRef, {winnerRank: rank});
+
+        // Award achievement
+        const achievementId = rank === 1 ? achievementIds.first : rank === 2 ? achievementIds.second : achievementIds.third;
+        if (achievementId) {
+          await awardAchievement(transaction, db, winner.userId, achievementId);
         }
-      }
+
+        // Create notification
+        const notificationRef = db.collection("notifications").doc();
+        transaction.set(notificationRef, {
+          recipientId: winner.userId,
+          senderId: "system",
+          type: "contest_win",
+          contestTitle: contestData.title || "a contest",
+          contestId: contestId,
+          outfitImage: winner.imageUrl,
+          rank: rank,
+          prize: hasPhysicalPrize ? prize : null, // Only include prize if it's physical
+          read: false,
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+      });
+      console.log(`Processed rank ${rank} for user ${winner.userId} in contest ${contestId}.`);
+    } catch (error) {
+      console.error(`Error processing rank ${rank} for contest ${contestId}:`, error);
     }
   }
-
-  if (!winnerEntry) {
-    console.log(`No entry in contest ${contestId} met the minimum of ${MIN_VOTES} votes.`);
-    return null;
-  }
-
-  // Fetch contest data to use in the notification
-  const contestRef = db.collection("contests").doc(contestId);
-  const contestSnap = await contestRef.get();
-  const contestData = contestSnap.exists ? contestSnap.data() : {};
-  const contestTitle = contestData.title || "a contest";
-
-  // 3. Mark the winning entry as the winner.
-  // This will trigger the `syncEntryToOutfit` function to handle achievements and stats.
-  const winnerRef = db.collection("entries").doc(winnerEntry.id);
-  try {
-    await winnerRef.update({isWinner: true});
-    console.log(`Declared user ${winnerEntry.userId} as the winner of contest ${contestId} with entry ${winnerEntry.id}.`);
-
-    // 4. Create a notification for the winner
-    const notificationRef = db.collection("notifications").doc();
-    await notificationRef.set({
-      recipientId: winnerEntry.userId,
-      senderId: "system", // System-generated notification
-      type: "contest_win",
-      contestTitle: contestTitle,
-      contestId: contestId,
-      outfitImage: winnerEntry.imageUrl, // For thumbnail in notification list
-      read: false,
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
-    });
-    console.log(`Created contest win notification for user ${winnerEntry.userId}.`);
-  } catch (error) {
-    console.error(`Failed to update winner status for entry ${winnerEntry.id}:`, error);
-  }
-
-  return null;
 });
 
 /**

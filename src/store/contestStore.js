@@ -12,6 +12,7 @@ import {
   fbCreateContest,
   fbFetchContestsByIds,
   uploadImage,
+  createOrUpdateAchievement,
 } from "../services/firebase";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
 import useAuthStore from './authStore';
@@ -186,11 +187,42 @@ const useContestStore = create((set, get) => ({
   },
 
   // Create a new contest (Admin only)
-  createContest: async ({ title, theme, prize, imageUri, startAt, endAt, host, country }) => {
+  createContest: async ({ title, theme, prize, imageUri, startAt, endAt, host, country, ach1, ach2, ach3, linkAchId1, linkAchId2, linkAchId3 }) => {
     // 1. Upload image to get URL
     const uploadRes = await uploadImage(imageUri);
     if (!uploadRes.success) {
       return { success: false, error: 'Image upload failed.' };
+    }
+
+    // 2. Create new achievements if provided
+    const achievementIds = {
+      first: linkAchId1 || null,
+      second: linkAchId2 || null,
+      third: linkAchId3 || null,
+    };
+
+    const achievementsToCreate = [
+      { rank: 'first', data: ach1 },
+      { rank: 'second', data: ach2 },
+      { rank: 'third', data: ach3 },
+    ];
+
+    for (const ach of achievementsToCreate) {
+      // Only create if an image and title are provided, and no ID is already linked for that rank
+      if (ach.data.imageUri && ach.data.title && !achievementIds[ach.rank]) {
+        const badgeUploadRes = await uploadImage(ach.data.imageUri);
+        if (badgeUploadRes.success) {
+          // Generate a unique ID for the new achievement
+          const achievementId = `${title.toLowerCase().replace(/\s+/g, '_')}_${ach.rank}_${Date.now()}`;
+          await createOrUpdateAchievement({
+            id: achievementId,
+            title: ach.data.title,
+            description: ach.data.description,
+            imageUri: badgeUploadRes.url,
+          });
+          achievementIds[ach.rank] = achievementId;
+        }
+      }
     }
 
     // 2. Create contest document in Firestore
@@ -203,6 +235,7 @@ const useContestStore = create((set, get) => ({
       endAt,
       host,
       country,
+      achievementIds, // Pass the final object of IDs
     });
 
     if (res.success) {

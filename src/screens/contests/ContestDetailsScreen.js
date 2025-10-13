@@ -11,14 +11,17 @@ import {
   TouchableOpacity,
   View,
   Dimensions,
+  Alert,
 } from 'react-native';
 import { Image as ExpoImage } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
 
 import useContestStore from '../../store/contestStore';
 import { Surface } from 'react-native-paper';
 import OutfitCard from '../../components/OutfitCard';
 import { LeaderboardList } from './LeaderboardScreen';
+import useUserStore from '../../store/UserStore';
 
 const { width } = Dimensions.get('window');
 const PADDING_H = 16;
@@ -61,6 +64,7 @@ export default function ContestDetailsScreen({ route, navigation }) {
   const { contestId, initialTab = 'entries' } = route.params;
 
   const [activeTab, setActiveTab] = useState(initialTab); // 'entries' | 'leaderboard'
+  const myProfile = useUserStore((s) => s.myProfile);
 
   const { fetchEntries, fetchLeaderboard } = useContestStore();
   const entriesBag = useContestStore((s) => s.entries[contestId]);
@@ -81,6 +85,25 @@ export default function ContestDetailsScreen({ route, navigation }) {
     if (contestData.country === 'GLOBAL') return '🌐 Global';
     return `${countryCodeToFlag(contestData.country)} ${contestData.country.toUpperCase()}`;
   }, [contestData.country]);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      // After a short delay, check if the profile is loaded and if the country is missing.
+      const timer = setTimeout(() => {
+        if (myProfile && !myProfile.country) {
+          Alert.alert(
+            'Country Required',
+            'To participate in contests, please add your country to your profile.',
+            [
+              { text: 'Later', style: 'cancel', onPress: () => navigation.goBack() },
+              { text: 'Add Country', onPress: () => navigation.navigate('EditProfile') }
+            ]
+          );
+        }
+      }, 500);
+      return () => clearTimeout(timer);
+    }, [myProfile, navigation])
+  );
  
   const bannerImage = contestData.image || contestData.bannerImage || null;
 

@@ -2,6 +2,8 @@
 
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, ActivityIndicator, Alert, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
+import { SegmentedButtons } from 'react-native-paper';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import CountryPicker from 'react-native-country-picker-modal';
@@ -21,6 +23,9 @@ export default function CompleteProfileScreen({ navigation }) {
   const [country, setCountry] = useState(null);
   const [loading, setLoading] = useState(false);
   const [avatarUri, setAvatarUri] = useState(null);
+  const [gender, setGender] = useState(null);
+  const [dob, setDob] = useState(null);
+  const [showDatePicker, setShowDatePicker] = useState(false);
 
   const handlePickAvatar = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -50,13 +55,20 @@ export default function CompleteProfileScreen({ navigation }) {
         updates.username = unameRes.username;
       }
 
-      // 2. Prepare phone, country, city
-      if (phone.trim() && country) {
-        updates.phone = `+${country.callingCode[0]}${phone.trim()}`;
-        updates.country = country.name;
-        // For city, you might add another input or use a location API
-        // updates.city = '...';
+      // 2. Validate and prepare country, phone
+      if (!country) {
+        throw new Error('Please select your country. This is required for contest participation.');
       }
+      updates.country = country.cca2; // Save the 2-letter code
+
+      if (phone.trim()) {
+        updates.phone = `+${country.callingCode[0]}${phone.trim()}`;
+      }
+
+       // 4. Add gender and DOB
+       if (gender) updates.gender = gender;
+       if (dob) updates.dob = dob; // Firestore handles Date object conversion
+ 
 
       // 3. Upload avatar if selected
       if (avatarUri) {
@@ -147,7 +159,36 @@ export default function CompleteProfileScreen({ navigation }) {
         />
       </View>
       <Text style={styles.helperText}>Optional. Used for account recovery and login. Not shown on your profile.</Text>
+      <Text style={styles.label}>Gender (Optional)</Text>
+      <SegmentedButtons
+        value={gender}
+        onValueChange={setGender}
+        style={{ marginBottom: 16 }}
+        buttons={[
+          { value: 'male', label: 'Male', icon: 'gender-male' },
+          { value: 'female', label: 'Female', icon: 'gender-female' },
+          { value: 'other', label: 'Other', icon: 'gender-transgender' },
+        ]}
+      />
 
+      <Text style={styles.label}>Date of Birth (Optional)</Text>
+      <TouchableOpacity onPress={() => setShowDatePicker(true)} style={styles.dateButton}>
+        <Text style={styles.dateText}>{dob ? dob.toLocaleDateString() : 'Select Date'}</Text>
+      </TouchableOpacity>
+      {showDatePicker && (
+        <DateTimePicker
+          value={dob || new Date(2000, 0, 1)}
+          mode="date"
+          display="default"
+          maximumDate={new Date(Date.now() - (13 * 365 * 24 * 60 * 60 * 1000))} // At least 13 years old
+          onChange={(event, selectedDate) => {
+            setShowDatePicker(Platform.OS === 'ios');
+            if (selectedDate) setDob(selectedDate);
+          }}
+        />
+      )}
+
+      
       <TouchableOpacity
         style={[
           styles.button,
@@ -196,6 +237,24 @@ const styles = StyleSheet.create({
     width: '100%',
     marginBottom: 16,
   },
+
+  label: {
+    fontSize: 14,
+    color: '#666',
+    width: '100%',
+    marginBottom: 8,
+  },
+  dateButton: {
+    backgroundColor: '#F4F4F4',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    height: 50,
+    width: '100%',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  dateText: { fontSize: 16, color: '#333' },
+
   button: {
     backgroundColor: '#FF5A5F',
     borderRadius: 12,

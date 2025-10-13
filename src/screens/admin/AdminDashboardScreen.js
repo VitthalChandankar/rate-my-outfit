@@ -59,6 +59,12 @@ export default function AdminDashboardScreen({ navigation }) {
           left={props => <List.Icon {...props} icon="alert-circle" />}
           onPress={() => navigation.navigate('ManagePostReports')}
         />
+        <List.Item
+          title="Shipping Details"
+          description="View shipping addresses for prize winners"
+          left={props => <List.Icon {...props} icon="truck-delivery" />}
+          onPress={() => navigation.navigate('ManageShipping')}
+        />
       </List.Section>
       <List.Section title="Developer Tools">
         <Button

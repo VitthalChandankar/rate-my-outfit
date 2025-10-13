@@ -30,7 +30,7 @@ function NotificationRow({ item, onNotificationPress }) {
     message = <Text style={styles.message}><Text style={styles.senderName}>{item.senderName}</Text> started following you.</Text>;
   } else if (item.type === 'contest_win') {
     iconName = 'trophy';
-    iconColor = '#F59E0B'; // Gold
+    iconColor = item.rank === 1 ? '#FFD700' : item.rank === 2 ? '#C0C0C0' : '#CD7F32'; // Gold, Silver, Bronze
     message = <Text style={styles.message}>Congratulations! You won the <Text style={styles.senderName}>"{item.contestTitle || 'contest'}"</Text>.</Text>;
   } else if (item.type === 'achievement') {
     iconName = 'shield-checkmark';
@@ -95,7 +95,12 @@ export default function NotificationsScreen() {
     if (notification.type === 'follow') {
       navigation.navigate('UserProfile', { userId: notification.senderId });
     } else if (notification.type === 'contest_win' && notification.contestId) {
-      navigation.navigate('ContestDetails', { contestId: notification.contestId, initialTab: 'leaderboard' });
+      // If there's a physical prize, go to shipping details screen.
+      if (notification.prize) {
+        navigation.navigate('ShippingDetails', { contestId: notification.contestId, prize: notification.prize });
+      } else {
+        navigation.navigate('ContestDetails', { contestId: notification.contestId, initialTab: 'leaderboard' });
+      }
     } else if (notification.type === 'post_deleted') {
       showAlert('Post Removed', 'This post was removed due to community guideline violations.');
     } else if (notification.outfitId) {

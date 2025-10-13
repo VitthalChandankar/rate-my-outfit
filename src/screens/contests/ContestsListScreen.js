@@ -15,9 +15,10 @@ import {
   Animated,
   Easing,
   Dimensions,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useIsFocused } from '@react-navigation/native';
+import { useIsFocused, useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { Surface } from 'react-native-paper';
 import { Image as ExpoImage } from 'expo-image';
@@ -209,6 +210,7 @@ const ContestCard = memo(({ item, onPress }) => {
 export default function ContestsListScreen({ navigation }) {
   const isFocused = useIsFocused();
   const isAdmin = useUserStore((s) => s.myProfile?.isAdmin);
+  const myProfile = useUserStore((s) => s.myProfile);
   const allContests = useContestStore((s) => s.contests);
   const loading = useContestStore((s) => s.contestsLoading);
   const refreshing = useContestStore((s) => s.contestsRefreshing);
@@ -217,6 +219,25 @@ export default function ContestsListScreen({ navigation }) {
 
   const [filter, setFilter] = useState('active');
   const [searchQuery, setSearchQuery] = useState('');
+
+  useFocusEffect(
+    React.useCallback(() => {
+      // After a short delay, check if the profile is loaded and if the country is missing.
+      const timer = setTimeout(() => {
+        if (myProfile && !myProfile.country) {
+          Alert.alert(
+            'Country Required',
+            'To view contests, please add your country to your profile.',
+            [
+              { text: 'Later', style: 'cancel' },
+              { text: 'Add Country', onPress: () => navigation.navigate('EditProfile') }
+            ]
+          );
+        }
+      }, 500); // Delay to allow profile to load
+      return () => clearTimeout(timer);
+    }, [myProfile, navigation])
+  );
 
   // Filter the contests on the client side for instant UI updates
   const contests = useMemo(() => {

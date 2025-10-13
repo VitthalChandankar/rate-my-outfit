@@ -63,7 +63,10 @@ async function createUser(uid, email, name, phone = null) {
     name: name || 'New User',
     email: email || null,
     phone: phone || null, // Add phone number
+    country: null, // NEW: Add country field
     coverPhoto: null,
+    gender: null, // 'male', 'female', 'other', 'prefer_not_to_say'
+    dob: null, // Date of Birth as Firestore Timestamp
     profilePicture: null,
     createdAt: serverTimestamp(),
     bio: '',
@@ -562,7 +565,7 @@ async function fbListContests({ limitCount = 20, startAfterDoc = null, status = 
   }
 }
 
-async function fbCreateContest({ title, theme, prize, imageUrl, startAt, endAt, host, country }) {
+async function fbCreateContest({ title, theme, prize, imageUrl, startAt, endAt, host, country, achievementIds }) {
   try {
     const payload = {
       title,
@@ -570,6 +573,7 @@ async function fbCreateContest({ title, theme, prize, imageUrl, startAt, endAt, 
       prize,
       image: imageUrl, // Use 'image' to match ContestDetailsScreen
       host,
+      achievementIds: achievementIds, // Use the passed object
       country,
       startAt, // Should be a Firestore Timestamp
       endAt,   // Should be a Firestore Timestamp
@@ -1439,6 +1443,40 @@ async function subscribeToUnreadShareCount(userId, onUpdate) {
   return unsubscribe;
 }
 
+async function fbSaveShippingDetails({ contestId, userId, details }) {
+  if (!contestId || !userId || !details) {
+    return { success: false, error: 'Missing required data.' };
+  }
+  try {
+    const shippingRef = doc(firestore, 'shippingDetails', `${contestId}_${userId}`);
+    await setDoc(shippingRef, {
+      contestId,
+      userId,
+      ...details,
+      submittedAt: serverTimestamp(),
+    }, { merge: true });
+    return { success: true };
+  } catch (error) {
+    console.error('fbSaveShippingDetails error:', error);
+    return { success: false, error };
+  }
+}
+
+async function fbFetchAllShippingDetails() {
+  try {
+    const q = query(
+      collection(firestore, 'shippingDetails'),
+      orderBy('submittedAt', 'desc')
+    );
+    const snap = await getDocs(q);
+    const items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    return { success: true, items };
+  } catch (error) {
+    console.error('fbFetchAllShippingDetails error:', error);
+    return { success: false, error };
+  }
+}
+
 async function markAllSharesAsRead(userId) {
   try {
     const q = query(
@@ -1577,7 +1615,7 @@ export {
   logout, onAuthChange, sendResetEmail, signupWithEmail, uploadImage, fbFetchContestsByIds, fbCreateAdvertisement, fbFetchActiveAds, fbReportPost, fbFetchReportedPosts, fbAdminUpdatePostStatus,
   toggleLikePost, fetchMyLikedOutfitIds, fetchLikersForOutfit, fbListContests, fbFetchContestEntries, fbCreateEntry, fbRateEntry, fbFetchContestLeaderboard, updateUserPushToken,
   getUserProfile, updateUserProfile, setUserAvatar, ensureUsernameUnique, blockUser, unblockUser, listBlockedUsers, fetchMyBlockedIds, fetchMyBlockerIds, createProblemReport, listProblemReports, updateProblemReportStatus,firebaseSearchUsers,
-  createVerificationApplication, listVerificationApplications, getVerificationApplication, processVerificationApplication,
+  createVerificationApplication, listVerificationApplications, getVerificationApplication, processVerificationApplication, fbSaveShippingDetails, fbFetchAllShippingDetails,
   followUser, unfollowUser, isFollowing, listFollowers, listFollowing,
   fetchNotifications, markNotificationsAsRead, subscribeToUnreadNotifications,
   fbSharePost, fbFetchShares, fbReactToShare, fbDeleteShare, fbSoftDeleteShare, fbSoftDeleteConversation, fbFetchAllUserShares, toggleSavePost, fetchMySavedOutfitIds, fetchOutfitsByIds, fetchUserAchievements, listAchievements, createOrUpdateAchievement, subscribeToUnreadShareCount, markAllSharesAsRead
