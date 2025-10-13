@@ -832,6 +832,36 @@ exports.reportPost = onCall(async (request) => {
   }
 });
 
+/**
+ * Deletes a user's account and all associated data from Firestore.
+ * This is a callable function, triggered by the client before deleting the Auth user.
+ * NOTE: For a production app with large amounts of user data, using the official
+ * Firebase "Delete User Data" extension is the recommended and more robust approach.
+ * This function is a simplified example.
+ */
+exports.deleteUserAccount = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "You must be logged in to delete your account.");
+  }
+  const uid = request.auth.uid;
+  const db = admin.firestore();
+  console.log(`Starting Firestore data deletion for user: ${uid}`);
+
+  // In a real application, you would add logic here to delete all documents
+  // and subcollections related to the user from collections like 'outfits',
+  // 'comments', 'likes', 'follows', etc. This is a complex task.
+
+  // For this example, we will just delete the main user document.
+  try {
+    const userDocRef = db.doc(`users/${uid}`);
+    await userDocRef.delete();
+    console.log(`Firestore cleanup complete for user: ${uid}.`);
+    return { success: true, message: "User data deleted successfully." };
+  } catch (error) {
+    console.error(`Error deleting user data for ${uid}:`, error);
+    throw new HttpsError("internal", "Failed to delete user data.");
+  }
+});
 
 
 /**

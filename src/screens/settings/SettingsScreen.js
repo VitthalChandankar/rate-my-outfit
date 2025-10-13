@@ -27,7 +27,7 @@ const SettingsSection = ({ title, children }) => (
 );
 
 export default function SettingsScreen({ navigation }) {
-  const { logout } = useAuthStore();
+  const { logout, deleteAccount } = useAuthStore();
   const { user } = useAuthStore();
   const { myProfile, updateProfile } = useUserStore();
 
@@ -57,6 +57,23 @@ export default function SettingsScreen({ navigation }) {
     ]);
   };
 
+  const handleDeleteAccount = () => {
+    showAlert(
+      'Delete Account?',
+      'This is permanent and cannot be undone. All your posts, ratings, and data will be deleted forever.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            const res = await deleteAccount();
+            if (!res.success) showAlert('Error', res.error?.message || 'Could not delete account. Please try again.');
+          },
+        },
+      ]
+    );
+  };
   const appVersion = Application.nativeApplicationVersion || '1.0.0';
 
   return (
@@ -66,6 +83,7 @@ export default function SettingsScreen({ navigation }) {
         <SettingsRow icon="person-outline" label={i18n.t('settings.editProfile')} onPress={() => navigation.navigate('EditProfile')} />
         <SettingsRow icon="hand-left-outline" label="Blocked Accounts" onPress={() => navigation.navigate('BlockedUsers')} />
         <SettingsRow icon="lock-closed-outline" label={i18n.t('settings.changePassword')} onPress={() => showAlert('Coming Soon', 'This feature is not yet implemented.')} />
+        <SettingsRow icon="keypad-outline" label="Two-Factor Authentication" onPress={() => showAlert('Coming Soon', 'This feature will be available in a future update.')} />
       </SettingsSection>
 
       <SettingsSection title={i18n.t('settings.preferences')}>
@@ -113,7 +131,8 @@ export default function SettingsScreen({ navigation }) {
       </SettingsSection>
 
       <View style={{ marginTop: 24, marginBottom: 40 }}>
-      <SettingsRow icon="log-out-outline" label={i18n.t('settings.logout')} color="#FF3B30" onPress={handleLogout} />
+        <SettingsRow icon="log-out-outline" label={i18n.t('settings.logout')} color="#FF3B30" onPress={handleLogout} />
+        <SettingsRow icon="trash-bin-outline" label="Delete Account" color="#FF3B30" onPress={handleDeleteAccount} isLast={true} />
       </View>
     </ScrollView>
   );

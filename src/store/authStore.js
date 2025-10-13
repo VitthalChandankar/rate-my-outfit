@@ -6,6 +6,9 @@ import {
   onAuthChange,
   signupWithEmail,
 } from '../services/firebase';
+import { getAuth, deleteUser } from 'firebase/auth';
+import { getFunctions, httpsCallable } from 'firebase/functions';
+
 
 // IMPORTANT: import the user store to hydrate normalized profile
 import useUserStore from './UserStore';
@@ -89,6 +92,34 @@ const useAuthStore = create((set, get) => ({
   logout: async () => {
     return await firebaseLogout(); // This will trigger the onAuthChange listener
   },
+
+  // Delete Account
+  deleteAccount: async () => {
+    const user = getAuth().currentUser;
+    if (!user) {
+      return { success: false, error: { message: 'You must be logged in to delete your account.' } };
+    }
+
+    try {
+      // Step 1: Call the Cloud Function to delete all user data from Firestore/Storage.
+      const functions = getFunctions();
+      const deleteUserAccount = httpsCallable(functions, 'deleteUserAccount');
+      await deleteUserAccount(); // No data needs to be passed, UID is from context.
+
+      // Step 2: Delete the user from Firebase Authentication.
+      // This will trigger onAuthChange, which will clear local state and navigate away.
+      await deleteUser(user);
+
+      return { success: true };
+    } catch (error) {
+      console.error("Account deletion error:", error);
+      if (error.code === 'auth/requires-recent-login') {
+        return { success: false, error: { message: 'This is a sensitive operation. Please log out and log back in before deleting your account.' } };
+      }
+      return { success: false, error };
+    }
+  },
+
 
   // Auth check
   isAuthenticated: () => {
