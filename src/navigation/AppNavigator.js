@@ -19,6 +19,7 @@ import WelcomeScreen from '../screens/auth/WelcomeScreen';
 import CreatePasswordScreen from '../screens/auth/CreatePasswordScreen';
 import EmailVerificationScreen from '../screens/auth/EmailVerificationScreen';
 import PhoneNumberScreen from '../screens/auth/PhoneNumberScreen';
+// import Verify2FALoginScreen from '../screens/auth/Verify2FALoginScreen'; // 2FA Coming Soon
 
 // Main
 import HomeScreen from '../screens/main/HomeScreen';
@@ -56,6 +57,9 @@ import PrivacyPolicyScreen from '../screens/settings/PrivacyPolicyScreen';
 import ReportProblemScreen from '../screens/settings/ReportProblemScreen';
 import TermsOfServiceScreen from '../screens/settings/TermsOfServiceScreen';
 import VerificationScreen from '../screens/settings/VerificationScreen';
+// import Enable2FAScreen from '../screens/settings/Enable2FAScreen'; // 2FA Coming Soon
+// import TwoFactorRecoveryCodesScreen from '../screens/settings/TwoFactorRecoveryCodesScreen'; // 2FA Coming Soon
+// import Disable2FAScreen from '../screens/settings/Disable2FAScreen'; // 2FA Coming Soon
 
 import InboxScreen from '../screens/sharing/InboxScreen';
 import SharePostScreen from '../screens/sharing/SharePostScreen';
@@ -71,6 +75,8 @@ import ManagePostReportsScreen from '../screens/admin/ManagePostReportsScreen';
 import ReportDetailsScreen from '../screens/admin/ReportDetailsScreen';
 import ManageVerificationScreen from '../screens/admin/ManageVerificationScreen';
 import VerificationDetailsScreen from '../screens/admin/VerificationDetailsScreen';
+import ShippingDetailsScreen from '../screens/contests/ShippingDetailsScreen';
+import ManageShippingScreen from '../screens/admin/ManageShippingScreen';
 
 
 const Stack = createNativeStackNavigator();
@@ -104,7 +110,7 @@ function MainTabs() {
 }
 
 export default function AppNavigator({ navigationRef }) {
-  const { loading: authLoading, user, onboardingJustCompleted } = useAuthStore();
+  const { loading: authLoading, user, onboardingJustCompleted, authStep } = useAuthStore();
 
   // Use granular selectors to prevent AppNavigator from re-rendering unnecessarily
   // when unrelated parts of the user store change (like loading another user's profile).
@@ -352,6 +358,11 @@ function MainAppStack() {
         component={ManagePostReportsScreen}
         options={{ headerShown: true, title: 'Post Reports' }}
       />
+      <Stack.Screen
+        name="ManageShipping"
+        component={ManageShippingScreen}
+        options={{ headerShown: true, title: 'Shipping Details' }}
+      />
 
       {/* Settings flow */}
       <Stack.Screen
@@ -448,6 +459,34 @@ function MainAppStack() {
         options={{
           headerShown: true,
           title: 'Report a Problem',
+          headerStyle: { backgroundColor: '#fff' },
+          headerTintColor: '#111',
+          headerTitleStyle: { fontWeight: 'bold' },
+        }}
+      />
+      {/* 2FA Screens - Coming Soon
+        <Stack.Screen
+          name="Enable2FA"
+          component={Enable2FAScreen}
+          options={{ headerShown: true, title: 'Enable 2FA' }}
+        />
+        <Stack.Screen
+          name="TwoFactorRecoveryCodes"
+          component={TwoFactorRecoveryCodesScreen}
+          options={{ headerShown: true, title: 'Recovery Codes' }}
+        />
+        <Stack.Screen
+          name="Disable2FA"
+          component={Disable2FAScreen}
+          options={{ headerShown: true, title: 'Disable 2FA' }}
+        />
+      */}
+      <Stack.Screen
+        name="ShippingDetails"
+        component={ShippingDetailsScreen}
+        options={{
+          headerShown: true,
+          title: 'Shipping Details',
           headerStyle: { backgroundColor: '#fff' },
           headerTintColor: '#111',
           headerTitleStyle: { fontWeight: 'bold' },

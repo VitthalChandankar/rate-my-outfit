@@ -30,6 +30,7 @@ export default function SettingsScreen({ navigation }) {
   const { logout, deleteAccount } = useAuthStore();
   const { user } = useAuthStore();
   const { myProfile, updateProfile } = useUserStore();
+  // const twoFactorEnabled = myProfile?.twoFactorEnabled === true; // 2FA Coming Soon
 
   // Local state for optimistic UI updates to prevent toggle flicker.
   const [localPreferences, setLocalPreferences] = useState(myProfile?.preferences || {});
@@ -83,7 +84,9 @@ export default function SettingsScreen({ navigation }) {
         <SettingsRow icon="person-outline" label={i18n.t('settings.editProfile')} onPress={() => navigation.navigate('EditProfile')} />
         <SettingsRow icon="hand-left-outline" label="Blocked Accounts" onPress={() => navigation.navigate('BlockedUsers')} />
         <SettingsRow icon="lock-closed-outline" label={i18n.t('settings.changePassword')} onPress={() => showAlert('Coming Soon', 'This feature is not yet implemented.')} />
-        <SettingsRow icon="keypad-outline" label="Two-Factor Authentication" onPress={() => showAlert('Coming Soon', 'This feature will be available in a future update.')} />
+        <SettingsRow icon="keypad-outline" label="Two-Factor Authentication"
+          onPress={() => showAlert('Coming Soon', 'This feature will be available in a future update.')}
+       />
       </SettingsSection>
 
       <SettingsSection title={i18n.t('settings.preferences')}>

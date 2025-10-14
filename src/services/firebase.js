@@ -1,5 +1,5 @@
 // src/services/firebase.js
-import { getApps, initializeApp } from 'firebase/app';
+import { getApps, initializeApp, getApp } from 'firebase/app';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { where, updateDoc, deleteDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
@@ -54,7 +54,7 @@ const auth = initializeAuth(app, {
 });
 
 const firestore = getFirestore(app);
-const functions = getFunctions(app);
+const functions = getFunctions(getApp(), 'us-central1');
 
 // --- User creation helper ---
 async function createUser(uid, email, name, phone = null) {
@@ -68,6 +68,7 @@ async function createUser(uid, email, name, phone = null) {
     gender: null, // 'male', 'female', 'other', 'prefer_not_to_say'
     dob: null, // Date of Birth as Firestore Timestamp
     profilePicture: null,
+    // twoFactorEnabled: false, // 2FA Coming Soon
     createdAt: serverTimestamp(),
     bio: '',
     stats: { followersCount: 0, followingCount: 0, postsCount: 0, contestWins: 0, averageRating: 0, achievementsCount: 0 },
@@ -146,6 +147,68 @@ async function uploadImage(localUri) {
     return result; // { success: true, url } or { success: false, error }
   } catch (error) {
     console.error('uploadImage error', error);
+    return { success: false, error };
+  }
+}
+
+/* 2FA Coming Soon
+async function fbGenerate2FASecret() {
+  const functions = getFunctions(getApp(), 'us-central1');
+  try {
+    const generate = httpsCallable(functions, 'generateTwoFactorSecret');
+    const result = await generate();   
+    return { success: true, ...result.data };
+  } catch (error) {
+    console.error("fbGenerate2FASecret error:", error);
+    return { success: false, error };
+  }
+}
+
+async function fbVerifyAndEnable2FA(token) {
+  try {
+    const functions = getFunctions(getApp(), 'us-central1');
+    const verify = httpsCallable(functions, 'verifyAndEnableTwoFactor');
+    const result = await verify({ token });
+    // The cloud function returns { success: true, recoveryCodes: [...] }
+    return { success: true, ...result.data };
+
+  } catch (error) {
+    console.error("fbVerifyAndEnable2FA error:", error);
+    return { success: false, error };
+  }
+}
+
+async function fbDisable2FA(token) {
+  try {
+    const functions = getFunctions(getApp(), 'us-central1');
+    const disable = httpsCallable(functions, 'disableTwoFactor');
+    await disable({ token });
+    return { success: true };
+  } catch (error) {
+    console.error("fbDisable2FA error:", error);
+    return { success: false, error };
+  }
+}
+
+async function fbVerify2FALogin(token) {
+  const functions = getFunctions(getApp(), 'us-central1');
+  try {
+    const verify = httpsCallable(functions, 'verifyTwoFactorLogin');
+    const result = await verify({ token });
+    return { success: result.data.success, error: result.data.error };
+  } catch (error) {
+    return { success: false, error };
+  }
+}
+*/
+async function fbDeleteUserAccount() {
+  try {
+    const functions = getFunctions(getApp(), 'us-central1');
+    const deleteFn = httpsCallable(functions, 'deleteUserAccount');
+    await deleteFn();
+    return { success: true };
+  } catch (error) {
+    console.error('fbDeleteUserAccount error:', error);
     return { success: false, error };
   }
 }
@@ -1615,7 +1678,7 @@ export {
   logout, onAuthChange, sendResetEmail, signupWithEmail, uploadImage, fbFetchContestsByIds, fbCreateAdvertisement, fbFetchActiveAds, fbReportPost, fbFetchReportedPosts, fbAdminUpdatePostStatus,
   toggleLikePost, fetchMyLikedOutfitIds, fetchLikersForOutfit, fbListContests, fbFetchContestEntries, fbCreateEntry, fbRateEntry, fbFetchContestLeaderboard, updateUserPushToken,
   getUserProfile, updateUserProfile, setUserAvatar, ensureUsernameUnique, blockUser, unblockUser, listBlockedUsers, fetchMyBlockedIds, fetchMyBlockerIds, createProblemReport, listProblemReports, updateProblemReportStatus,firebaseSearchUsers,
-  createVerificationApplication, listVerificationApplications, getVerificationApplication, processVerificationApplication, fbSaveShippingDetails, fbFetchAllShippingDetails,
+  createVerificationApplication, listVerificationApplications, getVerificationApplication, processVerificationApplication, fbSaveShippingDetails, fbFetchAllShippingDetails, /*fbGenerate2FASecret, fbVerifyAndEnable2FA, fbDisable2FA, fbVerify2FALogin,*/ fbDeleteUserAccount,
   followUser, unfollowUser, isFollowing, listFollowers, listFollowing,
   fetchNotifications, markNotificationsAsRead, subscribeToUnreadNotifications,
   fbSharePost, fbFetchShares, fbReactToShare, fbDeleteShare, fbSoftDeleteShare, fbSoftDeleteConversation, fbFetchAllUserShares, toggleSavePost, fetchMySavedOutfitIds, fetchOutfitsByIds, fetchUserAchievements, listAchievements, createOrUpdateAchievement, subscribeToUnreadShareCount, markAllSharesAsRead

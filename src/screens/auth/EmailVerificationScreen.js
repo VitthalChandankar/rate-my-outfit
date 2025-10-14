@@ -1,6 +1,6 @@
 // src/screens/auth/EmailVerificationScreen.js
 
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { sendEmailVerification } from 'firebase/auth';
@@ -11,22 +11,6 @@ import useAuthStore from '../../store/authStore';
 export default function EmailVerificationScreen({ navigation }) {
   const { logout } = useAuthStore();
   const [isResending, setIsResending] = useState(false);
-
-  useEffect(() => {
-    const interval = setInterval(async () => {
-      const user = auth.currentUser;
-      if (user) {
-        await user.reload();
-        if (user.emailVerified) {
-          // The onAuthChange listener in AppNavigator will handle navigation.
-          // We don't need to navigate from here.
-          clearInterval(interval);
-        }
-      }
-    }, 3000); // Check every 3 seconds
-
-    return () => clearInterval(interval);
-  }, []);
 
   const handleResend = async () => {
     if (isResending) return;
@@ -41,6 +25,15 @@ export default function EmailVerificationScreen({ navigation }) {
       Alert.alert('Error', 'Failed to resend verification email. Please try again.');
     } finally {
       setIsResending(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      // The onAuthChange listener in authStore will now handle navigation.
+    } catch (e) {
+      Alert.alert('Logout Failed', 'An error occurred while logging out.');
     }
   };
 
@@ -60,12 +53,7 @@ export default function EmailVerificationScreen({ navigation }) {
         <Text style={styles.buttonText}>{isResending ? 'Sending...' : 'Resend Email'}</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity
-        onPress={async () => {
-          try {
-            await logout(); // Await the logout process
-          } catch (e) { Alert.alert('Logout Failed', 'Please try again.'); }
-        }}>
+      <TouchableOpacity onPress={handleLogout}>
         <Text style={styles.backText}>Back to Login</Text>
       </TouchableOpacity>
     </View>

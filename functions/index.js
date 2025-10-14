@@ -4,7 +4,8 @@ const admin = require("firebase-admin");
 const {onDocumentCreated, onDocumentDeleted, onDocumentUpdated} = require("firebase-functions/v2/firestore");
 const {onTaskDispatched} = require("firebase-functions/v2/tasks");
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
-
+// const speakeasy = require("speakeasy"); // 2FA Coming Soon
+// const crypto = require("crypto"); // 2FA Coming Soon
 
 
 admin.initializeApp();
@@ -847,14 +848,42 @@ exports.deleteUserAccount = onCall(async (request) => {
   const db = admin.firestore();
   console.log(`Starting Firestore data deletion for user: ${uid}`);
 
-  // In a real application, you would add logic here to delete all documents
-  // and subcollections related to the user from collections like 'outfits',
-  // 'comments', 'likes', 'follows', etc. This is a complex task.
-
-  // For this example, we will just delete the main user document.
   try {
+    const batchSize = 400;
+    const collectionsToDelete = ["outfits", "comments", "likes", "shares", "follows", "blocks", "reports"];
+
+    // Delete documents where the user is the primary actor (e.g., their own posts)
+    for (const collectionName of collectionsToDelete) {
+      const query = db.collection(collectionName).where("userId", "==", uid).limit(batchSize);
+      let snapshot;
+      do {
+        snapshot = await query.get();
+        const batch = db.batch();
+        snapshot.docs.forEach((doc) => batch.delete(doc.ref));
+        await batch.commit();
+      } while (!snapshot.empty);
+      console.log(`Deleted user's documents from ${collectionName}.`);
+    }
+
+    // Delete follow relationships where the user is being followed
+    const followingQuery = db.collection("follows").where("followingId", "==", uid).limit(batchSize);
+    let followingSnapshot;
+    do {
+      followingSnapshot = await followingQuery.get();
+      const batch = db.batch();
+      followingSnapshot.docs.forEach((doc) => batch.delete(doc.ref));
+      await batch.commit();
+    } while (!followingSnapshot.empty);
+    console.log("Deleted user's follower relationships.");
+
+    // Delete the user's private data (like 2FA secrets)
+    const privateDataRef = db.doc(`users/${uid}/private/twoFactor`);
+    await privateDataRef.delete().catch(() => {}); // Ignore if it doesn't exist
+
+    // Finally, delete the main user document
     const userDocRef = db.doc(`users/${uid}`);
     await userDocRef.delete();
+
     console.log(`Firestore cleanup complete for user: ${uid}.`);
     return { success: true, message: "User data deleted successfully." };
   } catch (error) {

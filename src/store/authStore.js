@@ -5,6 +5,11 @@ import {
   loginWithEmail,
   onAuthChange,
   signupWithEmail,
+  // fbGenerate2FASecret, // 2FA Coming Soon
+  // fbVerifyAndEnable2FA, // 2FA Coming Soon
+  // fbDisable2FA, // 2FA Coming Soon
+  fbDeleteUserAccount,
+  // fbVerify2FALogin, // 2FA Coming Soon
 } from '../services/firebase';
 import { getAuth, deleteUser } from 'firebase/auth';
 import { getFunctions, httpsCallable } from 'firebase/functions';
@@ -12,7 +17,6 @@ import { getFunctions, httpsCallable } from 'firebase/functions';
 
 // IMPORTANT: import the user store to hydrate normalized profile
 import useUserStore from './UserStore';
-import useNotificationsStore from './notificationsStore';
 import * as Notifications from 'expo-notifications';
 import { registerForPushNotificationsAsync } from '../services/pushNotifications';
 
@@ -25,6 +29,8 @@ const useAuthStore = create((set, get) => ({
   pushToken: null, // Add a place to store the current device's token
   isAdmin: false, // New state to track admin status
   onboardingJustCompleted: false, // Flag to manage welcome screen navigation
+  // authStep: 'idle', // 2FA Coming Soon: idle | 2fa_pending | authenticated
+  _emailVerificationInterval: null, // To handle email verification polling
   setOnboardingCompleted: (status) => set({ onboardingJustCompleted: status }),
 
   // Listen to Firebase Auth state changes and hydrate normalized Firestore profile
@@ -32,13 +38,36 @@ const useAuthStore = create((set, get) => ({
     if (get()._subscribed) return;
     set({ _subscribed: true });
 
+    const auth = getAuth();
     return onAuthChange(async (firebaseUser) => {
       try {
         const { loadMyProfile, subscribeMyProfile, hydrateMyLikes, hydrateMySaves, hydrateMyBlocks, hydrateMyBlockers, clearMyProfile, updateMyPushToken } = useUserStore.getState();
-        const { subscribeToUnreadCount, clearNotifications } = useNotificationsStore.getState();
         const previousUser = get().user;
 
         if (firebaseUser) {
+          // NEW: Handle email verification polling
+          if (!firebaseUser.emailVerified) {
+            if (get()._emailVerificationInterval) clearInterval(get()._emailVerificationInterval); // Clear old one just in case
+            const intervalId = setInterval(async () => {
+              const currentUser = auth.currentUser;
+              if (currentUser) {
+                await currentUser.reload();
+                if (currentUser.emailVerified) {
+                  console.log('Email verified! Refreshing user state.');
+                  clearInterval(intervalId);
+                  // Re-set the user object with a new reference to trigger a state update in components
+                  set({ _emailVerificationInterval: null, user: { ...currentUser } });
+                }
+              }
+            }, 3000); // Check every 3 seconds
+            set({ _emailVerificationInterval: intervalId });
+          } else {
+            if (get()._emailVerificationInterval) {
+              clearInterval(get()._emailVerificationInterval);
+              set({ _emailVerificationInterval: null });
+            }
+          }
+
           // Check if the logged-in user is an admin
           const isAdmin = ADMIN_UIDS.includes(firebaseUser.uid);
           // Always update the user object in the store to reflect the latest state from Firebase.
@@ -47,9 +76,10 @@ const useAuthStore = create((set, get) => ({
           // If this is a new login/signup, load their profile and register for push notifications.
           if (firebaseUser.uid !== previousUser?.uid) {
             const uid = firebaseUser.uid;
-            await Promise.all([loadMyProfile(uid), hydrateMyLikes(uid), hydrateMySaves(uid), hydrateMyBlocks(uid), hydrateMyBlockers(uid)]);
+            await loadMyProfile(uid);
+
+            await Promise.all([hydrateMyLikes(uid), hydrateMySaves(uid), hydrateMyBlocks(uid), hydrateMyBlockers(uid)]);
             subscribeMyProfile(uid);
-            subscribeToUnreadCount(uid); // Start subscription
 
             // After loading profile, register for push notifications
             registerForPushNotificationsAsync().then(token => {
@@ -67,8 +97,12 @@ const useAuthStore = create((set, get) => ({
           if (myProfile?.uid && tokenToRemove) {
             updateMyPushToken(tokenToRemove, true); // on logout, remove token
           }
+          // Clear verification interval on logout
+          if (get()._emailVerificationInterval) {
+            clearInterval(get()._emailVerificationInterval);
+            set({ _emailVerificationInterval: null });
+          }
           clearMyProfile();
-          clearNotifications(); // Stop subscription and clear state
           set({ user: null, loading: false, pushToken: null, isAdmin: false }); // Clear user, token, and admin status
         }
       } catch (e) {
@@ -102,9 +136,7 @@ const useAuthStore = create((set, get) => ({
 
     try {
       // Step 1: Call the Cloud Function to delete all user data from Firestore/Storage.
-      const functions = getFunctions();
-      const deleteUserAccount = httpsCallable(functions, 'deleteUserAccount');
-      await deleteUserAccount(); // No data needs to be passed, UID is from context.
+      await fbDeleteUserAccount();
 
       // Step 2: Delete the user from Firebase Authentication.
       // This will trigger onAuthChange, which will clear local state and navigate away.

@@ -31,6 +31,11 @@ service cloud.firestore {
         allow read: if true;
         allow write: if false; // Prevent client-side awarding
       }
+
+      // Private user data, e.g., for 2FA secrets
+      match /private/{privateDocId} {
+        allow read, write: if isSignedIn() && request.auth.uid == userId;
+      }
     }
 
     // achievements: Public read, only admin can write.
