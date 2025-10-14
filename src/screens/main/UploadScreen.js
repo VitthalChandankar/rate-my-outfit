@@ -18,6 +18,7 @@ import {
   InputAccessoryView,
   findNodeHandle,
 } from 'react-native';
+import { useIsFocused } from '@react-navigation/native';
 import {
   Button,
   IconButton,
@@ -44,8 +45,28 @@ import { uploadImageToCloudinary } from '../../services/cloudinaryService'; // d
 const hasImageManipulator = !!ImageManipulator?.manipulateAsync;
 
 export default function UploadScreen({ navigation, route }) {
-  const contestId = route?.params?.contestId || null;
+  // Use local state for contestId to handle navigation lifecycle correctly.
+  const [contestId, setContestId] = useState(null);
   const isContest = !!contestId;
+  const isFocused = useIsFocused();
+
+  // Effect 1: Sync state from route params when the screen is focused.
+  useEffect(() => {
+    if (isFocused) {
+      setContestId(route.params?.contestId || null);
+    }
+  }, [isFocused, route.params?.contestId]);
+
+  // Effect 2: Clean up params when the screen is blurred (left).
+  // This prevents the contestId from persisting when the user switches tabs.
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('blur', () => {
+      if (route.params?.contestId) {
+        navigation.setParams({ contestId: undefined });
+      }
+    });
+    return unsubscribe;
+  }, [navigation, route.params]);
 
   const { user } = useAuthStore();
   const uploadOutfit = useOutfitStore((s) => s.uploadOutfit);
@@ -243,7 +264,7 @@ export default function UploadScreen({ navigation, route }) {
           setProgress((p) => Math.max(p, 0.92));
           res = await createEntry({
             contestId,
-            imageUrl: uploaded.url,
+            imageUrl: uploaded.identifier, // Pass the identifier
             caption: caption.trim(),
             tags: [],
           });

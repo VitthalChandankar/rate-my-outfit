@@ -30,6 +30,7 @@ import useOutfitStore from '../../store/outfitStore';
 import useUserStore from '../../store/UserStore';
 import { fetchOutfitsByIds } from '../../services/firebase';
 import useContestStore from '../../store/contestStore';
+import { withCloudinaryTransforms, IMG_DETAIL, IMG_SQUARE_THUMB } from '../../utils/cloudinaryUrl';
 import Avatar from '../../components/Avatar';
 import ProfileGridItem from '../../components/ProfileGridItem';
 // AchievementBadge will be dynamically imported to avoid useInsertionEffect warnings
@@ -315,7 +316,7 @@ export default function ProfileScreen({ navigation, route }) {
         <View style={styles.coverPhotoContainer}>
           <TouchableOpacity activeOpacity={0.9} onPress={handleCoverPhotoChange} style={StyleSheet.absoluteFill}>
             <>
-              <ExpoImage source={{ uri: myProfile?.coverPhoto }} style={styles.coverPhoto} contentFit="cover" />
+              <ExpoImage source={{ uri: withCloudinaryTransforms(myProfile?.coverPhoto, IMG_DETAIL) }} style={styles.coverPhoto} contentFit="cover" />
               <View style={styles.coverOverlay} />
             </>
           </TouchableOpacity>
@@ -325,7 +326,7 @@ export default function ProfileScreen({ navigation, route }) {
         </View>
 
         <View style={styles.profileDetails}>
-          <Avatar uri={myProfile?.profilePicture} size={88} ring ringColor="#fff" />
+          <Avatar uri={withCloudinaryTransforms(myProfile?.profilePicture, IMG_SQUARE_THUMB)} size={88} ring ringColor="#fff" />
           <View style={styles.infoContainer}>
             <View style={styles.nameContainer}>
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>

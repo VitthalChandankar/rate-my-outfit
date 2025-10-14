@@ -3,12 +3,13 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { View, Text, FlatList, StyleSheet, ActivityIndicator, TouchableOpacity, TextInput, Alert } from 'react-native';
 import { Image as ExpoImage } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
+import { withCloudinaryTransforms, IMG_SQUARE_THUMB } from '../../utils/cloudinaryUrl';
 import useShareStore from '../../store/shareStore';
 
 function UserRow({ user, onSend, isSent }) {
   return (
     <View style={styles.row}>
-      <ExpoImage source={{ uri: user.profilePicture }} style={styles.avatar} />
+      <ExpoImage source={{ uri: withCloudinaryTransforms(user.profilePicture, IMG_SQUARE_THUMB) }} style={styles.avatar} />
       <View style={styles.userInfo}>
         <Text style={styles.name}>{user.name}</Text>
         <Text style={styles.username}>@{user.username}</Text>

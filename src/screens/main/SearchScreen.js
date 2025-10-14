@@ -16,6 +16,7 @@ import useUserStore from '../../store/UserStore';
 import useAuthStore from '../../store/authStore'; // adjust path if your auth store lives elsewhere
 import Avatar from '../../components/Avatar';
 import LottieView from 'lottie-react-native';
+import { withCloudinaryTransforms, IMG_SQUARE_THUMB } from '../../utils/cloudinaryUrl';
 import SearchUserAnimation from '../../../assets/lottie/Search_user_animation.json';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -93,7 +94,7 @@ export function SearchScreen() {
           onPress={() => navigation.navigate('UserProfile', { userId: item.id })}
           style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}
         >
-          <Avatar uri={display.picture} size={44} ring />
+          <Avatar uri={withCloudinaryTransforms(display.picture, IMG_SQUARE_THUMB)} size={44} ring />
           <View style={{ marginLeft: 10, flex: 1 }}>
             <Text style={styles.name}>{display.name}</Text>
             {!!display.username && <Text style={styles.sub}>@{display.username}</Text>}

@@ -137,10 +137,10 @@ const useUserStore = create((set, get) => ({
   },
 
   // Update avatar
-  setAvatar: async (uid, imageUrl) => {
+  setAvatar: async (uid, imageIdentifier) => {
     if (!uid) return { success: false, error: 'No uid' };
     set({ updating: true });
-    const res = await setUserAvatar({ uid, imageUrl });
+    const res = await setUserAvatar({ uid, imageIdentifier });
     if (res.success) {
       const cur = get().myProfile;
       const profiles = { ...get().profilesById, [uid]: res.user };
@@ -166,7 +166,7 @@ const useUserStore = create((set, get) => ({
       return { success: false, error: 'Image upload failed.' };
     }
 
-    const res = await updateUserProfile({ uid, data: { coverPhoto: uploadRes.url } });
+    const res = await updateUserProfile({ uid, data: { coverPhoto: uploadRes.identifier } });
     
     // The real-time listener will also update this, but setting it here ensures
     // the UI has the permanent URL as soon as the backend call is complete.

@@ -3,6 +3,7 @@
 
 import React, { useEffect, useState, useCallback, memo } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, View, ActivityIndicator, TextInput } from 'react-native';
+import { withCloudinaryTransforms, IMG_SQUARE_THUMB } from '../../utils/cloudinaryUrl';
 import useUserStore from '../../store/UserStore';
 import useAuthStore from '../../store/authStore';
 import Avatar from '../../components/Avatar';
@@ -18,7 +19,7 @@ const UserRow = memo(({ item, onToggle, isSelf, following, onNavigate }) => {
   return (
     <View style={styles.row}>
       <Pressable onPress={onNavigate} style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
-        <Avatar uri={display.picture} size={44} ring />
+        <Avatar uri={withCloudinaryTransforms(display.picture, IMG_SQUARE_THUMB)} size={44} ring />
         <View style={{ marginLeft: 10, flex: 1 }}>
           <Text style={styles.name}>{display.name}</Text>
           {!!display.username && <Text style={styles.sub}>@{display.username}</Text>}

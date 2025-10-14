@@ -7,6 +7,7 @@
 import React, { useCallback, useEffect } from 'react';
 import { ActivityIndicator, FlatList, StyleSheet, Text, View, Pressable } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { withCloudinaryTransforms, IMG_SQUARE_THUMB } from '../../utils/cloudinaryUrl';
 import useContestStore from '../../store/contestStore';
 import Avatar from '../../components/Avatar';
 
@@ -20,7 +21,7 @@ const WinnerCard = ({ user, rank, onUserPress }) => {
     <Pressable onPress={() => onUserPress(user.userId)} style={[styles.winnerCardContainer, isFirst && styles.winnerCardContainerFirst]}>
       <View style={containerStyle}>
         <Text style={styles.winnerRank}>{rank}</Text>
-        <Avatar uri={user.user?.profilePicture} size={size} ring={isFirst} ringColor="#FFD700" />
+        <Avatar uri={withCloudinaryTransforms(user.user?.profilePicture, IMG_SQUARE_THUMB)} size={size} ring={isFirst} ringColor="#FFD700" />
         <Text style={styles.winnerName} numberOfLines={1}>{user.user?.name || 'User'}</Text>
         <Text style={styles.winnerScore}>{(user.averageRating || 0).toFixed(1)}</Text>
       </View>
@@ -84,7 +85,7 @@ export function LeaderboardList({ contestId, limit = 50, minVotes = 1, ListHeade
     return (
       <Pressable onPress={() => handleUserPress(item.userId)} style={({ pressed }) => [styles.row, pressed && { backgroundColor: '#f9f9f9' }]}>
         <Text style={styles.rank}>{index + 4}</Text>
-        <Avatar uri={item.user?.profilePicture} name={item.user?.name} size={40} />
+        <Avatar uri={withCloudinaryTransforms(item.user?.profilePicture, IMG_SQUARE_THUMB)} name={item.user?.name} size={40} />
         <View style={{ flex: 1, marginLeft: 10 }}>
           <Text style={styles.name} numberOfLines={1}>
             {item.user?.name || `User ${String(item.userId || '').slice(0, 6)}`}

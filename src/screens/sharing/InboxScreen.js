@@ -9,6 +9,7 @@ import EmptyChatAnimation from '../../../assets/lottie/Empty_chat_screen.json';
 import { Snackbar } from 'react-native-paper';
 import useShareStore from '../../store/shareStore';
 import useAuthStore from '../../store/authStore';
+import { withCloudinaryTransforms, IMG_SQUARE_THUMB } from '../../utils/cloudinaryUrl';
 import formatDate from '../../utils/formatDate';
 import Avatar from '../../components/Avatar';
 
@@ -47,7 +48,7 @@ function ConversationRow({ conversation, onPress, onDelete }) {
   return (
     <Swipeable renderRightActions={renderRightActions} overshootRight={false}>
       <TouchableOpacity style={styles.row} onPress={() => onPress(conversation)}>
-        <Avatar uri={otherUser.profilePicture} size={50} />
+        <Avatar uri={withCloudinaryTransforms(otherUser.profilePicture, IMG_SQUARE_THUMB)} size={50} />
         <View style={styles.content}>
           <View style={styles.rowTop}>
             <Text style={styles.name}>{otherUser.name}</Text>

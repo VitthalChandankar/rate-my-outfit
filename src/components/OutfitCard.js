@@ -10,14 +10,15 @@ import { BlurView } from 'expo-blur';
 import { Image as ExpoImage } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import formatDate from '../utils/formatDate';
-import { withCloudinaryTransforms, IMG_FEED } from '../utils/cloudinaryUrl';
+import { withCloudinaryTransforms, IMG_DETAIL, IMG_SQUARE_THUMB } from '../utils/cloudinaryUrl';
 import useUserStore from '../store/UserStore';
 import useModalStore from '../store/useModalStore';
 
 const { width } = Dimensions.get('window');
 
 function AvatarCircle({ uri, name }) {
-  const initial = (name || 'U').trim().charAt(0).toUpperCase();
+  const initial = (name || 'U').trim().charAt(0).toUpperCase(); 
+ 
   return uri ? (
     <ExpoImage source={{ uri }} style={styles.avatar} contentFit="cover" transition={200} />
   ) : (
@@ -139,10 +140,8 @@ const OutfitCard = memo(({ item, onPress, onRate, onUserPress, onLike, isLiked, 
     try { return createdAt ? formatDate(createdAt) : ''; } catch { return ''; }
   }, [createdAt]);
 
-  const transformedUrl = useMemo(
-    () => (imageUrl ? withCloudinaryTransforms(imageUrl, IMG_FEED) : null),
-    [imageUrl]
-  );
+  // Use IMG_DETAIL for higher quality feed images
+  const transformedUrl = useMemo(() => (imageUrl ? withCloudinaryTransforms(imageUrl, IMG_DETAIL) : null), [imageUrl]);
 
   const countdown = useCountdown(contestData?.endAt);
 
@@ -199,7 +198,7 @@ const OutfitCard = memo(({ item, onPress, onRate, onUserPress, onLike, isLiked, 
       <View style={styles.header}>
         <Pressable style={styles.headerUserInfo} onPress={handleUserTap}>
           <>
-            <AvatarCircle uri={userPhoto} name={userName} />
+          <AvatarCircle uri={withCloudinaryTransforms(userPhoto, IMG_SQUARE_THUMB)} name={userName} />
             <View style={{ marginLeft: 10, flex: 1 }}>
               <Text style={styles.userName}>{userName}</Text>
               {!!timeText && <Text style={styles.time}>{timeText}</Text>}

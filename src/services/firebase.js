@@ -144,7 +144,7 @@ function onAuthChange(cb) {
 async function uploadImage(localUri) {
   try {
     const result = await uploadImageToCloudinary(localUri);
-    return result; // { success: true, url } or { success: false, error }
+    return result; // { success: true, identifier } or { success: false, error }
   } catch (error) {
     console.error('uploadImage error', error);
     return { success: false, error };
@@ -1177,12 +1177,11 @@ async function updateUserPushToken({ uid, token, remove = false }) {
   }
 }
 
-async function setUserAvatar({ uid, imageUrl }) {
+async function setUserAvatar({ uid, imageIdentifier  }) {
   try {
-    // Add a cache-busting version param so clients refresh the image
-    const withVer = imageUrl.includes('?') ? `${imageUrl}&v=${Date.now()}` : `${imageUrl}?v=${Date.now()}`;
-    await updateDoc(doc(firestore, 'users', uid), { profilePicture: withVer, updatedAt: serverTimestamp() });
-    return await getUserProfile(uid);
+   // The identifier is now stored directly. No cache-busting URL is needed.
+   await updateDoc(doc(firestore, 'users', uid), { profilePicture: imageIdentifier, updatedAt: serverTimestamp() });
+   return await getUserProfile(uid);
   } catch (error) {
     return { success: false, error };
   }

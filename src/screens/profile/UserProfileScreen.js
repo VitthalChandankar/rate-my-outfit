@@ -27,6 +27,7 @@ import useAuthStore from '../../store/authStore';
 import useUserStore from '../../store/UserStore';
 import useContestStore from '../../store/contestStore';
 import { fetchUserOutfits, fetchUserAchievements } from '../../services/firebase';
+import { withCloudinaryTransforms, IMG_DETAIL, IMG_SQUARE_THUMB } from '../../utils/cloudinaryUrl';
 import Avatar from '../../components/Avatar';
 import ProfileGridItem from '../../components/ProfileGridItem';
 import AchievementBadge from '../../components/AchievementBadge';
@@ -268,8 +269,8 @@ export default function UserProfileScreen({ route, navigation }) {
     const postsCount = Math.max(0, profile?.stats?.postsCount ?? 0);
     return (
       <View style={styles.header}>
-        <View style={styles.coverPhotoContainer}>
-          <ExpoImage source={{ uri: profile?.coverPhoto }} style={styles.coverPhoto} contentFit="cover" />
+        <View style={styles.coverPhotoContainer}> 
+          <ExpoImage source={{ uri: withCloudinaryTransforms(profile?.coverPhoto, IMG_DETAIL) }} style={styles.coverPhoto} contentFit="cover" />
           <View style={styles.coverOverlay} />
 
           {/* Custom Header Buttons, mimicking ProfileScreen for stability */}
@@ -283,7 +284,7 @@ export default function UserProfileScreen({ route, navigation }) {
         </View>
 
         <View style={styles.profileDetails}>
-          <Avatar uri={profile?.profilePicture} size={88} ring ringColor="#fff" />
+          <Avatar uri={withCloudinaryTransforms(profile?.profilePicture, IMG_SQUARE_THUMB)} size={88} ring ringColor="#fff" />
           <View style={styles.infoContainer}>
             <View style={styles.nameContainer}>
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>

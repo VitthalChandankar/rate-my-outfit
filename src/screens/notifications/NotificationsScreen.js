@@ -6,6 +6,7 @@ import { Image as ExpoImage } from 'expo-image';
 import showAlert from '../../utils/showAlert';
 import { Ionicons } from '@expo/vector-icons';
 import useNotificationsStore from '../../store/notificationsStore';
+import { withCloudinaryTransforms, IMG_SQUARE_THUMB } from '../../utils/cloudinaryUrl';
 import useAuthStore from '../../store/authStore';
 import formatDate from '../../utils/formatDate';
 
@@ -53,7 +54,7 @@ function NotificationRow({ item, onNotificationPress }) {
           <Text style={styles.timestamp}>{formatDate(item.createdAt)}</Text>
         </View>
         {item.outfitImage && (
-          <ExpoImage source={{ uri: item.outfitImage }} style={styles.thumbnail} contentFit="cover" />
+          <ExpoImage source={{ uri: withCloudinaryTransforms(item.outfitImage, IMG_SQUARE_THUMB) }} style={styles.thumbnail} contentFit="cover" />
         )}
       </>
     </TouchableOpacity>

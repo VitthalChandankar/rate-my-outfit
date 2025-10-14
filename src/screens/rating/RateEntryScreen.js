@@ -4,8 +4,8 @@
 import React, { useMemo, useEffect, useRef } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, Animated, Easing, Alert } from 'react-native';
 import { Image as ExpoImage } from 'expo-image';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { withCloudinaryTransforms, IMG_DETAIL } from '../../utils/cloudinaryUrl';
+import { SafeAreaView } from 'react-native-safe-area-context'; 
+import { withCloudinaryTransforms, IMG_DETAIL, IMG_SQUARE_THUMB } from '../../utils/cloudinaryUrl';
 import { Ionicons } from '@expo/vector-icons';
 import useContestStore from '../../store/contestStore';
 import Avatar from '../../components/Avatar';
@@ -81,7 +81,7 @@ export default function RateEntryScreen({ route, navigation }) {
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <View style={styles.header}>
-        <Avatar uri={liveItem?.userPhoto} size={40} />
+        <Avatar uri={withCloudinaryTransforms(liveItem?.userPhoto, IMG_SQUARE_THUMB)} size={40} />
         <View style={{ marginLeft: 12 }}>
           <Text style={styles.userName}>{liveItem?.userName || 'Creator'}</Text>
           <Text style={styles.contestName}>Contest Entry</Text>

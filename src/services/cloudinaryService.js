@@ -53,9 +53,10 @@ export async function uploadImageToCloudinary(localUri) {
       } catch (e) {
         return errorResult('Invalid Cloudinary response (not JSON).', e);
       }
-
-      if (resp.ok && data?.secure_url) {
-        return { success: true, url: data.secure_url };
+      
+      if (resp.ok && data?.public_id) {
+        // Return the public_id as the unique identifier, not the full URL.
+        return { success: true, identifier: data.public_id };
       }
 
       // If preset is async or any error, keep details and fall through to base64
@@ -85,9 +86,10 @@ export async function uploadImageToCloudinary(localUri) {
       } catch (e) {
         return errorResult('Invalid Cloudinary fallback response (not JSON).', e);
       }
-
-      if (resp2.ok && data2?.secure_url) {
-        return { success: true, url: data2.secure_url };
+      
+      if (resp2.ok && data2?.public_id) {
+        // Return the public_id as the unique identifier.
+        return { success: true, identifier: data2.public_id };
       }
 
       const cloudError = data2?.error?.message || 'Upload failed';

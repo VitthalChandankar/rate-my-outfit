@@ -16,6 +16,7 @@ import * as Haptics from 'expo-haptics';
 import useAuthStore from '../../store/authStore';
 import useUserStore from '../../store/UserStore'; // keep correct casing to match file
 import { uploadImageToCloudinary } from '../../services/cloudinaryService';
+import { withCloudinaryTransforms, IMG_SQUARE_THUMB } from '../../utils/cloudinaryUrl';
 import { ensureUsernameUnique } from '../../services/firebase';
 import Avatar from '../../components/Avatar';
 import debounce from 'lodash.debounce';
@@ -93,7 +94,7 @@ export default function EditProfileScreen({ navigation }) {
       if (!up?.success) throw new Error(up?.error?.message || 'Upload failed');
 
       // cache-busting handled server-side in setUserAvatar
-      await setAvatar(authedUid, up.url);
+      await setAvatar(authedUid, up.identifier);
       Haptics.selectionAsync();
     } catch (e) {
       showAlert('Avatar', e?.message || 'Failed to set avatar');
@@ -138,7 +139,7 @@ export default function EditProfileScreen({ navigation }) {
           <Text style={styles.title}>Edit Profile</Text>
 
           <View style={{ alignItems: 'center', marginTop: 12 }}>
-            <Avatar uri={myProfile?.profilePicture} size={96} ring />
+          <Avatar uri={withCloudinaryTransforms(myProfile?.profilePicture, IMG_SQUARE_THUMB)} size={96} ring />
             <Button mode="contained-tonal" style={{ marginTop: 8 }} onPress={pickAvatar} disabled={!isSelf}>
               Change Photo
             </Button>

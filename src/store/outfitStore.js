@@ -95,7 +95,7 @@ const useOutfitStore = create((set, get) => ({
 
       const create = await createOutfitDocument({
         userId,
-        imageUrl: up.url,
+        imageUrl: up.identifier,
         caption,
         tags,
         userMeta,
@@ -106,7 +106,7 @@ const useOutfitStore = create((set, get) => ({
       if (create.success) {
         // Optimistically prepend to feed with a flag; profile list will refresh on demand
         set((state) => ({
-          feed: [{ id: create.id, ...create.data, imageUrl: up.url, _isOptimistic: true }, ...state.feed],
+          feed: [{ id: create.id, ...create.data, imageUrl: up.identifier, _isOptimistic: true }, ...state.feed],
         }));
       }
       return create;
