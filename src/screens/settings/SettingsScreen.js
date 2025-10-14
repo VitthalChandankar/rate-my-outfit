@@ -115,7 +115,7 @@ export default function SettingsScreen({ navigation }) {
      </SettingsSection>
 
      <SettingsSection title="Business">
-        <SettingsRow icon="megaphone-outline" label="Publish Ads on Vastrayl" onPress={() => navigation.navigate('CreateAd')} color="#7A5AF8" />
+        <SettingsRow icon="megaphone-outline" label="Publish Ads on Vastrayl" onPress={() => showAlert('Coming Soon', 'This feature will be available in a future update.')} color="#7A5AF8" />
       </SettingsSection>
 
      <SettingsSection title={i18n.t('settings.support')}>
