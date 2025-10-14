@@ -120,7 +120,7 @@ export default function SettingsScreen({ navigation }) {
 
      <SettingsSection title={i18n.t('settings.support')}>
         <SettingsRow icon="help-circle-outline" label={i18n.t('settings.helpCenter')} onPress={() => navigation.navigate('HelpCenter')} />
-        <SettingsRow icon="chatbubble-ellipses-outline" label={i18n.t('settings.contactUs')} onPress={() => Linking.openURL('mailto:support@yourapp.com?subject=App Support')} />
+        <SettingsRow icon="chatbubble-ellipses-outline" label={i18n.t('settings.contactUs')} onPress={() => Linking.openURL('mailto:contact.vastrayl@gmail.com?subject=App Support')} />
         </SettingsSection>
 
         <SettingsSection title={i18n.t('settings.about')}>
