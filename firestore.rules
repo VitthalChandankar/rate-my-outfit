@@ -188,9 +188,8 @@ service cloud.firestore {
       allow create, update: if isSignedIn()
         && request.resource.data.userId == request.auth.uid
         && (request.resource.data.entryId is string || request.resource.data.outfitId is string)
-        && (ratingId == (request.resource.data.entryId + "_" + request.resource.data.userId) || ratingId == (request.resource.data.outfitId + "_" + request.resource.data.userId))
-        && request.resource.data.rating is number
-        && request.resource.data.rating >= 0 && request.resource.data.rating <= 10
+        && (ratingId == (request.resource.data.entryId + "_" + request.resource.data.userId) || ratingId == (request.resource.data.outfitId + "_" + request.resource.data.userId))        
+        && (request.resource.data.rating == null || (request.resource.data.rating is number && request.resource.data.rating >= 0 && request.resource.data.rating <= 10))
         && request.resource.data.aiFlag is bool;
       allow delete: if isAdmin();
     }

@@ -264,6 +264,7 @@ export default function HomeScreen() {
       contestId: post.contestId || null,
       averageRating: Number(post.averageRating ?? 0) || 0,
       ratingsCount: Number(post.ratingsCount ?? 0) || 0,
+      aiFlagsCount: Number(post.aiFlagsCount ?? 0) || 0,
     };
     navigation.navigate('RateEntry', { item: target, mode: 'entry' });
   }, [navigation]);

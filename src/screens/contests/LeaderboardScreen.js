@@ -78,8 +78,10 @@ export function LeaderboardList({ contestId, limit = 50, minVotes = 1, ListHeade
     }
   }, [navigation]);
 
-  const topThree = rows.slice(0, 3);
-  const restOfList = rows.slice(3);
+   // Filter out flagged posts on the client, as Firestore queries can't combine inequality with orderBy.
+   const eligibleRows = rows.filter(r => r.status !== 'flagged');
+   const topThree = eligibleRows.slice(0, 3);
+   const restOfList = eligibleRows.slice(3);
 
   const renderItem = useCallback(({ item, index }) => {
     return (

@@ -70,6 +70,7 @@ import CreateAdScreen from '../screens/ads/CreateAdScreen';
 import AdminDashboardScreen from '../screens/admin/AdminDashboardScreen';
 import ManageAchievementsScreen from '../screens/admin/ManageAchievementsScreen';
 import CreateAchievementScreen from '../screens/admin/CreateAchievementScreen';
+import ManageAIFlagsScreen from '../screens/admin/ManageAIFlagsScreen';
 import ManageReportsScreen from '../screens/admin/ManageReportsScreen';
 import ManagePostReportsScreen from '../screens/admin/ManagePostReportsScreen';
 import ReportDetailsScreen from '../screens/admin/ReportDetailsScreen';
@@ -357,6 +358,11 @@ function MainAppStack() {
         name="ManagePostReports"
         component={ManagePostReportsScreen}
         options={{ headerShown: true, title: 'Post Reports' }}
+      />
+      <Stack.Screen
+        name="ManageAIFlags"
+        component={ManageAIFlagsScreen}
+        options={{ headerShown: true, title: 'AI Flagged Entries' }}
       />
       <Stack.Screen
         name="ManageShipping"

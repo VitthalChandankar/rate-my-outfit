@@ -60,6 +60,12 @@ export default function AdminDashboardScreen({ navigation }) {
           onPress={() => navigation.navigate('ManagePostReports')}
         />
         <List.Item
+          title="AI Flagged Entries"
+          description="Review contest entries flagged as AI-generated"
+          left={props => <List.Icon {...props} icon="robot" />}
+          onPress={() => navigation.navigate('ManageAIFlags')}
+        />
+        <List.Item
           title="Shipping Details"
           description="View shipping addresses for prize winners"
           left={props => <List.Icon {...props} icon="truck-delivery" />}

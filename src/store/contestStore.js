@@ -10,6 +10,7 @@ import {
   fbFetchContestLeaderboard,
   firestore,
   fbCreateContest,
+  fbToggleAIFlagOnly,
   fbFetchContestsByIds,
   uploadImage,
   createOrUpdateAchievement,
@@ -340,6 +341,38 @@ const useContestStore = create((set, get) => ({
         set({ entries: { ...get().entries, [contestId]: { ...currentContestBag, items: newItems } } });
       }
     }
+    return res;
+  },
+
+  // NEW: Handle AI flag-only submissions
+  toggleAIFlag: async ({ entryId, contestId }) => {
+    const { user } = useAuthStore.getState();
+    if (!user?.uid) return { success: false, error: 'Not authenticated' };
+
+    // Call the new backend function
+    const res = await fbToggleAIFlagOnly({ entryId, userId: user.uid });
+
+    // If successful, update the local state for immediate UI feedback
+    if (res.success && contestId) {
+      const { updateOutfitInFeed } = useOutfitStore.getState();
+      const currentContestBag = get().entries[contestId];
+
+      if (currentContestBag?.items?.length) {
+        let outfitIdToUpdate = null;
+        const newItems = currentContestBag.items.map((it) => {
+          if (it.id === entryId) {
+            outfitIdToUpdate = it.outfitId;
+            const updatedItem = { ...it, aiFlagsCount: res.newAICount };
+            // Also update the corresponding outfit in the main feed store for UI consistency
+            if (outfitIdToUpdate) updateOutfitInFeed(outfitIdToUpdate, updatedItem);
+            return updatedItem;
+          }
+          return it;
+        });
+        set({ entries: { ...get().entries, [contestId]: { ...currentContestBag, items: newItems } } });
+      }
+    }
+
     return res;
   },
 

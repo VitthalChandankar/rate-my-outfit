@@ -41,6 +41,10 @@ function NotificationRow({ item, onNotificationPress }) {
     iconName = 'trash-bin';
     iconColor = '#EF4444'; // Red
     message = <Text style={styles.message}>{item.body || 'Your post was removed.'}</Text>;
+  } else if (item.type === 'post_flagged') {
+    iconName = 'alert-circle';
+    iconColor = '#F59E0B'; // Amber
+    message = <Text style={styles.message}>{item.body || 'A post of yours is under review.'}</Text>;
   }
 
   return (
@@ -104,6 +108,8 @@ export default function NotificationsScreen() {
       }
     } else if (notification.type === 'post_deleted') {
       showAlert('Post Removed', 'This post was removed due to community guideline violations.');
+    } else if (notification.type === 'post_flagged') {
+      showAlert('Post Under Review', 'Your post is under review due to multiple reports. If you believe this is an error, please contact support.');
     } else if (notification.outfitId) {
       navigation.navigate('OutfitDetails', { outfitId: notification.outfitId });
     } else if (notification.type === 'achievement') {

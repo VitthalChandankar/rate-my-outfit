@@ -1,5 +1,5 @@
 // File: src/screens/rating/RateScreen.js
-// Change: throttle haptics so they don't fire on every integer step.
+// Change: Separate AI flagging from rating submission for a clearer user flow.
 // - We only trigger haptics when the value crosses a "milestone": 2,4,6,8,10.
 // - For small adjustments within the same band, no haptic.
 // - Keeps integer 1–10 slider, no ticks below, same UI.
@@ -16,12 +16,14 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image as ExpoImage } from 'expo-image';
 import * as Haptics from 'expo-haptics';
+import showAlert from '../../utils/showAlert';
 
 import useAuthStore from '../../store/authStore';
 import useContestStore from '../../store/contestStore';
 import useOutfitStore from '../../store/outfitStore';
 import { Ionicons } from '@expo/vector-icons';
 import { withCloudinaryTransforms, IMG_DETAIL } from '../../utils/cloudinaryUrl';
+import { fbFetchMyRatingForEntry } from '../../services/firebase';
 
 export default function RateScreen({ route, navigation }) {
   const params = route?.params || {};
@@ -52,11 +54,12 @@ export default function RateScreen({ route, navigation }) {
   const { rateEntry, contestsById } = useContestStore((s) => ({
     rateEntry: s.rateEntry,
     contestsById: s.contestsById,
+    toggleAIFlag: s.toggleAIFlag,
   }));
   const submitRating = useOutfitStore((s) => s.submitRating);
 
   const contest = contestsById[contestId];
-  const contestIsActive = contest && contest.endAt && (contest.endAt.toDate ? contest.endAt.toDate() : new Date()) > new Date();
+  const contestIsActive = contest && contest.endAt && (contest.endAt.toDate ? contest.endAt.toDate() : new Date(contest.endAt)) > new Date();
 
   const displayUrl = useMemo(
     () => (imageUrl ? withCloudinaryTransforms(imageUrl, IMG_DETAIL) : null),
@@ -71,6 +74,23 @@ export default function RateScreen({ route, navigation }) {
   const [value, setValue] = useState(7);
   const [submitting, setSubmitting] = useState(false);
   const [isFlagged, setIsFlagged] = useState(false); // New state for AI flag
+  const { toggleAIFlag } = useContestStore();
+
+  // Fetch the user's previous rating/flag for this entry to set initial state
+  React.useEffect(() => {
+    const fetchMyRating = async () => {
+      if (user?.uid && id) {
+        const res = await fbFetchMyRatingForEntry(id, user.uid);
+        if (res.success && res.rating) {
+          setIsFlagged(!!res.rating.aiFlag);
+          if (res.rating.rating !== null) {
+            setValue(res.rating.rating); // Set slider to previous rating
+          }
+        }
+      }
+    };
+    fetchMyRating();
+  }, [id, user?.uid]);
 
   const trackRef = useRef(null);
   const trackX = useRef(0);
@@ -138,32 +158,36 @@ export default function RateScreen({ route, navigation }) {
   }
 
   const onFlagAI = async () => {
-    if (!user?.uid) return Alert.alert('Sign in', 'Please sign in to flag.');
-    if (user?.uid === userId) return Alert.alert('Not allowed', 'You can’t flag your own post.');
+    if (!user?.uid) return showAlert('Sign in', 'Please sign in to flag.');
+    if (user?.uid === userId) return showAlert('Not allowed', 'You can’t flag your own post.');
+    // NEW: Prevent flagging on ended contests
+    if (!contestIsActive) {
+      Alert.alert("Contest Ended", "This contest has ended and can no longer be flagged.", [
+        { text: "OK", onPress: () => navigation.goBack() }
+      ]);
+      return;
+    }
 
-    const nextFlagState = !isFlagged;
-    setIsFlagged(nextFlagState); // Optimistically update the button's visual state
-
+    setSubmitting(true);
     try {
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     } catch {}
 
-    // Immediately submit the AI flag change, using the current slider value as the rating
-    const res =
-      mode === 'entry'
-        ? await rateEntry({ entryId: id, contestId, rating: value, aiFlag: nextFlagState })
-        : { success: false, error: 'Cannot flag a normal post.' };
+    // This is now a separate action that only toggles the flag
+    const res = await toggleAIFlag({ entryId: id, contestId });
+    setSubmitting(false);
 
-    if (!res?.success) {
-      setIsFlagged(!nextFlagState); // Revert button state on failure
-      Alert.alert('Error', res.error?.message || 'Could not submit flag.');
+    if (res.success) {
+      const message = res.newFlagState ? 'Thanks! Your AI flag has been recorded.' : 'Your AI flag has been removed.';
+      // Navigate directly to the Home screen after flagging.
+      showAlert('Feedback Submitted', message, [{ text: 'OK', onPress: () => navigation.navigate('Home') }]);
     } else {
-      Alert.alert('Thanks!', nextFlagState ? 'Your AI flag has been recorded.' : 'Your AI flag has been removed.');
+      showAlert('Error', res.error?.message || 'Could not submit flag.');
     }
   };
 
   const onSubmit = async () => {
-    if (!user?.uid) return Alert.alert('Sign in', 'Please sign in to rate.');
+    if (!user?.uid) return showAlert('Sign in', 'Please sign in to rate.');
     if (!contestIsActive) {
       Alert.alert("Contest Ended", "This contest has ended and can no longer be rated.", [
         { text: "OK", onPress: () => navigation.goBack() }
@@ -183,7 +207,7 @@ export default function RateScreen({ route, navigation }) {
         : { success: false, error: 'Cannot rate a normal post.' }; // This path should not be taken
 
     setSubmitting(false);
-    if (!res?.success) Alert.alert('Error', res.error?.message || 'Could not submit rating.');
+    if (!res?.success) showAlert('Error', res.error?.message || 'Could not submit rating.');
     else navigation.navigate('RatingSuccess', { emoji: sentiment.emoji });
   };
 
@@ -229,13 +253,15 @@ export default function RateScreen({ route, navigation }) {
       <View style={styles.footer}>
         <Pressable
           onPress={onFlagAI}
+          disabled={submitting}
           style={({ pressed }) => [
             styles.aiButton,
             isFlagged && styles.aiButtonFlagged, // Apply flagged style
-            pressed && { opacity: 0.8 }
+            pressed && !submitting && { opacity: 0.8 },
+            submitting && { opacity: 0.6 },
           ]}>
           <Ionicons name={isFlagged ? "sparkles" : "sparkles-outline"} size={20} color={isFlagged ? '#fff' : '#111'} />
-          <Text style={[styles.aiButtonText, isFlagged && styles.aiButtonTextFlagged]}>{isFlagged ? 'Flagged' : 'AI Check'}</Text>
+          <Text style={[styles.aiButtonText, isFlagged && styles.aiButtonTextFlagged]}>{isFlagged ? 'Flagged' : 'Looks AI'}</Text>
         </Pressable>
         <Pressable onPress={onSubmit} style={({ pressed }) => [styles.submitBtn, pressed && { opacity: 0.9 }]} disabled={submitting}>
           <Text style={styles.submitText}>{submitting ? 'Submitting…' : 'Submit Rating'}</Text>

@@ -76,6 +76,40 @@
     }
     ,
     {
+      "collectionGroup": "entries",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "aiFlagsCount",
+          "order": "DESCENDING"
+        }
+      ]
+    }
+    ,
+    {
+      "collectionGroup": "entries",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "contestId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "ratingsCount",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "averageRating",
+          "order": "DESCENDING"
+        }
+      ]
+    }
+    ,
+    {
       "collectionGroup": "shares",
       "queryScope": "COLLECTION",
       "fields": [

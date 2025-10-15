@@ -734,15 +734,17 @@ async function fbRateEntry({ entryId, contestId, userId, rating, aiFlag = false 
 
       const ratingSnap = await tx.get(ratingRef);
       const hadPrev = ratingSnap.exists();
-      const prevRating = hadPrev ? (ratingSnap.data().rating || 0) : null;
+      const prevRating = hadPrev ? ratingSnap.data().rating : null; // Can be null
       const prevAIFlag = hadPrev ? !!ratingSnap.data().aiFlag : false;
 
       // Compute new count and sum
       let newCount = oldCount;
       let sum = oldAvg * oldCount;
-      if (hadPrev) {
+      if (prevRating !== null) { // User has rated before
         sum = sum - prevRating + rating;
+        // newCount doesn't change
       } else {
+        // This is the user's first time providing a rating value
         sum = sum + rating;
         newCount = oldCount + 1;
       }
@@ -780,27 +782,83 @@ async function fbRateEntry({ entryId, contestId, userId, rating, aiFlag = false 
   }
 }
 
+async function fbToggleAIFlagOnly({ entryId, userId }) {
+  const ratingRef = doc(firestore, 'ratings', `${entryId}_${userId}`);
+  const entryRef = doc(firestore, 'entries', entryId);
+
+  try {
+    const { newFlagState, newAICount } = await runTransaction(firestore, async (tx) => {
+      const [ratingSnap, entrySnap] = await Promise.all([tx.get(ratingRef), tx.get(entryRef)]);
+      if (!entrySnap.exists()) throw new Error("Entry not found.");
+
+      const entryData = entrySnap.data();
+      const oldAICount = entryData.aiFlagsCount || 0;
+
+      let currentFlagState = false;
+      if (ratingSnap.exists()) {
+        currentFlagState = !!ratingSnap.data().aiFlag;
+      }
+
+      const newFlagState = !currentFlagState;
+      const aiFlagsCount = newFlagState ? oldAICount + 1 : Math.max(0, oldAICount - 1);
+
+      // Update entry's AI flag count
+      tx.update(entryRef, { aiFlagsCount });
+
+      // Update or create the user's specific rating document
+      if (ratingSnap.exists()) {
+        tx.update(ratingRef, { aiFlag: newFlagState });
+      } else {
+        // Create a new rating document for this user, but with no rating value.
+        // This marks that they've interacted (flagged) but haven't rated.
+        tx.set(ratingRef, {
+          entryId,
+          userId,
+          aiFlag: newFlagState,
+          createdAt: serverTimestamp(),
+          rating: null, // Explicitly null
+        });
+      }
+      return { newFlagState, newAICount: aiFlagsCount };
+    });
+    return { success: true, newFlagState, newAICount };
+  } catch (error) {
+    console.error("fbToggleAIFlagOnly failed:", error);
+    return { success: false, error };
+  }
+}
+
+async function fbFetchMyRatingForEntry(entryId, userId) {
+  if (!entryId || !userId) return { success: false, error: 'Missing entryId or userId' };
+  try {
+    const ratingRef = doc(firestore, 'ratings', `${entryId}_${userId}`);
+    const ratingSnap = await getDoc(ratingRef);
+    if (ratingSnap.exists()) {
+      return { success: true, rating: ratingSnap.data() };
+    }
+    return { success: true, rating: null }; // No rating found is not an error
+  } catch (error) {
+    return { success: false, error };
+  }
+}
   
   // NEW: leaderboard for a contest (min votes)
 async function fbFetchContestLeaderboard({ contestId, limitCount = 50, minVotes = 1 }) {
   try {
-  // Basic approach: pull top N by createdAt window then filter client-side by minVotes and sort by averageRating
+  // Fetch top entries ordered by average rating directly from Firestore.
   const q = query(
       collection(firestore, 'entries'),
       where('contestId', '==', contestId),
-      orderBy('createdAt', 'desc'),
-  limit(400) // safety buffer, filtered client-side
+      where('ratingsCount', '>=', minVotes),
+      orderBy('averageRating', 'desc'),
+      orderBy('ratingsCount', 'desc'), // Secondary sort for tie-breaking
+      limit(limitCount)
     );
-   
     const snap = await getDocs(q);
     let items = [];
     snap.forEach((d) => items.push({ id: d.id, ...d.data() }));
-    items = items.filter((e) => (e.ratingsCount || 0) >= minVotes && e.status !== 'flagged');
-    items.sort((a, b) => (b.averageRating || 0) - (a.averageRating || 0));
-    items = items.slice(0, limitCount);
     return { success: true, items };
   } catch (error) {
-   
     return { success: false, error };
   }
 }
@@ -900,6 +958,57 @@ async function fbAdminUpdatePostStatus({ outfitId, status }) {
     return { success: true };
   } catch (error) {
     console.error('fbAdminUpdatePostStatus error:', error);
+    return { success: false, error };
+  }
+}
+
+async function fbFetchAIFlaggedEntries({ limitCount = 30, startAfterDoc = null } = {}) {
+  try {
+    let q = query(
+      collection(firestore, 'entries'),
+      where('status', '==', 'flagged'),
+      orderBy('aiFlagsCount', 'desc'),
+      limit(limitCount)
+    );
+    if (startAfterDoc) {
+      q = query(q, startAfter(startAfterDoc));
+    }
+    const snap = await getDocs(q);
+    const items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const last = snap.docs[snap.docs.length - 1] || null;
+    return { success: true, items, last };
+  } catch (error) {
+    console.error('fbFetchAIFlaggedEntries error:', error);
+    return { success: false, error };
+  }
+}
+
+async function fbAdminUpdateAIStatus({ entryId, outfitId, action }) {
+  if (!entryId || !action) return { success: false, error: 'Missing entryId or action' };
+  try {
+    const entryRef = doc(firestore, 'entries', entryId);
+    const updates = {};
+    if (action === 'clear') {
+      updates.status = 'active';
+      updates.aiFlagsCount = 0;
+    } else if (action === 'delete') {
+      updates.status = 'deleted';
+    } else {
+      return { success: false, error: 'Invalid action' };
+    }
+
+    const batch = writeBatch(firestore);
+    batch.update(entryRef, updates);
+
+    if (outfitId) {
+      const outfitRef = doc(firestore, 'outfits', outfitId);
+      batch.update(outfitRef, { status: updates.status });
+    }
+
+    await batch.commit();
+    return { success: true };
+  } catch (error) {
+    console.error('fbAdminUpdateAIStatus error:', error);
     return { success: false, error };
   }
 }
@@ -1674,7 +1783,7 @@ async function markNotificationsAsRead(userId) {
 export {
   addComment, auth, createUser, createOutfitDocument,
   deleteComment, deleteOutfit, fetchCommentsForOutfit, fetchFeed, fetchOutfitDetails, fetchUserOutfits, firestore, loginWithEmail, fbCreateContest,
-  logout, onAuthChange, sendResetEmail, signupWithEmail, uploadImage, fbFetchContestsByIds, fbCreateAdvertisement, fbFetchActiveAds, fbReportPost, fbFetchReportedPosts, fbAdminUpdatePostStatus,
+  logout, onAuthChange, sendResetEmail, signupWithEmail, uploadImage, fbFetchContestsByIds, fbCreateAdvertisement, fbFetchActiveAds, fbReportPost, fbFetchReportedPosts, fbAdminUpdatePostStatus, fbFetchAIFlaggedEntries, fbAdminUpdateAIStatus, fbToggleAIFlagOnly, fbFetchMyRatingForEntry,
   toggleLikePost, fetchMyLikedOutfitIds, fetchLikersForOutfit, fbListContests, fbFetchContestEntries, fbCreateEntry, fbRateEntry, fbFetchContestLeaderboard, updateUserPushToken,
   getUserProfile, updateUserProfile, setUserAvatar, ensureUsernameUnique, blockUser, unblockUser, listBlockedUsers, fetchMyBlockedIds, fetchMyBlockerIds, createProblemReport, listProblemReports, updateProblemReportStatus,firebaseSearchUsers,
   createVerificationApplication, listVerificationApplications, getVerificationApplication, processVerificationApplication, fbSaveShippingDetails, fbFetchAllShippingDetails, /*fbGenerate2FASecret, fbVerifyAndEnable2FA, fbDisable2FA, fbVerify2FALogin,*/ fbDeleteUserAccount,

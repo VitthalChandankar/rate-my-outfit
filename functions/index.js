@@ -627,7 +627,7 @@ exports.resolveContestWinner = onTaskDispatched({taskQueue: "resolvecontestwinne
 
   console.log(`Processing end of contest ${contestId}.`);
   const db = admin.firestore();
-  const MIN_VOTES = 1; // Minimum votes an entry needs to be considered for winning.
+  const MIN_VOTES = 10; // Minimum votes an entry needs to be considered for winning.
 
   // 1. Fetch contest data to get achievement IDs and prize info
   const contestRef = db.collection("contests").doc(contestId);
@@ -653,7 +653,7 @@ exports.resolveContestWinner = onTaskDispatched({taskQueue: "resolvecontestwinne
   // 3. Filter, sort, and get top 3 winners
   const eligibleEntries = entriesSnap.docs
       .map((doc) => ({id: doc.id, ...doc.data()}))
-      .filter((entry) => (entry.ratingsCount || 0) >= MIN_VOTES);
+      .filter((entry) => (entry.ratingsCount || 0) >= MIN_VOTES && entry.status !== "flagged" && entry.status !== "deleted");
 
   eligibleEntries.sort((a, b) => {
     // Primary: Higher average rating wins
@@ -980,6 +980,60 @@ exports.onSharePost = onDocumentCreated("shares/{shareId}", async (event) => {
     }
   } catch (error) {
     console.error("Error sending share push notification via Expo:", error);
+  }
+  return null;
+});
+
+// Define AI flag threshold
+const AI_FLAG_THRESHOLD = 5;
+
+/**
+ * When an entry is updated, check if its AI flag count has crossed a threshold.
+ */
+exports.onEntryUpdateForAIReview = onDocumentUpdated("entries/{entryId}", async (event) => {
+  const after = event.data.after.data();
+  const before = event.data.before.data();
+
+  // Only proceed if aiFlagsCount has changed and increased.
+  if (after.aiFlagsCount === before.aiFlagsCount || after.aiFlagsCount < before.aiFlagsCount) {
+    return null;
+  }
+
+  // Check if the entry is already flagged to prevent redundant writes.
+  if (after.status === "flagged") {
+    return null;
+  }
+
+  if (after.aiFlagsCount >= AI_FLAG_THRESHOLD) {
+    console.log(`Entry ${event.params.entryId} has ${after.aiFlagsCount} AI flags. Marking for review.`);
+    try {
+      // Update the entry's status.
+      await event.data.after.ref.update({ status: "flagged" });
+
+      // Also update the corresponding outfit post.
+      if (after.outfitId) {
+        const outfitRef = admin.firestore().doc(`outfits/${after.outfitId}`);
+        await outfitRef.update({ status: "flagged" });
+      }
+       // Also send a notification to the user.
+       const ownerId = after.userId;
+       if (ownerId) {
+         const notificationRef = admin.firestore().collection("notifications").doc();
+         await notificationRef.set({
+           recipientId: ownerId,
+           senderId: "system",
+           type: "post_flagged", // A new notification type
+           body: `Your post "${after.caption || "Untitled"}" is under review due to multiple AI flags.`,
+           outfitId: after.outfitId,
+           outfitImage: after.imageUrl,
+           read: false,
+           createdAt: admin.firestore.FieldValue.serverTimestamp(),
+         });
+      }
+
+    } catch (error) {
+      console.error(`Failed to flag entry ${event.params.entryId} for AI review:`, error);
+    }
   }
   return null;
 });

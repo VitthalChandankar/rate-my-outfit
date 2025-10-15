@@ -24,7 +24,7 @@ export default function RateEntryScreen({ route, navigation }) {
 
   const contest = contestsById[liveItem.contestId];
   const now = new Date();
-  const contestIsActive = contest && contest.endAt && (contest.endAt.toDate ? contest.endAt.toDate() : new Date(contest.endAt)) > now;
+  const contestIsActive = contest && contest.endAt && (contest.endAt.toDate ? contest.endAt.toDate() : new Date(contest.endAt)) > new Date();
 
   const displayUrl = useMemo(
     () => (liveItem?.imageUrl ? withCloudinaryTransforms(liveItem.imageUrl, IMG_DETAIL) : null),
