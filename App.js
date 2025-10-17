@@ -41,9 +41,14 @@ export default function App() {
   // Effect for handling user-dependent subscriptions for notification/share badges
   useEffect(() => {
     if (user?.uid) {
-      // Subscribe to get real-time counts for badges
-      useNotificationsStore.getState().subscribeToUnreadCount(user.uid);
-      useShareStore.getState().subscribeToUnreadCount(user.uid);
+      const unsubNotifications = useNotificationsStore.getState().subscribeToUnreadCount(user.uid);
+      const unsubShares = useShareStore.getState().subscribeToUnreadCount(user.uid);
+
+      // Return a cleanup function that will be called when the user logs out
+      return () => {
+        if (unsubNotifications) unsubNotifications();
+        if (unsubShares) unsubShares();
+      };
     } else {
       // User logged out, clear the stores
       useNotificationsStore.getState().clearNotifications();

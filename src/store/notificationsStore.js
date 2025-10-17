@@ -56,11 +56,12 @@ const useNotificationsStore = create((set, get) => ({
 
   // Subscribe to real-time unread count
   subscribeToUnreadCount: (userId) => {
-    if (!userId) return;
+    if (!userId) return () => {};
     const unsub = fbSubscribeToUnread(userId, (count) => {
       set({ unreadCount: count });
     });
     set({ _unsubNotifications: unsub });
+    return unsub;
   },
 
   // Clear store on logout

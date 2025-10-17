@@ -1595,7 +1595,7 @@ async function fbDeleteShare(shareId) {
   }
 }
 
-async function subscribeToUnreadShareCount(userId, onUpdate) {
+function subscribeToUnreadShareCount(userId, onUpdate) {
   if (!userId) return () => {}; // Return a no-op unsubscribe function
 
   const q = query(
@@ -1697,7 +1697,7 @@ async function fetchNotifications({ userId, limitCount = 20, startAfterDoc = nul
   }
 }
 
-async function subscribeToUnreadNotifications(userId, onUpdate) {
+function subscribeToUnreadNotifications(userId, onUpdate) {
   if (!userId) return () => {}; // Return a no-op unsubscribe function
 
   const q = query(

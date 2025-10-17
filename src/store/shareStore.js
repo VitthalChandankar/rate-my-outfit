@@ -320,11 +320,13 @@ const useShareStore = create((set, get) => ({
 
   // Subscribe to real-time unread count for the badge
   subscribeToUnreadCount: (userId) => {
-    if (!userId || get()._unsubShares) return; // Already subscribed
+    if (!userId) return () => {};
+    if (get()._unsubShares) return get()._unsubShares; // Already subscribed, return existing unsub
     const unsub = subscribeToUnreadShareCount(userId, (count) => {
       set({ unreadShareCount: count });
     });
     set({ _unsubShares: unsub });
+    return unsub;
   },
 
   // Clear store on logout

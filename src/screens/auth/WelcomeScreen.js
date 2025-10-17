@@ -7,7 +7,6 @@ import useAuthStore from '../../store/authStore';
 import useUserStore from '../../store/UserStore';
 
 export default function WelcomeScreen({ navigation }) {
-  const { colors } = useTheme();
   const { myProfile } = useUserStore();
   const { setOnboardingCompleted } = useAuthStore();
   const fadeAnim = useRef(new Animated.Value(0)).current;
