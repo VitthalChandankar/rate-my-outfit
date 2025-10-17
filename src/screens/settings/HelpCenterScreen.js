@@ -64,7 +64,7 @@ export default function HelpCenterScreen() {
         <Text style={styles.paragraph}>
           If you can't find the answer you're looking for, please don't hesitate to reach out to our support team.
         </Text>
-        <Text style={styles.contactEmail}>Email: support@ratemyoutfit.app</Text>
+        <Text style={styles.contactEmail}>Email: contact.vastrayl@gmail.com</Text>
       </Section>
     </ScrollView>
   );

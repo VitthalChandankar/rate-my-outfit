@@ -26,6 +26,7 @@ export default function CompleteProfileScreen({ navigation }) {
   const [gender, setGender] = useState(null);
   const [dob, setDob] = useState(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [countryPickerVisible, setCountryPickerVisible] = useState(false);
 
   const handlePickAvatar = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -74,7 +75,7 @@ export default function CompleteProfileScreen({ navigation }) {
       if (avatarUri) {
         const uploadRes = await uploadImage(avatarUri);
         if (uploadRes.success) {
-          updates.profilePicture = uploadRes.url; // Add to the updates payload
+          updates.profilePicture = uploadRes.identifier; // Add to the updates payload
         } else {
           throw new Error('Could not upload your avatar. Please try again.');
         }
@@ -129,32 +130,27 @@ export default function CompleteProfileScreen({ navigation }) {
       </View>
       <Text style={styles.helperText}>Your username must be unique. 6-20 characters, letters, numbers, '.', '_'</Text>
 
-      <View style={styles.inputContainer}>
+      <Text style={styles.label}>Country*</Text>
+      <TouchableOpacity onPress={() => setCountryPickerVisible(true)} style={styles.countryButton}>
         <CountryPicker
           {...{
             countryCode,
             withFilter: true,
             withFlag: true,
-            withCountryNameButton: false,
-            withAlphaFilter: true,
-            withCallingCode: true,
-            onSelect: (country) => {
-              setCountryCode(country.cca2);
-              setCountry(country);
+            withCountryNameButton: true,
+            onSelect: (c) => {
+              setCountryCode(c.cca2);
+              setCountry(c);
+              setCountryPickerVisible(false);
             },
+            onClose: () => setCountryPickerVisible(false),
+            visible: countryPickerVisible,
           }}
         />
-        <Ionicons name="caret-down" size={12} color="#888" style={{ marginRight: 8 }} />
-        <TextInput
-          style={styles.input}
-          placeholder="Phone Number"
-          keyboardType="phone-pad"
-          value={phone}
-          onChangeText={setPhone}
-          editable={!loading}
-        />
-      </View>
-      <Text style={styles.helperText}>Optional. Used for account recovery and login. Not shown on your profile.</Text>
+        <Ionicons name="chevron-down" size={20} color="#666" />
+      </TouchableOpacity>
+      <Text style={styles.helperText}>Your country is required for contest eligibility.</Text>
+
       <Text style={styles.label}>Gender (Optional)</Text>
       <SegmentedButtons
         value={gender}
@@ -166,6 +162,20 @@ export default function CompleteProfileScreen({ navigation }) {
           { value: 'other', label: 'Other', icon: 'gender-transgender' },
         ]}
       />
+
+      <Text style={styles.label}>Phone Number (Optional)</Text>
+      <View style={styles.inputContainer}>
+        <Text style={styles.callingCode}>+{country?.callingCode?.[0] || '1'}</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="Phone Number"
+          keyboardType="phone-pad"
+          value={phone}
+          onChangeText={setPhone}
+          editable={!loading}
+        />
+      </View>
+      <Text style={styles.helperText}>Used for account recovery. Not shown on your profile.</Text>
 
       <Text style={styles.label}>Date of Birth (Optional)</Text>
       <TouchableOpacity onPress={() => setShowDatePicker(true)} style={styles.dateButton}>
@@ -233,7 +243,13 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#666',
     width: '100%',
-    marginBottom: 16,
+    marginBottom: 16, // Keep margin for elements below
+    marginTop: -12, // Reduce space after the input it belongs to
+  },
+  callingCode: {
+    fontSize: 16,
+    color: '#333',
+    marginRight: 8,
   },
 
   label: {
@@ -241,6 +257,7 @@ const styles = StyleSheet.create({
     color: '#666',
     width: '100%',
     marginBottom: 8,
+    fontWeight: '500',
   },
   dateButton: {
     backgroundColor: '#F4F4F4',
@@ -249,6 +266,17 @@ const styles = StyleSheet.create({
     height: 50,
     width: '100%',
     justifyContent: 'center',
+    marginBottom: 16,
+  },
+  countryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#F4F4F4',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    height: 50,
+    width: '100%',
     marginBottom: 16,
   },
   dateText: { fontSize: 16, color: '#333' },

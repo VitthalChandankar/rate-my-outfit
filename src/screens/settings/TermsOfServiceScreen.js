@@ -46,7 +46,7 @@ export default function TermsOfServiceScreen() {
 
       <Section title="5. Contact Us">
         <P>
-          If you have any questions about these Terms, please contact us at: legal@ratemyoutfit.app
+          If you have any questions about these Terms, please contact us at: contact.vastrayl@gmail.com
         </P>
       </Section>
     </ScrollView>
