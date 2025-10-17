@@ -20,12 +20,7 @@ export default function WelcomeScreen({ navigation }) {
   }, [fadeAnim, slideAnim]);
 
   const handleContinue = () => {
-    setOnboardingCompleted(false); // Reset the flag
-    // Replace the auth flow stack with the main app stack
-    navigation.reset({
-      index: 0,
-      routes: [{ name: 'Main' }],
-    });
+    setOnboardingCompleted(false); // Reset the flag. AppNavigator will handle the redirection automatically.
   };
 
   return (
