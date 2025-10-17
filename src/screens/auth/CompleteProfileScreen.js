@@ -20,7 +20,7 @@ export default function CompleteProfileScreen({ navigation }) {
   const [username, setUsername] = useState('');
   const [phone, setPhone] = useState('');
   const [countryCode, setCountryCode] = useState('IN');
-  const [country, setCountry] = useState(null);
+  const [country, setCountry] = useState({ cca2: 'IN', callingCode: ['91'], name: 'India' });
   const [loading, setLoading] = useState(false);
   const [avatarUri, setAvatarUri] = useState(null);
   const [gender, setGender] = useState(null);
@@ -83,16 +83,21 @@ export default function CompleteProfileScreen({ navigation }) {
 
       // 4. Mark profile as complete and save all data
       updates.profileCompleted = true;
+
+      // Set the flag to show the Welcome screen BEFORE the profile update triggers a re-render.
+      setOnboardingCompleted(true);
+
       const finalRes = await updateProfile(user.uid, updates);
 
       if (!finalRes.success) {
+        // If the profile update fails, revert the onboarding flag to prevent getting stuck.
+        setOnboardingCompleted(false);
         throw new Error(finalRes.error || 'Failed to save your profile.');
       }
 
-      // 5. Set the flag to show the Welcome screen. The AppNavigator will handle the redirection.
-      setOnboardingCompleted(true);
-
     } catch (e) {
+      // Also revert the flag on any other exception.
+      setOnboardingCompleted(false);
       Alert.alert('Error', e.message || 'An unexpected error occurred.');
     } finally {
       setLoading(false);
