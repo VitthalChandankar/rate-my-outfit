@@ -29,9 +29,11 @@ const useAuthStore = create((set, get) => ({
   pushToken: null, // Add a place to store the current device's token
   isAdmin: false, // New state to track admin status
   onboardingJustCompleted: false, // Flag to manage welcome screen navigation
+  profileCompletionSkippedThisSession: false, // NEW: To allow skipping profile completion for one session.
   // authStep: 'idle', // 2FA Coming Soon: idle | 2fa_pending | authenticated
   _emailVerificationInterval: null, // To handle email verification polling
   setOnboardingCompleted: (status) => set({ onboardingJustCompleted: status }),
+  skipProfileCompletion: () => set({ profileCompletionSkippedThisSession: true }),
 
   // Listen to Firebase Auth state changes and hydrate normalized Firestore profile
   initializeAuth: () => {
@@ -103,7 +105,7 @@ const useAuthStore = create((set, get) => ({
             set({ _emailVerificationInterval: null });
           }
           clearMyProfile();
-          set({ user: null, loading: false, pushToken: null, isAdmin: false }); // Clear user, token, and admin status
+          set({ user: null, loading: false, pushToken: null, isAdmin: false, profileCompletionSkippedThisSession: false }); // Clear user, token, and admin status
         }
       } catch (e) {
         console.error('Auth state change error:', e);

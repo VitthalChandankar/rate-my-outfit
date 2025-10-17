@@ -111,7 +111,7 @@ function MainTabs() {
 }
 
 export default function AppNavigator({ navigationRef }) {
-  const { loading: authLoading, user, onboardingJustCompleted, authStep } = useAuthStore();
+  const { loading: authLoading, user, onboardingJustCompleted, authStep, profileCompletionSkippedThisSession } = useAuthStore();
 
   // Use granular selectors to prevent AppNavigator from re-rendering unnecessarily
   // when unrelated parts of the user store change (like loading another user's profile).
@@ -142,7 +142,7 @@ export default function AppNavigator({ navigationRef }) {
           needsEmailVerification ? ( // 1. User signed up with email, needs verification
             // 1. User is signed in but email is not verified.
             <Stack.Screen name="EmailVerification" component={EmailVerificationScreen} />
-          ) : !profileCompleted ? ( // 2. User is verified, but profile is incomplete
+          ) : !profileCompleted && !profileCompletionSkippedThisSession ? ( // 2. User is verified, but profile is incomplete and not skipped
             // 2. Email is verified, but profile is not complete.
             <Stack.Screen name="CompleteProfile" component={CompleteProfileScreen} />
           ) : onboardingJustCompleted ? ( // 3. User just finished profile, show Welcome screen

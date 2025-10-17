@@ -14,7 +14,7 @@ import { uploadImage, ensureUsernameUnique } from '../../services/firebase';
 import Avatar from '../../components/Avatar';
 
 export default function CompleteProfileScreen({ navigation }) {
-  const { user, setOnboardingCompleted } = useAuthStore();
+  const { user, setOnboardingCompleted, skipProfileCompletion } = useAuthStore();
   const { myProfile, updateProfile, setAvatar } = useUserStore();
 
   const [username, setUsername] = useState('');
@@ -98,20 +98,16 @@ export default function CompleteProfileScreen({ navigation }) {
     }
   };
 
-  const handleSkip = async () => {
-    // Mark profile as complete even if skipped, so we don't ask again.
-    setLoading(true);
-    await updateProfile(user.uid, { profileCompleted: true });
-    setLoading(false);
-    setOnboardingCompleted(true);
+  const handleSkip = () => {
+    // Set a session-only flag to skip this screen. AppNavigator will handle the redirection.
+    skipProfileCompletion();
   };
 
   return (
-    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-    <ScrollView contentContainerStyle={styles.container}>
+    <KeyboardAvoidingView style={styles.kbView} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+    <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
       <Text style={styles.title}>Complete Your Profile</Text>
-      <Text style={styles.subtitle}>Choose a unique username and add a profile picture.</Text>
-
+      
       <TouchableOpacity onPress={handlePickAvatar} style={styles.avatarPicker}>
         <Avatar uri={avatarUri || myProfile?.profilePicture} size={120} />
         <View style={styles.cameraIcon}>
@@ -131,7 +127,7 @@ export default function CompleteProfileScreen({ navigation }) {
           editable={!loading}
         />
       </View>
-      <Text style={styles.helperText}>Your username must be unique. 3-20 characters, letters, numbers, '.', '_'</Text>
+      <Text style={styles.helperText}>Your username must be unique. 6-20 characters, letters, numbers, '.', '_'</Text>
 
       <View style={styles.inputContainer}>
         <CountryPicker
@@ -208,7 +204,9 @@ export default function CompleteProfileScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 24, backgroundColor: '#fff' },
+  kbView: { flex: 1, backgroundColor: '#fff' },
+  container: { flex: 1 },
+  scrollContent: { flexGrow: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
   title: { fontSize: 28, fontWeight: '700', color: '#222', marginBottom: 8 },
   subtitle: { fontSize: 16, color: '#666', marginBottom: 32, textAlign: 'center' },
   avatarPicker: { marginBottom: 16, position: 'relative' },
