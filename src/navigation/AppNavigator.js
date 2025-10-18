@@ -160,6 +160,24 @@ export default function AppNavigator({ navigationRef }) {
             <Stack.Screen name="CreatePassword" component={CreatePasswordScreen} />
             <Stack.Screen name="PhoneNumber" component={PhoneNumberScreen} />
             <Stack.Screen name="EmailVerification" component={EmailVerificationScreen} />
+            <Stack.Screen
+              name="TermsOfService"
+              component={TermsOfServiceScreen}
+              options={{
+                presentation: 'modal',
+                headerShown: true,
+                title: 'Terms of Service',
+              }}
+            />
+            <Stack.Screen
+              name="PrivacyPolicy"
+              component={PrivacyPolicyScreen}
+              options={{
+                presentation: 'modal',
+                headerShown: true,
+                title: 'Privacy Policy',
+              }}
+            />
           </>
         )}
       </Stack.Navigator>

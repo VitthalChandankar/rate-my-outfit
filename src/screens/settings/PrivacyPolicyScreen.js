@@ -58,7 +58,7 @@ export default function PrivacyPolicyScreen() {
 
       <Section title="4. Contact Us">
         <P>
-          If you have questions or comments about this Privacy Policy, please contact us at: privacy@ratemyoutfit.app
+          If you have questions or comments about this Privacy Policy, please contact us at: contact.vastrayl@gmail.com
         </P>
       </Section>
     </ScrollView>

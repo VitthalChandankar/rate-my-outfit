@@ -17,34 +17,64 @@ export default function TermsOfServiceScreen() {
       <Text style={styles.headerTitle}>Terms of Service</Text>
       <Text style={styles.headerSubtitle}>Effective Date: July 26, 2024</Text>
 
-      <Section title="1. Acceptance of Terms">
+      <Section title="1. Agreement to Terms">
         <P>
-          By accessing or using the Vastrayl mobile application (the "Service"), you agree to be bound by these Terms of Service ("Terms"). If you disagree with any part of the terms, then you may not access the Service.
+          By creating an account or using the Vastrayl mobile application (the "Service"), you agree to be bound by these Terms of Service ("Terms"). If you do not agree to these Terms, you may not use the Service.
         </P>
       </Section>
 
-      <Section title="2. User Content">
+      <Section title="2. User Accounts">
         <P>
-          Our Service allows you to post, link, store, share and otherwise make available certain information, text, graphics, videos, or other material ("Content"). You are responsible for the Content that you post to the Service, including its legality, reliability, and appropriateness.
-        </P>
-        <P>
-          By posting Content to the Service, you grant us the right and license to use, modify, publicly perform, publicly display, reproduce, and distribute such Content on and through the Service.
+          You are responsible for safeguarding your account and for any activities or actions under your account. You agree to provide accurate, current, and complete information during the registration process and to update such information to keep it accurate.
         </P>
       </Section>
 
-      <Section title="3. Prohibited Conduct">
+      <Section title="3. User Content">
         <P>
-          You agree not to engage in any of the following prohibited activities: (i) copying, distributing, or disclosing any part of the Service in any medium; (ii) using any automated system, including "robots," "spiders," "offline readers," etc., to access the Service; (iii) transmitting spam, chain letters, or other unsolicited email; (iv) attempting to interfere with, compromise the system integrity or security or decipher any transmissions to or from the servers running the Service.
+          Our Service allows you to post content, including photos, captions, and comments ("User Content"). You retain all rights to your User Content, but you grant Vastrayl a worldwide, royalty-free, non-exclusive license to host, display, reproduce, and distribute your User Content on and through the Service.
+        </P>
+        <P>
+          You are solely responsible for your User Content and agree not to post any content that is illegal, obscene, threatening, defamatory, or otherwise objectionable.
         </P>
       </Section>
 
-      <Section title="4. Termination">
+      <Section title="4. Contests">
         <P>
-          We may terminate or suspend your account immediately, without prior notice or liability, for any reason whatsoever, including without limitation if you breach the Terms.
+          Contests, sweepstakes, or other promotions made available through the Service may be governed by rules that are separate from these Terms. If you participate in any Contests, please review the applicable rules as well as our Privacy Policy.
         </P>
       </Section>
 
-      <Section title="5. Contact Us">
+      <Section title="5. Intellectual Property">
+        <P>
+          The Service and its original content (excluding User Content), features, and functionality are and will remain the exclusive property of Vastrayl and its licensors.
+        </P>
+      </Section>
+
+      <Section title="6. Termination">
+        <P>
+          We may terminate or suspend your account immediately, without prior notice or liability, for any reason, including without limitation if you breach these Terms. You may terminate your account at any time through the "Settings" screen in the app.
+        </P>
+      </Section>
+
+      <Section title="7. Disclaimers and Limitation of Liability">
+        <P>
+          The Service is provided on an "AS IS" and "AS AVAILABLE" basis. We do not warrant that the service will be uninterrupted, secure, or error-free. In no event shall Vastrayl, nor its directors, employees, or partners, be liable for any indirect, incidental, special, consequential or punitive damages arising out of your use of the Service.
+        </P>
+      </Section>
+
+      <Section title="8. Governing Law">
+        <P>
+          These Terms shall be governed in accordance with the laws of [Your Country/State], without regard to its conflict of law provisions.
+        </P>
+      </Section>
+
+      <Section title="9. Changes to Terms">
+        <P>
+          We reserve the right, at our sole discretion, to modify or replace these Terms at any time. We will provide notice of any changes by posting the new Terms of Service on this screen.
+        </P>
+      </Section>
+
+      <Section title="10. Contact Us">
         <P>
           If you have any questions about these Terms, please contact us at: contact.vastrayl@gmail.com
         </P>

@@ -4,7 +4,7 @@ import { ScrollView, View, Text, StyleSheet, TouchableOpacity, Linking } from 'r
 import { Switch } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
 import showAlert from '../../utils/showAlert';
-import useAuthStore from '../../store/authStore';
+import useAuthStore from '../../store/authStore'; 
 import useUserStore from '../../store/UserStore';
 import i18n from '../../config/i18n';
 import * as Application from 'expo-application';
@@ -58,6 +58,16 @@ export default function SettingsScreen({ navigation }) {
     ]);
   };
 
+  const handleChangePassword = () => {
+    showAlert('Change Password', 'We will send a password reset link to your email. Please follow the instructions to change your password.', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Send Link', onPress: async () => {
+        const { sendResetEmail } = await import('../../services/firebase');
+        sendResetEmail(user.email);
+      }},
+    ]);
+  };
+
   const handleDeleteAccount = () => {
     showAlert(
       'Delete Account?',
@@ -83,7 +93,7 @@ export default function SettingsScreen({ navigation }) {
         <SettingsRow icon="shield-checkmark-outline" label="Verification" onPress={() => navigation.navigate('Verification')} color="#7A5AF8" />
         <SettingsRow icon="person-outline" label={i18n.t('settings.editProfile')} onPress={() => navigation.navigate('EditProfile')} />
         <SettingsRow icon="hand-left-outline" label="Blocked Accounts" onPress={() => navigation.navigate('BlockedUsers')} />
-        <SettingsRow icon="lock-closed-outline" label={i18n.t('settings.changePassword')} onPress={() => showAlert('Coming Soon', 'This feature is not yet implemented.')} />
+        <SettingsRow icon="lock-closed-outline" label={i18n.t('settings.changePassword')} onPress={handleChangePassword} />
         <SettingsRow icon="keypad-outline" label="Two-Factor Authentication"
           onPress={() => showAlert('Coming Soon', 'This feature will be available in a future update.')}
        />

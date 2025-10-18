@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "myapp",
-    "slug": "myapp",
+    "name": "Vastrayl",
+    "slug": "vastrayl",
     "version": "1.0.0",
     "plugins": [
       "@react-native-firebase/app",
@@ -25,7 +25,8 @@
       },
       "softwareKeyboardLayoutMode": "resize",
       "package": "com.yourcompany.ratemyoutfit",
-      "googleServicesFile": "./google-services.json"
+          "googleServicesFile": "./google-services.json",
+          "versionCode": 1
     },
     "web": {
       "favicon": "./assets/favicon.png"

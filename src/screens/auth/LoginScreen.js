@@ -13,6 +13,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import useAuthStore from '../../store/authStore';
+import { Image as ExpoImage } from 'expo-image';
 
 export default function LoginScreen({ navigation }) {
   const { login } = useAuthStore();
@@ -55,8 +56,8 @@ export default function LoginScreen({ navigation }) {
         keyboardShouldPersistTaps="handled"
       >
         {/* Logo / App Name */}
-        <Ionicons name="shirt" size={64} color="#FF5A5F" style={{ marginBottom: 16 }} />
-       
+        <ExpoImage source={require('../../../assets/icon.png')} style={styles.logo} />
+      
         <Text style={styles.title}>Vastrayl</Text>
         <Text style={styles.subtitle}>Sign in or create an account</Text>
 
@@ -129,6 +130,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     backgroundColor: '#fff',
     paddingVertical: 50,
+  },
+  logo: {
+    width: 80,
+    height: 80,
+    marginBottom: 16,
   },
   title: {
     fontSize: 28,

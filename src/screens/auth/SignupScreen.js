@@ -1,7 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, ActivityIndicator, Alert } from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, ActivityIndicator, Alert, Linking } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
+import { useFonts, PlayfairDisplay_400Regular } from '@expo-google-fonts/playfair-display';
+import { Image as ExpoImage } from 'expo-image';
 import useAuthStore from '../../store/authStore';
 import { isEmailDisposable } from '../../utils/emailValidator';
 
@@ -15,6 +17,8 @@ export default function SignupScreen({ navigation }) {
   const [loading, setLoading] = useState(false);
   const [isPasswordSecure, setIsPasswordSecure] = useState(true);
   const [isConfirmPasswordSecure, setIsConfirmPasswordSecure] = useState(true);
+
+  const [fontsLoaded] = useFonts({ PlayfairDisplay_400Regular });
 
   useFocusEffect(
     React.useCallback(() => {
@@ -72,9 +76,8 @@ export default function SignupScreen({ navigation }) {
       <ScrollView contentContainerStyle={styles.container}>
         
         {/* Logo / App Name */}
-        <Ionicons name="shirt" size={64} color="#FF5A5F" style={{ marginBottom: 16 }} />
-        <Text style={styles.title}>Create Account</Text>
-        <Text style={styles.subtitle}>Join Vastrayl</Text>
+        <ExpoImage source={require('../../../assets/icon.png')} style={styles.logo} />
+        <Text style={[styles.title, { fontFamily: fontsLoaded ? 'PlayfairDisplay_400Regular' : undefined }]}>Join Vastrayl</Text>
 
         {/* Error message */}
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
@@ -153,6 +156,20 @@ export default function SignupScreen({ navigation }) {
           </Text>
         </TouchableOpacity>
 
+        <View style={styles.footer}>
+          <Text style={styles.footerText}>
+            By signing up, you agree to our{' '}
+            <Text style={styles.footerLink} onPress={() => navigation.navigate('TermsOfService')}>
+              Terms of Service
+            </Text>
+            {' '}and{' '}
+            <Text style={styles.footerLink} onPress={() => navigation.navigate('PrivacyPolicy')}>
+              Privacy Policy
+            </Text>
+            .
+          </Text>
+        </View>
+
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -167,14 +184,15 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     paddingVertical: 50,
   },
+  logo: {
+    width: 80,
+    height: 80,
+    marginBottom: 8,
+  },
   title: {
     fontSize: 28,
     fontWeight: '700',
-    color: '#222',
-  },
-  subtitle: {
-    fontSize: 16,
-    color: '#666',
+    color: '#111827',
     marginBottom: 32,
   },
   inputContainer: {
@@ -229,5 +247,18 @@ const styles = StyleSheet.create({
   altLoginText: {
     color: '#333',
     fontWeight: '600',
+  },
+  footer: {
+    marginTop: 24,
+    paddingHorizontal: 20,
+  },
+  footerText: {
+    color: '#9CA3AF',
+    textAlign: 'center',
+    lineHeight: 18,
+  },
+  footerLink: {
+    color: '#9CA3AF',
+    textDecorationLine: 'underline',
   },
 });
