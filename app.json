@@ -24,10 +24,15 @@
         "backgroundColor": "#ffffff"
       },
       "softwareKeyboardLayoutMode": "resize",
-      "package": "com.yourcompany.ratemyoutfit",
+      "package": "com.yourcompany.vastrayl",
           "googleServicesFile": "./google-services.json",
           "versionCode": 1
     },
+    "ios": {
+  "bundleIdentifier": "com.yourcompany.vastrayl",
+  "googleServicesFile": "./GoogleService-Info.plist",
+  "buildNumber": "1.0.0"
+},
     "web": {
       "favicon": "./assets/favicon.png"
     }

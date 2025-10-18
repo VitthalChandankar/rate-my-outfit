@@ -1,4 +1,4 @@
-package com.yourcompany.ratemyoutfit
+package com.yourcompany.vastrayl
 import expo.modules.splashscreen.SplashScreenManager
 
 import android.os.Build
