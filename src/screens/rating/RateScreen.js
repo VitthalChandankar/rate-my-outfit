@@ -273,10 +273,10 @@ export default function RateScreen({ route, navigation }) {
 
 /* Helpers */
 function getSentiment(n) {
-  if (n <= 2) return { emoji: '😖', label: 'Awful' };
-  if (n <= 4) return { emoji: '🙁', label: 'Bad' };
-  if (n <= 6) return { emoji: '😐', label: 'Okay' };
-  if (n <= 8) return { emoji: '🙂', label: 'Good' };
+  if (n <= 2) return { emoji: '😔', label: 'Needs Work' };
+  if (n <= 4) return { emoji: '🙁', label: 'Could Be Better' };
+  if (n <= 6) return { emoji: '😐', label: 'Decent' };
+  if (n <= 8) return { emoji: '🙂', label: 'Nice' };
   return { emoji: '😍', label: 'Awesome' };
 }
 
